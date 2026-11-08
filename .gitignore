@@ -1,0 +1,13 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.aab
+# 개발용 APK는 올리지 않고, 제출용 release APK만 apk/ 폴더에 둡니다
+*.apk
+!apk/*.apk
