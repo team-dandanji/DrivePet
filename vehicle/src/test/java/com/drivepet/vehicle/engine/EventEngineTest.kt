@@ -45,7 +45,7 @@ class EventEngineTest {
         state = next
     }
 
-    private fun wait(ms: Long) {
+    private fun passTime(ms: Long) {
         val end = now + ms
         while (now < end) {
             now += 1_000
@@ -64,10 +64,10 @@ class EventEngineTest {
 
         change(60_000) { it.copy(odometerKm = Signal.Ok(112.0, now)) }
         gear(Gear.P)
-        wait(4_000)
+        passTime(4_000)
         assertTrue(only<DriveEvent.TripEnded>().isEmpty())
 
-        wait(2_000)
+        passTime(2_000)
         val trip = only<DriveEvent.TripEnded>().single().trip
         assertEquals(12.0, trip.distanceKm!!, 0.0001)
         assertNull(engine.currentTrip())
@@ -77,10 +77,10 @@ class EventEngineTest {
     fun `잠깐 P를 거쳤다 다시 출발하면 같은 주행`() {
         gear(Gear.D)
         gear(Gear.P, afterMs = 40_000)
-        wait(2_000)
+        passTime(2_000)
         gear(Gear.D)
         assertEquals(1, only<DriveEvent.TripStarted>().size)
-        wait(10_000)
+        passTime(10_000)
         assertTrue(only<DriveEvent.TripEnded>().isEmpty())
     }
 
@@ -88,7 +88,7 @@ class EventEngineTest {
     fun `30초 미만 주행은 기록하지 않음`() {
         gear(Gear.D)
         gear(Gear.P, afterMs = 10_000)
-        wait(10_000)
+        passTime(10_000)
         assertTrue(only<DriveEvent.TripEnded>().isEmpty())
     }
 
@@ -170,7 +170,7 @@ class EventEngineTest {
         change(1_000) { it.copy(odometerKm = Signal.Ok(200.0, now)) }
         change(60_000) { it.copy(odometerKm = Signal.Ok(205.0, now)) }
         gear(Gear.P)
-        wait(6_000)
+        passTime(6_000)
         assertEquals(5.0, only<DriveEvent.TripEnded>().single().trip.distanceKm!!, 0.0001)
     }
 
@@ -179,7 +179,7 @@ class EventEngineTest {
         change { it.copy(steeringDeg = Signal.Unsupported) }
         gear(Gear.D)
         gear(Gear.P, afterMs = 60_000)
-        wait(6_000)
+        passTime(6_000)
         val trip = only<DriveEvent.TripEnded>().single().trip
         assertTrue(EventEngine.DATA_STEERING in trip.missingData)
         assertTrue(EventEngine.DATA_ODOMETER !in trip.missingData)
