@@ -9,20 +9,31 @@
 
 | 경로 | 내용 |
 |---|---|
+| `vehicle/` | 차량 데이터 모듈 — 팀원은 이 모듈의 상태·이벤트만 구독 ([README](vehicle/README.md)) |
+| `vehicle-demo/` | 차량 데이터 데모 앱 — 가짜 데이터 조작, 시연 시나리오 재생, 실제 차 수신 확인 |
 | `tools/drivepet-probe/` | 기술 검증 앱과 결과 (Pleos 에뮬레이터 실측, 2026-11-07) |
-| (예정) `app/` | DrivePet 본 앱 |
+| (예정) `app/` | DrivePet 본 앱 — `implementation(project(":vehicle"))` |
+| (예정) `apk/` | 제출용 `팀명_앱이름_release.apk` |
+
+## 실행 방법
+
+1. Android Studio에서 이 폴더(`settings.gradle.kts`가 있는 곳)를 엽니다. Gradle JVM은 **21**.
+2. 에뮬레이터: **Pleos Connect v2.1.0 APIs, API 34** (설치 순서: [tools/drivepet-probe/docs/test-procedure.md](tools/drivepet-probe/docs/test-procedure.md))
+3. 실행 대상 `vehicle-demo` → ▶
+4. 데모 화면에서 **가짜 데이터** / **시나리오 재생 (출근 12km)** / **실제 차** 중 선택
+   - 실제 차 모드에서는 Virtual Console(`adb forward tcp:8088 tcp:8088` → http://127.0.0.1:8088)로 값을 바꿉니다.
+
+규칙 엔진 단위 테스트: `vehicle/src/test/java/com/drivepet/vehicle/engine/EventEngineTest.kt` ▶
+
+## 테스트 환경
+
+| 항목 | 값 |
+|---|---|
+| IDE | Android Studio, Gradle 8.13, JDK 21, AGP 8.13.0, Kotlin 2.0.21 |
+| 에뮬레이터 | Pleos Connect v2.1.0 APIs, x86_64, API 34 (Android 14) |
+| SDK | `ai.pleos.playground:Vehicle:2.3.2`, `vehicle-data:1.1.11` |
+| 앱 | minSdk 28, targetSdk 34, compileSdk 35 |
 
 ## 기술 검증 요약
 
-Pleos Connect Emulator v2.1.0(API 34)에서 핵심 기술 항목 8개를 직접 측정했습니다. 결과는 **지원 2 / 조건부 5 / 미지원 1**입니다.
-
-- 기어, 조향각, 문, 창문, 전조등, 방향지시등, 누적 주행거리, 경고등 수신 확인
-- 포그라운드 서비스로 백그라운드 주행 기록 유지 확인
-- 주행 중(D) 화면은 `distractionOptimized` 선언 유무에 따라 유지/차단
-
-자세한 내용: [tools/drivepet-probe/README.md](tools/drivepet-probe/README.md)
-
-## 실행 방법 · 테스트 환경 · APK
-
-- 검증 앱 실행 방법과 테스트 환경: [tools/drivepet-probe/README.md](tools/drivepet-probe/README.md)
-- 본 앱 APK는 개발 후 `apk/` 폴더(`팀명_앱이름_release.apk`)에 올릴 예정입니다.
+핵심 기술 항목 8개 실측 결과 **지원 2 / 조건부 5 / 미지원 1**. 자세한 내용은 [tools/drivepet-probe/README.md](tools/drivepet-probe/README.md).

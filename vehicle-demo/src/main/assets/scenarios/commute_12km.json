@@ -1,0 +1,29 @@
+{
+  "name": "출근 12km",
+  "speed": 4,
+  "start": {
+    "gear": "P", "odometerKm": 12034.0, "speedKmh": 0, "brakePressed": false, "steeringDeg": 0,
+    "turnSignal": "OFF", "driverDoorOpen": false, "doorsLocked": true, "driverWindow": 0,
+    "lowBeam": false, "highBeam": false, "driverBeltBuckled": false, "energyPct": 64, "warnings": []
+  },
+  "steps": [
+    { "t": 2,   "set": { "driverBeltBuckled": true } },
+    { "t": 4,   "set": { "lowBeam": true } },
+    { "t": 6,   "set": { "brakePressed": true } },
+    { "t": 7,   "set": { "gear": "D", "brakePressed": false } },
+    { "t": 30,  "set": { "turnSignal": "LEFT" } },
+    { "t": 33,  "set": { "steeringDeg": -70 } },
+    { "t": 36,  "set": { "turnSignal": "OFF", "steeringDeg": 0 } },
+    { "t": 60,  "set": { "brakePressed": true } },
+    { "t": 62,  "set": { "brakePressed": false } },
+    { "t": 80,  "set": { "steeringDeg": 30 } },
+    { "t": 80.5,"set": { "steeringDeg": -80 } },
+    { "t": 82,  "set": { "steeringDeg": 0 } },
+    { "t": 100, "set": { "driverWindow": 4 } },
+    { "t": 130, "set": { "steeringDeg": 55 } },
+    { "t": 133, "set": { "steeringDeg": 0 } },
+    { "t": 160, "set": { "odometerKm": 12046.0, "brakePressed": true } },
+    { "t": 164, "set": { "gear": "P", "brakePressed": false } },
+    { "t": 190, "set": { "driverDoorOpen": true } }
+  ]
+}
