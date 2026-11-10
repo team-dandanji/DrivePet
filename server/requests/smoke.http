@@ -1,0 +1,37 @@
+### 기기 등록 (deviceSecret은 앱이 만든 32자 이상 무작위 값)
+POST http://localhost:8080/api/v1/devices
+Content-Type: application/json
+
+{"deviceId": "11111111-2222-4333-8444-555555555555", "deviceSecret": "abcdefghijklmnopqrstuvwxyzABCDEF0123", "appVersion": "1.0.0"}
+
+> {% client.global.set("token", response.body.data.accessToken); %}
+
+### 날씨 (위치 미동의면 서울시청 좌표)
+GET http://localhost:8080/api/v1/weather?lat=37.5665&lng=126.9780
+Authorization: Bearer {{token}}
+
+### QR 세션 생성 → qrUrl을 브라우저로 열어 가짜 사용자 선택
+POST http://localhost:8080/api/v1/auth/kakao/qr-sessions
+Authorization: Bearer {{token}}
+
+> {% client.global.set("qr", response.body.data.sessionId); %}
+
+### 연결 상태 (LINKED면 새 토큰으로 바꾼다)
+GET http://localhost:8080/api/v1/auth/kakao/qr-sessions/{{qr}}
+Authorization: Bearer {{token}}
+
+> {% if (response.body.data.status === "LINKED") client.global.set("token", response.body.data.tokens.accessToken); %}
+
+### 동기화 업로드
+PUT http://localhost:8080/api/v1/sync/backup
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"schemaVersion": 1, "clientEventId": "00000000-0000-4000-8000-000000000010", "operations": [
+  {"operationId": "00000000-0000-4000-8000-000000000011", "type": "CREATE_PROFILE", "profileId": "00000000-0000-4000-8000-000000000001",
+   "state": {"vehicleName": "출퇴근 차량", "fuelType": "EV", "starterType": "STARTER_1", "petNickname": "드리", "onboardingCompleted": true, "inspectionDueDate": null, "maintenanceItems": []}}
+]}
+
+### 동기화 다운로드
+GET http://localhost:8080/api/v1/sync/backup?schemaVersion=1
+Authorization: Bearer {{token}}

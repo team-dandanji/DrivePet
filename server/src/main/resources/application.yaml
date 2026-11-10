@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: drivepet-server
+  profiles:
+    default: local-fake
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/drivepet}
+    username: ${DB_USER:drivepet}
+    password: ${DB_PASSWORD:drivepet}
+  jackson:
+    time-zone: Asia/Seoul
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+drivepet:
+  # 폰에서 접속되는 서버 주소(터널 주소). 카카오 Redirect URI = {public-base-url}/api/v1/auth/kakao/callback
+  public-base-url: ${DRIVEPET_PUBLIC_BASE_URL:http://localhost:8080}
+  jwt:
+    secret: ${DRIVEPET_JWT_SECRET:}

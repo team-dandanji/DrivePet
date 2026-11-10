@@ -1,0 +1,9 @@
+# 외부 키 없이 개발하는 기본 프로필. 카카오·기상청·에어코리아는 가짜 응답을 쓴다.
+drivepet:
+  jwt:
+    # 개발용 고정 키. 실제 운영·live 프로필에서는 DRIVEPET_JWT_SECRET 환경변수를 반드시 넣는다
+    secret: ${DRIVEPET_JWT_SECRET:local-fake-only-secret-change-me-0123456789}
+  kakao:
+    mode: fake
+  weather:
+    mode: fake
