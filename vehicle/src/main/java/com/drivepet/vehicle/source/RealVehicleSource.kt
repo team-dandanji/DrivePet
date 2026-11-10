@@ -4,6 +4,7 @@ import ai.pleos.playground.vehicle.Vehicle
 import ai.pleos.playground.vehicle.api.model.area.DoorArea
 import ai.pleos.playground.vehicle.api.model.area.SeatArea
 import ai.pleos.playground.vehicle.api.model.area.WindowArea
+import ai.pleos.playground.vehicle.api.model.capability.CapabilityConfig
 import ai.pleos.playground.vehicle.constant.area.DoorValue
 import ai.pleos.playground.vehicle.constant.area.SeatValue
 import ai.pleos.playground.vehicle.constant.area.TurnSignalValue
@@ -134,15 +135,25 @@ class RealVehicleSource(
             unregisters += { api.unregisterDoorPosition(driverDoor, l) }
         }
 
+        // 문 잠금은 개별 도어 Area를 지원하지 않음(11/9 실측: "area ID 0x1 not supported").
+        // 지원 Area는 [HOOD], [4도어 묶음] 두 개라서, 운전석이 포함된 묶음 Area를 골라 쓴다.
         guard("doorLock") {
             val api = v.getDoor()
-            api.getDoorLockState(driverDoor, { b -> onLock(b) }, fail("doorLock") { s, x -> s.copy(doorsLocked = x) })
-            val l = object : DoorLockStateListener {
-                override fun onDoorLockStateUpdated(state: Boolean?) = onLock(state)
-                override fun onFailed(e: Exception) = fail("doorLock") { s, x -> s.copy(doorsLocked = x) }(e)
-            }
-            api.registerDoorLockState(driverDoor, l)
-            unregisters += { api.unregisterDoorLockState(driverDoor, l) }
+            api.checkDoorLockCapabilities({ _: CapabilityConfig, areas: List<DoorArea> ->
+                val area = areas.firstOrNull { a -> a.values.contains(DoorValue.ROW_1_LEFT) }
+                Log.i(TAG, "doorLock 영역 목록=${areas.map { it.values.toList() }}, 사용=${area?.values?.toList()}")
+                if (area == null) {
+                    set { s, _ -> s.copy(doorsLocked = Signal.Unsupported) }
+                } else {
+                    api.getDoorLockState(area, { b -> onLock(b) }, fail("doorLock") { s, x -> s.copy(doorsLocked = x) })
+                    val l = object : DoorLockStateListener {
+                        override fun onDoorLockStateUpdated(state: Boolean?) = onLock(state)
+                        override fun onFailed(e: Exception) = fail("doorLock") { s, x -> s.copy(doorsLocked = x) }(e)
+                    }
+                    api.registerDoorLockState(area, l)
+                    unregisters += { api.unregisterDoorLockState(area, l) }
+                }
+            }, fail("doorLock") { s, x -> s.copy(doorsLocked = x) })
         }
 
         guard("driverWindow") {
@@ -191,7 +202,7 @@ class RealVehicleSource(
     }
 
     private fun onDoor(pos: Int?) { pos?.let { p -> set { s, t -> s.copy(driverDoorOpen = s.driverDoorOpen.updated(p > 0, t)) } } }
-    private fun onLock(locked: Boolean?) { locked?.let { b -> set { s, t -> s.copy(doorsLocked = s.doorsLocked.updated(b, t)) } } }
+    private fun onLock(locked: Boolean?) { Log.i(TAG, "doorLock 값=$locked"); locked?.let { b -> set { s, t -> s.copy(doorsLocked = s.doorsLocked.updated(b, t)) } } }
     private fun onWindow(pos: Int?) { pos?.let { p -> set { s, t -> s.copy(driverWindow = s.driverWindow.updated(p.coerceIn(0, 10), t)) } } }
 
     private fun onLight(state: Any?, high: Boolean) {
