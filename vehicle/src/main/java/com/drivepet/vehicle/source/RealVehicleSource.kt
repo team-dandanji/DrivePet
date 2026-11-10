@@ -13,6 +13,8 @@ import ai.pleos.playground.vehicle.constant.control.LightState
 import ai.pleos.playground.vehicle.listener.BrakePedalStatusListener
 import ai.pleos.playground.vehicle.listener.DoorLockStateListener
 import ai.pleos.playground.vehicle.listener.DoorPositionListener
+import ai.pleos.playground.vehicle.listener.EvBatteryStateOfChargeListener
+import ai.pleos.playground.vehicle.listener.FuelPercentListener
 import ai.pleos.playground.vehicle.listener.LightStateListener
 import ai.pleos.playground.vehicle.listener.TurnSignalStateListener
 import ai.pleos.playground.vehicle.listener.WindowPositionListener
@@ -35,7 +37,7 @@ import com.drivepet.vehicle.model.updated
 /**
  * 실제 차(에뮬레이터 포함)에서 값을 받는다.
  *
- * - 변경 리스너: 브레이크, 운전석 문·잠금, 운전석 창문, 전조등, 방향지시등 (11/7 실측·다른 팀 실측으로 확인된 형태)
+ * - 변경 리스너: 브레이크, 운전석 문·잠금, 운전석 창문, 전조등, 방향지시등, 잔량(EV 배터리·연료)
  * - 주기 조회: 기어·조향각 0.5초, 누적거리·안전벨트·경고등 2초
  * - AAOS: 주행 제한(CarUxRestrictions, 권한 불필요), 차속(CAR_SPEED 허용 시에만, 보조)
  *
@@ -199,6 +201,36 @@ class RealVehicleSource(
             api.registerTurnSignalState(l)
             unregisters += { api.unregisterTurnSignalState(l) }
         }
+
+        // 잔량(포만감 게이지). 이 에뮬레이터는 전기차라 EV 배터리 SOC가 주 출처.
+        // 연료 잔량은 에뮬레이터에서 미지원(다른 팀 실측)이지만 내연기관 차를 위해 함께 등록한다.
+        // 한쪽이 실패해도 다른 쪽 값이 오면 되므로, 실패는 로그만 남기고 '미지원' 표시는 하지 않는다.
+        guard("evBattery") {
+            val ev = v.getEvBattery()
+            ev.getEvBatteryStateOfCharge({ p -> onEnergy(p, "EV") }, { e -> Log.i(TAG, "EV 잔량 없음: ${e?.message}") })
+            val l = object : EvBatteryStateOfChargeListener {
+                override fun onEvBatteryStateOfChargeUpdated(percent: Int?) = onEnergy(percent, "EV")
+                override fun onFailed(e: Exception) { Log.i(TAG, "EV 잔량 수신 실패: ${e.message}") }
+            }
+            ev.registerEvBatteryStateOfCharge(l)
+            unregisters += { ev.unregisterEvBatteryStateOfCharge(l) }
+        }
+
+        guard("fuel") {
+            val fuel = v.getFuel()
+            fuel.getFuelPercent({ p -> onEnergy(p, "연료") }, { e -> Log.i(TAG, "연료 잔량 없음: ${e?.message}") })
+            val l = object : FuelPercentListener {
+                override fun onFuelPercentUpdated(percent: Int?) = onEnergy(percent, "연료")
+                override fun onFailed(e: Exception) { Log.i(TAG, "연료 잔량 수신 실패: ${e.message}") }
+            }
+            fuel.registerFuelPercent(l)
+            unregisters += { fuel.unregisterFuelPercent(l) }
+        }
+    }
+
+    private fun onEnergy(pct: Int?, from: String) {
+        Log.i(TAG, "잔량($from)=$pct")
+        pct?.let { p -> set { s, t -> s.copy(energyPct = s.energyPct.updated(p.coerceIn(0, 100), t)) } }
     }
 
     private fun onDoor(pos: Int?) { pos?.let { p -> set { s, t -> s.copy(driverDoorOpen = s.driverDoorOpen.updated(p > 0, t)) } } }
