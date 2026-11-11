@@ -153,6 +153,9 @@ class WeatherService(
 
     private val running = AtomicInteger()
 
+    /** 특보 대기 한도: 요청 한도보다 2초 짧게(한도가 짧으면 절반) */
+    private val warningsBound = maxOf(props.requestBudget.dividedBy(2), props.requestBudget.minusSeconds(2))
+
     private fun <T> async(task: () -> T): CompletableFuture<T> {
         running.incrementAndGet()
         return CompletableFuture.supplyAsync({ try { task() } finally { running.decrementAndGet() } }, pool)
@@ -185,7 +188,11 @@ class WeatherService(
         val n = async { kma.now(grid, at) }
         val f = async { kma.forecast(grid, at) }
         val w = async { nationalWarnings(at, now) }
-        val national = join(w)
+        // 특보만 요청 한도보다 일찍 포기해, 특보가 걸려도 날씨는 한도 안에 응답한다
+        val national = try { await(w, System.nanoTime() + warningsBound.toNanos(), "기상특보") } catch (e: ExternalWeatherException) {
+            log.warn("기상특보 조회 실패, 특보 없이 응답: {}", e.message)
+            noWarnings(now)
+        }
         val nowValue = join(n)
         val forecast = join(f)
         return KmaEntry(
@@ -205,9 +212,12 @@ class WeatherService(
             WarningEntry(kma.activeWarnings(at), now).also { warningCache.putIfNewer("KR", it) }
         } catch (e: Exception) {
             log.warn("기상특보 조회 실패, 특보 없이 응답: {}", e.message)
-            WarningEntry(emptyList(), now.minus(props.cacheTtl).plus(minOf(WARNING_RETRY, props.cacheTtl)))
+            noWarnings(now)
         }
     }
+
+    private fun noWarnings(now: Instant) =
+        WarningEntry(emptyList(), now.minus(props.cacheTtl).plus(minOf(WARNING_RETRY, props.cacheTtl)))
 
     private fun fetchAir(lat: Double, lng: Double): AirQualityDto? {
         val (tmX, tmY) = AirKoreaTm.toTm(lat, lng)
