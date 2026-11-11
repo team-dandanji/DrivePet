@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import kotlin.math.ceil
@@ -29,6 +30,7 @@ sealed interface LinkUi {
 }
 
 private const val POLL_EVERY_TICKS = 2 // 1초 틱 2번 = 2초마다 조회
+private const val QR_VALID_SEC = 180L // 서버가 주는 유효 시간(3분)
 
 /**
  * 03 · 카카오 QR 연결. 세션 하나당 루프 하나가 1초마다 남은 시간을 갱신하고 2초마다 상태를 조회한다(조회는 한 번에 하나).
@@ -51,7 +53,7 @@ class LinkViewModel(
     fun retry() = launchSession()
 
     /** "나중에 연결하기": 화면을 떠나도 폴링이 남지 않게 멈춘다. */
-    fun stop() { job?.cancel() }
+    fun stop() { job?.cancel(); job = null }
 
     private fun launchSession() {
         job?.cancel()
@@ -68,7 +70,12 @@ class LinkViewModel(
             _ui.value = LinkUi.Failed(FAILED_MESSAGE)
             return
         }
-        val expiresAt = OffsetDateTime.parse(qr.expiresAt).toInstant()
+        // 차량과 서버 시계가 어긋나면 expiresAt을 믿지 않고 받은 시각 + 3분을 마감으로 쓴다.
+        val received = clock()
+        val serverExpiry = OffsetDateTime.parse(qr.expiresAt).toInstant()
+        val expiresAt = if (Duration.between(received, serverExpiry).let { it.isNegative || it.isZero || it.seconds > QR_VALID_SEC }) {
+            received.plusSeconds(QR_VALID_SEC)
+        } else serverExpiry
         _ui.value = LinkUi.Showing(qr.qrUrl, remainingSec(expiresAt))
         var tick = 0
         while (true) {
@@ -86,7 +93,7 @@ class LinkViewModel(
     /** 끝났으면(연결·만료) true. 일시적인 오류는 다음 주기에 다시 조회한다. */
     private suspend fun pollOnce(sessionId: String): Boolean {
         val s = try {
-            account.poll(sessionId) { _ui.value = LinkUi.Restoring(it) }
+            account.poll(sessionId) { _ui.value = LinkUi.Restoring(it.orEmpty()) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

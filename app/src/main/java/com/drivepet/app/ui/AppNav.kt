@@ -215,12 +215,12 @@ fun AppNav(container: AppContainer) {
                         LinkScreen(
                             viewModel(factory = LinkViewModel.factory(container)),
                             onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
-                            onSkip = if (next == "scan") ({ nav.navigate(Routes.ONBOARD_SCAN) }) else null,
+                            onSkip = if (next == "scan") ({ nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } }) else null,
                             onLinked = { linked ->
                                 container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
                                 // 계정만 바꾸는 경우와 복원된 경우는 01로(복원된 프로필은 이미 활성으로 저장됨). 새 연결이고 복원할 게 없으면 04로.
                                 if (next == "welcome" || linked.restored) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
-                                else nav.navigate(Routes.ONBOARD_SCAN)
+                                else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // 03은 스택에 남기지 않는다
                             },
                         )
                     }

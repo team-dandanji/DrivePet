@@ -82,7 +82,9 @@ fun LinkScreen(vm: LinkViewModel, onBack: (() -> Unit)?, onSkip: (() -> Unit)?, 
                             Text("스마트폰 카메라로 스캔 후\n카카오 계정으로 로그인하세요.", fontSize = 24.sp)
                             Text(statusLine(ui), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             OutlinedButton(
-                                vm::retry, Modifier.fillMaxWidth().height(80.dp), shape = RoundedCornerShape(16.dp),
+                                vm::retry, Modifier.fillMaxWidth().height(80.dp),
+                                enabled = ui !is LinkUi.Restoring && ui !is LinkUi.Linked, // 복원 중에 새 세션으로 끊지 않는다
+                                shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(2.dp, DpColors.TrackInactive),
                             ) { Text("QR 다시 받기", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
                         }
@@ -117,8 +119,8 @@ private fun QrBox(ui: LinkUi) {
 private fun statusLine(ui: LinkUi): String = when (ui) {
     LinkUi.Loading -> "QR을 만드는 중…"
     is LinkUi.Showing -> "인증 대기 중 · 남은 시간 %d:%02d".format(ui.remainingSec / 60, ui.remainingSec % 60)
-    is LinkUi.Restoring -> "${ui.nickname}님의 기록을 불러오는 중…"
-    is LinkUi.Linked -> "${ui.nickname}님과 연결됐어요"
+    is LinkUi.Restoring -> if (ui.nickname.isBlank()) "기록을 불러오는 중…" else "${ui.nickname}님의 기록을 불러오는 중…"
+    is LinkUi.Linked -> if (ui.nickname.isBlank()) "연결됐어요" else "${ui.nickname}님과 연결됐어요"
     LinkUi.Expired -> "QR이 만료됐어요"
     is LinkUi.Failed -> ui.message
 }

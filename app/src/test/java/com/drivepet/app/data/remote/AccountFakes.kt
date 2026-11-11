@@ -10,6 +10,7 @@ import com.drivepet.app.data.db.RecordEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import java.time.Instant
 
 /** AccountService·LinkViewModel 테스트용 가짜들. */
 class MemoryTokens(initial: AuthState) : TokenStore {
@@ -39,7 +40,9 @@ class OwnerStore : SyncStore {
 }
 
 class QrApi : DrivePetApi {
-    var expiresAt = "2026-01-01T00:03:00Z"
+    /** 서버 시계. 새 세션마다 expiresAt = 이 시각 + 3분. */
+    var now: () -> Instant = { Instant.parse("2026-01-01T00:00:00Z") }
+    var expiresAt: () -> String = { now().plusSeconds(180).toString() }
     var createCalls = 0
     var statusCalls = 0
     /** n번째(1부터) qrStatus 호출의 응답. */
@@ -48,7 +51,7 @@ class QrApi : DrivePetApi {
 
     override suspend fun createQr(): Envelope<QrSession> {
         createCalls++
-        return Envelope(QrSession("s$createCalls", "http://fake/qr/$createCalls", expiresAt, "PENDING"))
+        return Envelope(QrSession("s$createCalls", "http://fake/qr/$createCalls", expiresAt(), "PENDING"))
     }
     override suspend fun qrStatus(id: String): Envelope<QrStatus> = Envelope(script(++statusCalls))
     override suspend fun unlink(): Envelope<UnlinkResult> = Envelope(unlinkResult)
@@ -56,8 +59,8 @@ class QrApi : DrivePetApi {
     override suspend fun download(v: Int, cursor: String?, limit: Int): Envelope<DownloadResult> = error("unused")
 }
 
-fun linked(account: String = "acc_1", nick: String = "지우", synced: Boolean = true) = QrStatus(
-    "LINKED", account, KakaoUser(nick), synced, TokenPair("a9", "r9", 3600),
+fun linked(account: String = "acc_1", nick: String? = "지우", synced: Boolean = true) = QrStatus(
+    "LINKED", account, nick?.let(::KakaoUser), synced, TokenPair("a9", "r9", 3600),
 )
 
 fun anonymous() = AuthState("d1", "sec", "a0", "r0", null, null)

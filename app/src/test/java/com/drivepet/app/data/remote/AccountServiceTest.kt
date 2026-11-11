@@ -69,6 +69,21 @@ class AccountServiceTest {
         assertEquals(false, s.hasSyncedProfiles)
     }
 
+    @Test fun anyPostSaveFailureStillReturnsLinked() = runBlocking {
+        val svc = AccountService({ api }, tokens, store) { throw RuntimeException("boom") }
+        api.script = { linked() }
+        val s = svc.poll("s1")
+        assertEquals("LINKED", s.status)
+        assertEquals("a9", tokens.get().accessToken)
+        assertEquals(false, s.hasSyncedProfiles)
+    }
+
+    @Test fun missingUserStoresNullNickname() = runBlocking {
+        api.script = { linked(nick = null) }
+        service.poll("s1")
+        assertNull(tokens.get().nickname)
+    }
+
     @Test fun notLinkedOutcomeIsNotRestored() = runBlocking {
         val svc = AccountService({ api }, tokens, store) { SyncOutcome.NotLinked }
         api.script = { linked() }

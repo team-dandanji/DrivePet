@@ -33,13 +33,16 @@ class LinkViewModelTest {
     private var uiAtSync: LinkUi? = null
     private lateinit var vm: LinkViewModel
     private var owned: List<ProfileEntity> = emptyList()
+    private var syncError: Exception? = null
 
     @Before fun setUp() { Dispatchers.setMain(StandardTestDispatcher(sched)) }
     @After fun tearDown() = Dispatchers.resetMain()
 
     private fun newVm(): LinkViewModel {
+        api.now = { base.plusMillis(sched.currentTime) }
         val account = AccountService({ api }, MemoryTokens(anonymous()), store) {
             uiAtSync = vm.ui.value
+            syncError?.let { throw it }
             SyncOutcome.Done(0, 0, 0)
         }
         vm = LinkViewModel(account, { base.plusMillis(sched.currentTime) }, { owned }, { uiAtActivate = vm.ui.value; activated += it })
@@ -114,6 +117,32 @@ class LinkViewModelTest {
         assertEquals(LinkUi.Linked("지우", restored = true), vm.ui.value)
     }
 
+    @Test fun anyErrorAfterLinkedStopsPollingAndIsNotRestored() {
+        syncError = RuntimeException("serialization")
+        api.script = { linked() }
+        newVm().start()
+        advance(30_000)
+        assertEquals(1, api.statusCalls)
+        assertEquals(LinkUi.Linked("지우", restored = false), vm.ui.value)
+    }
+
+    @Test fun skewedExpiresAtFallsBackToReceiptPlusThreeMinutes() {
+        for (skewed in listOf(base.minusSeconds(600), base.plusSeconds(600))) {
+            api.expiresAt = { skewed.toString() }
+            newVm().start()
+            advance(1)
+            assertEquals(180, (vm.ui.value as LinkUi.Showing).remainingSec)
+            vm.stop()
+        }
+    }
+
+    @Test fun stopThenStartCreatesNewSession() {
+        newVm().start(); advance(1)
+        vm.stop()
+        vm.start(); advance(1)
+        assertEquals(2, api.createCalls)
+    }
+
     @Test fun retryCreatesNewSession() {
         newVm().start()
         advance(180_001)
@@ -121,7 +150,7 @@ class LinkViewModelTest {
         vm.retry()
         advance(1)
         assertEquals(2, api.createCalls)
-        assertEquals("http://fake/qr/2", (vm.ui.value as LinkUi.Showing).qrUrl)
+        assertEquals(LinkUi.Showing("http://fake/qr/2", 180), vm.ui.value) // 새 세션은 다시 3분
     }
 
     @Test fun retryWhileShowingStopsOldPolling() {
