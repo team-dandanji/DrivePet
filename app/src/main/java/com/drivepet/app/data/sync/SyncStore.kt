@@ -29,6 +29,8 @@ interface SyncStore {
     suspend fun markRecords(states: Map<String, String>)
     /** accountId IS NULL인 profile·record를 이 계정으로. */
     suspend fun adoptUnowned(accountId: String)
+    /** 내려받은 변경을 LocalChange로 바꿀 때 기존 프로필(배터리 용량 유지·모르는 프로필 삭제 무시). */
+    suspend fun profile(profileId: String): ProfileEntity?
     suspend fun cursor(accountId: String): String?
     /** 한 트랜잭션 안에서 반영하고 커서를 저장한다. 같은 입력을 다시 적용해도 결과가 같다. */
     suspend fun applyPage(accountId: String, changes: List<LocalChange>, nextCursor: String)
@@ -52,6 +54,8 @@ class RoomSyncStore(private val db: AppDatabase) : SyncStore {
     override suspend fun adoptUnowned(accountId: String) {
         db.withTransaction { dao.adoptProfiles(accountId); dao.adoptRecords(accountId) }
     }
+
+    override suspend fun profile(profileId: String) = dao.profile(profileId)
 
     override suspend fun cursor(accountId: String) = dao.cursor(accountId)
 

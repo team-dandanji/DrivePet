@@ -5,6 +5,7 @@ import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 const val ATTENDANCE_MILLI = 10_000L
 const val REPLACEMENT_MILLI = 50_000L
@@ -136,3 +137,6 @@ fun formatExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale
 fun apiExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale(3).toPlainString()
 
 fun seoulDate(at: Instant): LocalDate = at.atZone(SEOUL).toLocalDate()
+
+/** 서울 오프셋 ISO 시각, 예: "2026-11-10T08:31:20+09:00". */
+fun isoSeoul(epochMillis: Long): String = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(Instant.ofEpochMilli(epochMillis).atZone(SEOUL))

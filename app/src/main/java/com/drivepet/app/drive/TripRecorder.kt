@@ -12,6 +12,7 @@ import com.drivepet.app.domain.Growth
 import com.drivepet.app.domain.HealthResult
 import com.drivepet.app.domain.Settlement
 import com.drivepet.app.domain.TripMetrics
+import com.drivepet.app.domain.isoSeoul
 import com.drivepet.app.domain.settle
 import com.drivepet.vehicle.engine.EventEngine
 import com.drivepet.vehicle.model.DriveEvent
@@ -23,9 +24,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.UUID
 import kotlin.math.roundToLong
 
@@ -46,7 +44,6 @@ private const val HARSH_DECEL_KMH_PER_S = 7.5 // 급감속: 초당 7.5km/h 이�
 private const val HARSH_MIN_INTERVAL_MS = 1_000L // eTAS는 1초 자료 기준: 이보다 촘촘한 표본은 1초로 보고 속도 변화율을 구한다
 private const val HARSH_MAX_INTERVAL_MS = 2_000L // 이보다 성긴 표본 쌍은 판정하지 않는다
 private const val LONG_BRAKE_MS = 3_000L
-private val SEOUL = ZoneId.of("Asia/Seoul")
 
 /** TripSummary는 @Serializable이 아니라 trip_in_progress.summaryJson용 사본을 둔다. */
 @Serializable
@@ -72,8 +69,6 @@ private fun SummaryJson.distanceKm(): Double? =
     if (startOdometerKm != null && endOdometerKm != null) (endOdometerKm - startOdometerKm).coerceAtLeast(0.0) else null
 
 private fun kmToMm(km: Double?) = km?.let { (it * 1_000_000).roundToLong() }
-
-private fun isoSeoul(ms: Long): String = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(Instant.ofEpochMilli(ms).atZone(SEOUL))
 
 /**
  * 트립 진행 저장·정산. EXP 합산은 원장(records)에 개발자 시작 EXP(store.seed)를 단순 덧셈해 레벨을 구한다.
