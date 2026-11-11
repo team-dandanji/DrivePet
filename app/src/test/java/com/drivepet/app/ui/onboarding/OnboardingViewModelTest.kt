@@ -145,4 +145,23 @@ class OnboardingViewModelTest {
         assertTrue(runCatching { vm.finish() }.isFailure) // 닉네임 오류
         assertTrue(store.profiles().first().isEmpty())
     }
+
+    @Test fun finishSavesCareItems() = runTest {
+        vm.fuelType = FuelType.EV
+        vm.starter = "STARTER_1"
+        vm.nickname = "모모"
+        vm.setPeriod(com.drivepet.app.domain.CareItem.TIRE, com.drivepet.app.domain.ServicedPeriod.WITHIN_3_MONTHS)
+        vm.setDirect(com.drivepet.app.domain.CareItem.CABIN_FILTER, java.time.LocalDate.of(2026, 8, 4), 20_000_000_000)
+        val id = vm.finish()
+        vm.finish() // 다시 눌러도 같은 세 항목
+        val items = store.maintenanceItems(id).first().associateBy { it.kind }
+        assertEquals(setOf("TIRE", "CABIN_FILTER", "WIPER"), items.keys)
+        assertEquals("WITHIN_3_MONTHS", items["TIRE"]!!.baselineServicedPeriod)
+        assertEquals("2026-08-04", items["CABIN_FILTER"]!!.baselineServicedOn)
+        assertEquals(20_000_000_000, items["CABIN_FILTER"]!!.baselineOdometerMm)
+        val wiper = items["WIPER"]!!
+        assertNull(wiper.baselineOdometerMm)
+        assertNull(wiper.baselineServicedOn)
+        assertNull(wiper.baselineServicedPeriod)
+    }
 }

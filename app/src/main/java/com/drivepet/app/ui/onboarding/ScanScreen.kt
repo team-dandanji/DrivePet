@@ -127,7 +127,7 @@ private fun Field(label: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Choice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun Choice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(16.dp)
     Box(
         modifier.height(72.dp).background(if (selected) DpColors.Filled else Color.White, shape)

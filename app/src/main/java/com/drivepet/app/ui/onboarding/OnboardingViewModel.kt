@@ -8,6 +8,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
 import com.drivepet.app.data.RecordStore
+import com.drivepet.app.data.careItemEntity
+import com.drivepet.app.domain.CareBaseline
+import com.drivepet.app.domain.CareItem
+import com.drivepet.app.domain.ServicedPeriod
+import com.drivepet.app.domain.careItemsFor
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.domain.FuelType
 import com.drivepet.vehicle.VehicleModule
@@ -19,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.time.LocalDate
 import java.util.UUID
 
 /** 차에서 읽을 수 있는지 확인하는 항목 하나. name은 화면 이름, status는 읽힘/지원 안 함/권한 없음/미측정. */
@@ -60,6 +66,13 @@ class OnboardingViewModel(
     var odometerText by mutableStateOf("")
     var starter by mutableStateOf<String?>(null) // STARTER_1..3
     var nickname by mutableStateOf("")
+    /** 05·20 소모품 이력. 고르지 않은 항목은 미등록으로 저장한다. */
+    var careBaselines by mutableStateOf(mapOf<CareItem, CareBaseline>())
+        private set
+
+    fun setPeriod(item: CareItem, p: ServicedPeriod) { careBaselines = careBaselines + (item to CareBaseline(null, null, p)) }
+
+    fun setDirect(item: CareItem, date: LocalDate, odometerMm: Long?) { careBaselines = careBaselines + (item to CareBaseline(odometerMm, date, null)) }
 
     /** EV일 때만 의미가 있다. 비었거나 잘못된 값은 null. */
     val batteryKwh: Double? get() =
@@ -93,6 +106,8 @@ class OnboardingViewModel(
                 batteryKwh = batteryKwh, createdAt = System.currentTimeMillis(),
             ),
         )
+        val empty = CareBaseline(null, null, null)
+        store.saveMaintenanceItems(careItemsFor(fuelType).map { careItemEntity(profileId, it, careBaselines[it] ?: empty) })
         setActive(profileId)
         finished = true
         profileId

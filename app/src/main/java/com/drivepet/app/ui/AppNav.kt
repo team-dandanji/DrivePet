@@ -44,6 +44,7 @@ import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
 import com.drivepet.app.ui.components.TopTabs
+import com.drivepet.app.ui.care.CareHistoryScreen
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
@@ -79,6 +80,7 @@ object Routes {
     const val WELCOME = "welcome"
     const val LINK = "onboard/link?next={next}" // next = scan(기본, 온보딩 이어가기) | welcome(01에서 계정만 바꾸기)
     const val ONBOARD_SCAN = "onboard/scan"
+    const val ONBOARD_CARE = "onboard/care"
     const val ONBOARD_MATE = "onboard/mate"
     const val LOUNGE = "lounge"
     const val GARAGE = "garage"
@@ -225,7 +227,15 @@ fun AppNav(container: AppContainer) {
                     }
                     // 두 온보딩 화면이 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
                     composable(Routes.ONBOARD_SCAN) { entry ->
-                        ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container))) { nav.navigate(Routes.ONBOARD_MATE) }
+                        ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container))) { nav.navigate(Routes.ONBOARD_CARE) }
+                    }
+                    composable(Routes.ONBOARD_CARE) {
+                        val scanEntry = remember(it) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
+                        val vm: OnboardingViewModel = viewModel(scanEntry, factory = OnboardingViewModel.factory(container))
+                        CareHistoryScreen(
+                            vm.fuelType, vm.careBaselines, vm::setPeriod, vm::setDirect, "저장하고 알 고르기  →",
+                            onBack = { nav.popBackStack() }, onPrimary = { nav.navigate(Routes.ONBOARD_MATE) },
+                        )
                     }
                     composable(Routes.ONBOARD_MATE) {
                         val scanEntry = remember(it) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
@@ -308,7 +318,7 @@ fun AppNav(container: AppContainer) {
 
 /** 강제 화면이 NavHost 경로일 때 스택을 비우고 갈 곳. 그대로 두면 null. */
 fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
-    val onboarding = cur == Routes.LINK || cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_MATE
+    val onboarding = cur == Routes.LINK || cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_CARE || cur == Routes.ONBOARD_MATE
     return when {
         forced == Forced.ONBOARDING && !onboarding -> linkRoute("scan")
         forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME
