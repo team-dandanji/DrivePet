@@ -28,6 +28,8 @@ android {
             manifestPlaceholders["distractionOptimized"] = "true"
         }
         release {
+            // 공모전 규칙에 서명 키 요건이 없어 개발용(debug) 키로 서명한다. 앱마켓에 올릴 때 정식 키로 바꾼다.
+            signingConfig = signingConfigs.getByName("debug")
             buildConfigField("boolean", "DEMO_TOOLS", "false")
             manifestPlaceholders["distractionOptimized"] = "false"
         }
