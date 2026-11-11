@@ -27,11 +27,12 @@ class OnboardingViewModelTest {
     private val store = FakeRecordStore()
     private val state = MutableStateFlow(VehicleState())
     private var activated: String? = null
+    private var account: String? = null
     private lateinit var vm: OnboardingViewModel
 
     @Before fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        vm = OnboardingViewModel(store, state) { activated = it }
+        vm = OnboardingViewModel(store, state, { account }) { activated = it }
     }
 
     @After fun tearDown() = Dispatchers.resetMain()
@@ -41,6 +42,14 @@ class OnboardingViewModelTest {
             vm.nickname = nick
             assertEquals(nick, if (ok) null else "2~8자로 지어 주세요", vm.nicknameError())
         }
+    }
+
+    @Test fun `finish는 연결된 계정을 프로필 accountId로 쓴다`() = runTest {
+        account = "acc"
+        vm.starter = "STARTER_1"
+        vm.nickname = "모모"
+        vm.finish()
+        assertEquals("acc", store.profiles().first().single().accountId)
     }
 
     @Test fun `finish는 onboardingCompleted=true 프로필을 저장하고 활성화한다`() = runTest {
@@ -110,7 +119,7 @@ class OnboardingViewModelTest {
     }
 
     @Test fun `동시에 두 번 finish해도 프로필은 하나`() = runTest {
-        val slow = OnboardingViewModel(store, state) { delay(100); activated = it }
+        val slow = OnboardingViewModel(store, state, { account }) { delay(100); activated = it }
         slow.starter = "STARTER_1"; slow.nickname = "모모"
         val a = async { slow.finish() }
         val b = async { slow.finish() }
@@ -120,7 +129,7 @@ class OnboardingViewModelTest {
 
     @Test fun `활성화가 실패하면 예외를 던지고, 다시 눌러도 같은 프로필 하나`() = runTest {
         var fail = true
-        val flaky = OnboardingViewModel(store, state) { if (fail) throw IllegalStateException("x"); activated = it }
+        val flaky = OnboardingViewModel(store, state, { account }) { if (fail) throw IllegalStateException("x"); activated = it }
         flaky.starter = "STARTER_1"; flaky.nickname = "모모"
         assertTrue(runCatching { flaky.finish() }.isFailure)
         fail = false

@@ -47,6 +47,7 @@ private const val MAX_BATTERY_KWH = 200.0
 class OnboardingViewModel(
     private val store: RecordStore,
     val state: StateFlow<VehicleState>,
+    private val currentAccountId: suspend () -> String?,
     private val setActive: suspend (String) -> Unit,
 ) : ViewModel() {
     val capabilities: StateFlow<List<Capability>> =
@@ -87,7 +88,7 @@ class OnboardingViewModel(
         check(canNext && nicknameError() == null) { "입력이 올바르지 않다" }
         store.upsertProfile(
             ProfileEntity(
-                profileId = profileId, accountId = null, vehicleName = vehicleName.trim(), fuelType = fuelType.name,
+                profileId = profileId, accountId = currentAccountId(), vehicleName = vehicleName.trim(), fuelType = fuelType.name,
                 starterType = chosen, petNickname = nickname.trim(), onboardingCompleted = true,
                 batteryKwh = batteryKwh, createdAt = System.currentTimeMillis(),
             ),
@@ -101,7 +102,9 @@ class OnboardingViewModel(
         fun factory(container: AppContainer) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                OnboardingViewModel(container.store, VehicleModule.repository.state, container.settings::setActiveProfile) as T
+                OnboardingViewModel(
+                    container.store, VehicleModule.repository.state, { container.auth.get().accountId }, container.settings::setActiveProfile,
+                ) as T
         }
     }
 }

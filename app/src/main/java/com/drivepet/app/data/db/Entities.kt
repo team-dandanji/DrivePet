@@ -1,6 +1,7 @@
 package com.drivepet.app.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "profile")
@@ -14,10 +15,14 @@ data class ProfileEntity(
     val onboardingCompleted: Boolean,
     val batteryKwh: Double?,
     val createdAt: Long,
+    /** 서버가 준 최신 stateRevision. null = 아직 CREATE_PROFILE 전. */
+    val stateRevision: Long? = null,
+    /** 다른 기기에서 삭제됨(PROFILE_DELETED). */
+    val deletedAt: Long? = null,
 )
 
 /** kind: TRIP | ATTENDANCE | REPLACEMENT | MISSION_CLAIM. payloadJson은 동기화 body, 나머지 열은 원장 계산용 사본. */
-@Entity(tableName = "record")
+@Entity(tableName = "record", indices = [Index("profileId")])
 data class RecordEntity(
     @PrimaryKey val recordId: String,
     val profileId: String,
@@ -35,6 +40,15 @@ data class RecordEntity(
     val missionId: String? = null,
     val periodKey: String? = null,
     val rewardMilli: Long? = null,
+    /** null = 올릴 대상, "SYNCED", 또는 서버 오류 코드(다시 보내지 않음). */
+    val syncState: String? = null,
+)
+
+/** 계정별 마지막으로 받은 서버 커서. */
+@Entity(tableName = "sync_cursor")
+data class SyncCursorEntity(
+    @PrimaryKey val accountId: String,
+    val cursor: String,
 )
 
 @Entity(tableName = "trip_in_progress")

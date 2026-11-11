@@ -119,7 +119,7 @@ class DriveCoordinator(
 
     suspend fun manualCheckIn(): Boolean = mutex.withLock {
         val p = activeProfile.value ?: return false
-        attendance.manualCheckIn(p.profileId, repository.state.value).also { if (it) speaker.say(ATTENDANCE_TEXT) }
+        attendance.manualCheckIn(p.profileId, p.accountId, repository.state.value).also { if (it) speaker.say(ATTENDANCE_TEXT) }
     }
 
     private suspend fun onState(prev: VehicleState, next: VehicleState) {
@@ -131,7 +131,7 @@ class DriveCoordinator(
             store.syncWarnings(p.profileId, warnings, seoulDate(Instant.now()))
             lastSyncedWarnings = p.profileId to warnings
         }
-        if (attendance.onState(p.profileId, next)) speaker.say(ATTENDANCE_TEXT)
+        if (attendance.onState(p.profileId, p.accountId, next)) speaker.say(ATTENDANCE_TEXT)
     }
 
     private suspend fun onEvent(e: DriveEvent) {

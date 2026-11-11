@@ -58,47 +58,47 @@ class DriveWatchersTest {
     private val w = AttendanceWatcher(store, { instant })
 
     @Test fun `belt checks in once per day`() = runTest {
-        assertFalse(w.onState("p", belt(false)))
-        assertTrue(w.onState("p", belt(true)))
-        assertFalse(w.onState("p", belt(true)))
+        assertFalse(w.onState("p", "acc", belt(false)))
+        assertTrue(w.onState("p", "acc", belt(true)))
+        assertFalse(w.onState("p", "acc", belt(true)))
         val rec = store.records("p").first().single()
         assertEquals("ATTENDANCE", rec.kind)
         assertEquals("2026-11-10", rec.localDate)
-        assertNull(rec.accountId)
+        assertEquals("acc", rec.accountId)
         assertEquals("2026-11-10", Json.decodeFromString<AttendancePayload>(rec.payloadJson).localDate)
         instant = instant.plusSeconds(86_400) // 2026-11-11 09:00 KST
-        assertTrue(w.onState("p", belt(true)))
+        assertTrue(w.onState("p", "acc", belt(true)))
         assertEquals(2, store.records("p").first().size)
     }
 
     @Test fun `seoul midnight splits attendance days`() = runTest {
         instant = Instant.parse("2026-11-10T14:59:00Z") // KST 11-10 23:59
-        assertTrue(w.onState("p", belt(true)))
+        assertTrue(w.onState("p", "acc", belt(true)))
         instant = Instant.parse("2026-11-10T15:01:00Z") // KST 11-11 00:01
-        assertTrue(w.onState("p", belt(true)))
+        assertTrue(w.onState("p", "acc", belt(true)))
         assertEquals(listOf("2026-11-10", "2026-11-11"), store.records("p").first().map { it.localDate })
     }
 
     @Test fun `manual check in only when belt unreadable and parked`() = runTest {
-        assertFalse(w.manualCheckIn("p", state(gear = Gear.D)))
-        assertTrue(w.manualCheckIn("p", state(gear = Gear.P)))
-        assertFalse(w.manualCheckIn("p", state(gear = Gear.P)))
+        assertFalse(w.manualCheckIn("p", "acc", state(gear = Gear.D)))
+        assertTrue(w.manualCheckIn("p", "acc", state(gear = Gear.P)))
+        assertFalse(w.manualCheckIn("p", "acc", state(gear = Gear.P)))
     }
 
     @Test fun `belt stuck at false stays unreadable and manual check in works`() = runTest {
         val stuck = state(belt = Signal.Ok(false, 0), gear = Gear.P)
-        repeat(3) { assertFalse(w.onState("p", stuck)) }
+        repeat(3) { assertFalse(w.onState("p", "acc", stuck)) }
         assertFalse(w.beltReadable.value) // 버튼이 계속 보인다
-        assertTrue(w.manualCheckIn("p", stuck))
+        assertTrue(w.manualCheckIn("p", "acc", stuck))
         assertEquals(1, store.records("p").first().size)
     }
 
     @Test fun `manual check in blocked once belt was buckled`() = runTest {
-        w.onState("p", belt(true))
+        w.onState("p", "acc", belt(true))
         assertTrue(w.beltReadable.value)
-        assertFalse(w.manualCheckIn("p", state(gear = Gear.P)))
-        w.onState("p", belt(false))
-        w.onState("p", state())
+        assertFalse(w.manualCheckIn("p", "acc", state(gear = Gear.P)))
+        w.onState("p", "acc", belt(false))
+        w.onState("p", "acc", state())
         assertTrue(w.beltReadable.value)
     }
 
