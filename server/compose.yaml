@@ -1,0 +1,37 @@
+# docker compose up --build  → DB + 서버 (기본 local-fake: 외부 키 없이 동작)
+# DB만 띄우고 서버는 IDE에서 실행하려면: docker compose up db
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: drivepet
+      POSTGRES_USER: drivepet
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-drivepet}
+    ports:
+      - "5432:5432"
+    volumes:
+      - drivepet-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drivepet -d drivepet"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  server:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/drivepet
+      DB_USER: drivepet
+      DB_PASSWORD: ${DB_PASSWORD:-drivepet}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local-fake}
+    ports:
+      - "8080:8080"
+
+volumes:
+  drivepet-db:

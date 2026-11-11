@@ -1,0 +1,9 @@
+# 실제 외부 API 사용. 키가 없으면 시작하지 않는다(가짜로 자동 전환하지 않음).
+drivepet:
+  kakao:
+    mode: live
+    rest-api-key: ${KAKAO_REST_API_KEY}
+    client-secret: ${KAKAO_CLIENT_SECRET:}
+  weather:
+    mode: live
+    service-key: ${DATA_GO_KR_SERVICE_KEY}

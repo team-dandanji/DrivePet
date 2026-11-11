@@ -1,0 +1,10 @@
+drivepet:
+  public-base-url: https://test.drivepet.local
+  jwt:
+    secret: test-only-secret-0123456789-abcdefghijklmnop
+  kakao:
+    mode: fake
+  weather:
+    mode: fake
+    # 응답 시간 한도 테스트용 (가짜 지연과 비교)
+    request-budget: 500ms

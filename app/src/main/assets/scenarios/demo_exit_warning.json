@@ -1,0 +1,18 @@
+{
+  "name": "하차 점검 시연 3km",
+  "speed": 4,
+  "start": {
+    "gear": "P", "odometerKm": 12050.0, "speedKmh": 0, "brakePressed": false, "steeringDeg": 0,
+    "turnSignal": "OFF", "driverDoorOpen": false, "driverWindow": 0,
+    "lowBeam": false, "highBeam": false, "driverBeltBuckled": false, "energyPct": 64, "warnings": ["TPMS"]
+  },
+  "steps": [
+    { "t": 2,   "set": { "driverBeltBuckled": true } },
+    { "t": 6,   "set": { "brakePressed": true } },
+    { "t": 7,   "set": { "gear": "D", "brakePressed": false } },
+    { "t": 140, "set": { "odometerKm": 12053.0, "brakePressed": true } },
+    { "t": 144, "set": { "gear": "P", "brakePressed": false } },
+    { "t": 220, "set": { "driverWindow": 4, "lowBeam": true, "driverDoorOpen": true } },
+    { "t": 232, "set": { "driverWindow": 0, "lowBeam": false } }
+  ]
+}
