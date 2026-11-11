@@ -40,9 +40,9 @@ import kotlinx.coroutines.launch
 
 private val STARTERS = listOf("STARTER_1" to "노란 알", "STARTER_2" to "초록 알", "STARTER_3" to "하얀 알")
 
-/** 06 · 스타터 알 고르기 + 이름 짓기. 완료하면 프로필이 활성화되고, 화면 전환은 AppNav가 한다. */
+/** 06 · 스타터 알 고르기 + 이름 짓기. 완료하면(프로필 저장·활성화 뒤) onDone으로 화면을 옮긴다. */
 @Composable
-fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit) {
+fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
@@ -100,6 +100,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit) {
                     scope.launch {
                         try {
                             vm.finish()
+                            onDone()
                         } catch (e: CancellationException) {
                             throw e
                         } catch (e: Exception) {

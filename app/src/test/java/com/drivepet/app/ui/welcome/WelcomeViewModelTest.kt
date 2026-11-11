@@ -61,18 +61,22 @@ class WelcomeViewModelTest {
         assertEquals(1, v.others.value.first().level)
     }
 
-    @Test fun chooseSetsActive() = runTest {
+    @Test fun chooseSetsActiveBeforeThen() = runTest {
         val v = vm()
-        v.choose("p1")
+        val order = mutableListOf<String>()
+        v.choose("p1") { order += "then:${setCalls.size}" }
         assertEquals(listOf("p1"), setCalls)
+        assertEquals(listOf("then:1"), order) // 저장 뒤에 불린다
     }
 
-    @Test fun enterSavesCurrentUnlessAlreadyActive() = runTest {
+    @Test fun enterSavesCurrentBeforeThenUnlessAlreadyActive() = runTest {
         val v = vm()
-        v.enter()
+        val order = mutableListOf<String>()
+        v.enter { order += "then:${setCalls.size}" }
         assertEquals(listOf("p3"), setCalls)
-        v.enter()
-        assertEquals(listOf("p3"), setCalls) // 이미 활성이면 그대로
+        v.enter { order += "then:${setCalls.size}" }
+        assertEquals(listOf("p3"), setCalls) // 이미 활성이면 저장은 그대로
+        assertEquals(listOf("then:1", "then:1"), order) // 그래도 이동은 한다
     }
 
     @Test fun kakaoFollowsAuth() = runTest {

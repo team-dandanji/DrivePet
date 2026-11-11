@@ -200,7 +200,7 @@ fun AppNav(container: AppContainer) {
                         // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 03(Routes.LINK)은 Task 6에서 연결한다.
                         WelcomeScreen(
                             viewModel(factory = WelcomeViewModel.factory(container)),
-                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.WELCOME) { inclusive = true } } },
+                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.WELCOME) { inclusive = true } } }, // 저장이 끝난 뒤 불린다
                             onSetup = { nav.navigate(Routes.ONBOARD_SCAN) },
                         )
                     }
@@ -210,7 +210,12 @@ fun AppNav(container: AppContainer) {
                     }
                     composable(Routes.ONBOARD_MATE) {
                         val scanEntry = remember(it) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
-                        MateScreen(viewModel(scanEntry, factory = OnboardingViewModel.factory(container))) { nav.popBackStack() }
+                        MateScreen(
+                            viewModel(scanEntry, factory = OnboardingViewModel.factory(container)),
+                            onBack = { nav.popBackStack() },
+                            // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
+                            onDone = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } },
+                        )
                     }
                     composable(Routes.LOUNGE) {
                         LoungeScreen(viewModel(factory = LoungeViewModel.factory(container)), container.speaker) { nav.navigate(Routes.DEV) }
@@ -263,8 +268,7 @@ fun AppNav(container: AppContainer) {
             }
         }
     }
-    // 프로필이 바뀌어도 다시 본다: 01에서 새 프로필을 만들면 forced가 그대로 NONE이라도 온보딩에서 라운지로 나가야 한다.
-    LaunchedEffect(forced, profile?.profileId) { syncRoute(nav, forced) }
+    LaunchedEffect(forced) { syncRoute(nav, forced) }
 }
 
 private fun syncRoute(nav: NavHostController, forced: Forced) {
@@ -274,7 +278,6 @@ private fun syncRoute(nav: NavHostController, forced: Forced) {
     when {
         forced == Forced.ONBOARDING && !onboarding -> reset(Routes.ONBOARD_SCAN)
         forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME -> reset(Routes.WELCOME)
-        forced == Forced.NONE && onboarding -> reset(Routes.LOUNGE)
     }
 }
 

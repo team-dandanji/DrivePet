@@ -55,14 +55,17 @@ class WelcomeViewModel(
     val others: StateFlow<List<ProfileCard>> = combine(cards, currentId) { list, id -> list.filter { it.first.profileId != id }.map { it.second } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    fun enter() {
+    /** current를 활성으로 저장한 뒤 [then]을 부른다(저장 전에 화면을 옮기면 쓰기가 취소되거나 이전 프로필이 먼저 보인다). */
+    fun enter(then: () -> Unit) {
         viewModelScope.launch {
             val id = current.value?.profileId ?: return@launch
             if (activeId.first() != id) setActive(id)
+            then()
         }
     }
 
-    fun choose(profileId: String) { viewModelScope.launch { setActive(profileId) } }
+    /** [profileId]를 활성으로 저장한 뒤 [then]을 부른다. */
+    fun choose(profileId: String, then: () -> Unit) { viewModelScope.launch { setActive(profileId); then() } }
 
     private fun fuelLabel(fuelType: String) = FUELS.firstOrNull { it.first.name == fuelType }?.second ?: fuelType
 

@@ -65,8 +65,8 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
             }
             Column(Modifier.weight(1f).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                 current?.let { c ->
-                    OnboardCard(Modifier.weight(1f).fillMaxWidth()) {
-                        Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OnboardCard(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+                        Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text("다시 만나서 반가워요", fontSize = 40.sp, fontWeight = FontWeight.ExtraBold)
                             Text("저장된 차량·펫을 불러왔어요.", fontSize = 26.sp, color = DpColors.TextTertiary)
                             Box(Modifier.fillMaxWidth().background(Color(0xFFF7F8FA), RoundedCornerShape(16.dp)).padding(24.dp)) {
@@ -75,13 +75,13 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                                     Text("${c.petNickname}  /  Lv.${c.level}  /  로컬 프로필 복원 완료", fontSize = 28.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            // 다른 프로필이 많아도 버튼은 카드 아래에 고정하고 목록만 스크롤한다.
-                            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                                if (others.isNotEmpty()) {
+                            // 카드는 내용만큼. 다른 프로필이 있을 때만 목록이 자리를 차지하고, 많으면 목록만 스크롤한다.
+                            if (others.isNotEmpty()) {
+                                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                                     Text("다른 프로필", fontSize = 24.sp, color = DpColors.TextTertiary)
                                     for (o in others) {
                                         Row(
-                                            Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { vm.choose(o.profileId); onLounge() },
+                                            Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable { vm.choose(o.profileId, onLounge) },
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
                                             Text("${o.petNickname} · ${o.vehicleName} · Lv.${o.level}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
@@ -89,7 +89,7 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                                     }
                                 }
                             }
-                            FilledButton("라운지로 이동", { vm.enter(); onLounge() }, Modifier.fillMaxWidth())
+                            FilledButton("라운지로 이동", { vm.enter(onLounge) }, Modifier.fillMaxWidth())
                             OutlinedButton(
                                 onSetup, Modifier.fillMaxWidth().height(96.dp), shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(2.dp, DpColors.TrackInactive),
