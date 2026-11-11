@@ -11,6 +11,13 @@ import kotlinx.coroutines.flow.map
 
 private val Context.settingsStore by preferencesDataStore(name = "settings")
 
+/** 앞뒤 공백 제거, http(s)://로 시작해야 하고 끝에 "/"를 보장한다. 아니면 null. */
+fun normalizeServerUrl(input: String): String? {
+    val t = input.trim()
+    if (!t.startsWith("http://") && !t.startsWith("https://")) return null
+    return if (t.endsWith("/")) t else "$t/"
+}
+
 class Settings(context: Context) {
     private val store = context.applicationContext.settingsStore
     private val modeKey = stringPreferencesKey("mode")
