@@ -97,3 +97,7 @@ fun RecordEntity.missionTrip(): MissionTrip? {
         turnSignalPct = lines[SafetyItem.TURN_SIGNAL.name]?.value,
     )
 }
+
+/** API 명세 ReplacementRecordPayload. */
+@Serializable
+data class ReplacementPayload(val itemId: String, val localDate: String, val odometerMm: Long?)

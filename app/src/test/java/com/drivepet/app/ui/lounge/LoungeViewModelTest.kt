@@ -163,4 +163,15 @@ class LoungeViewModelTest {
         assertEquals(null, v.weather.value)
         assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
     }
+
+    @Test fun worriedWhenCareLow() = runTest {
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), odometerKm = Signal.Ok(24_500.0, 0L), warnings = Signal.Ok(emptyList(), 0L))
+        val before = vm().ui.value!!
+        assertEquals(Mood.NORMAL, before.mood)
+        store.saveMaintenanceItems(listOf(com.drivepet.app.data.careItemEntity("p1", com.drivepet.app.domain.CareItem.TIRE, com.drivepet.app.domain.CareBaseline(15_000_000_000, null, null))))
+        val ui = vm().ui.value!!
+        assertEquals(Mood.WORRIED, ui.mood) // 9,500km 지남 → 남은 주기 5%
+        assertEquals(100, before.healthPct) // 경고등만: 40/40
+        assertEquals(Math.round((40 + 5 * 0.3) / 70 * 100).toInt(), ui.healthPct)
+    }
 }

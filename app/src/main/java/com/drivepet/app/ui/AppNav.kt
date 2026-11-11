@@ -44,7 +44,11 @@ import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
 import com.drivepet.app.ui.components.TopTabs
+import com.drivepet.app.ui.care.CareDoneScreen
 import com.drivepet.app.ui.care.CareHistoryScreen
+import com.drivepet.app.ui.care.GarageEditScreen
+import com.drivepet.app.ui.care.GarageScreen
+import com.drivepet.app.ui.care.GarageViewModel
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
@@ -84,6 +88,8 @@ object Routes {
     const val ONBOARD_MATE = "onboard/mate"
     const val LOUNGE = "lounge"
     const val GARAGE = "garage"
+    const val GARAGE_EDIT = "garage/edit"
+    const val CARE_DONE = "garage/done/{recordId}"
     const val TRIPS = "trips"
     const val DRIVING = "driving"
     const val SETTLEMENT = "settlement"
@@ -256,7 +262,23 @@ fun AppNav(container: AppContainer) {
                     composable(Routes.LOUNGE) {
                         LoungeScreen(viewModel(factory = LoungeViewModel.factory(container)), container.speaker) { nav.navigate(Routes.DEV) }
                     }
-                    composable(Routes.GARAGE) { Placeholder("준비 중이에요") }
+                    composable(Routes.GARAGE) {
+                        GarageScreen(
+                            viewModel(factory = GarageViewModel.factory(container)),
+                            onEdit = { nav.navigate(Routes.GARAGE_EDIT) },
+                            onReplaced = { id -> nav.navigate("garage/done/$id") },
+                        )
+                    }
+                    composable(Routes.GARAGE_EDIT) {
+                        GarageEditScreen(viewModel(factory = GarageViewModel.factory(container))) { nav.popBackStack() }
+                    }
+                    composable(Routes.CARE_DONE, arguments = listOf(navArgument("recordId") { type = NavType.StringType })) { entry ->
+                        CareDoneScreen(
+                            viewModel(factory = GarageViewModel.factory(container)), entry.arguments?.getString("recordId").orEmpty(),
+                            onGarage = { nav.popBackStack(Routes.GARAGE, inclusive = false) },
+                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
+                        )
+                    }
                     composable(Routes.TRIPS) { TripsScreen(container) }
                     composable(
                         "${Routes.LEVEL_UP}/{before}/{after}",

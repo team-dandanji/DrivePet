@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
 import com.drivepet.app.data.MissionClaimPayload
 import com.drivepet.app.data.RecordStore
+import com.drivepet.app.data.careRows
+import com.drivepet.app.data.lifePcts
+import com.drivepet.app.data.odometerMm
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.data.missionTrip
@@ -25,6 +28,7 @@ import com.drivepet.app.domain.dailyMissions
 import com.drivepet.app.domain.missionStatus
 import com.drivepet.app.domain.MoodInput
 import com.drivepet.app.domain.health
+import com.drivepet.app.domain.inspectionDaysLeft
 import com.drivepet.app.domain.mood
 import com.drivepet.app.domain.satiety
 import com.drivepet.app.domain.seoulDate
@@ -154,9 +158,10 @@ class LoungeViewModel(
     val ui: StateFlow<LoungeUi?> = profile
         .flatMapLatest { p ->
             if (p == null) return@flatMapLatest flowOf(null)
+            val beltAndCare = combine(beltReadable, store.maintenanceItems(p.profileId), store.vehicleCare(p.profileId)) { b, items, care -> Triple(b, items, care) }
             combine(
-                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltReadable,
-            ) { records, seen, seed, s, belt ->
+                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltAndCare,
+            ) { records, seen, seed, s, (belt, items, care) ->
                 val today = seoulDate(clock())
                 val total = growthTotalMilli(records, seed)
                 val todayExp = totalExpMilli(records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.map { it.toLedger() })
@@ -169,7 +174,14 @@ class LoungeViewModel(
                 val names = seen.map { it.name }
                 val warningDays = seen.maxOfOrNull { ChronoUnit.DAYS.between(LocalDate.parse(it.firstSeenDate), today).toInt() }
                 val satietyPct = satiety(s.energyPct.valueOrNull())
-                val petMood = mood(MoodInput(warningDays, satietyPct, null, null, attended || claimedIds.isNotEmpty() || level > Growth.level(total - todayExp)))
+                val lifePcts = careRows(items, records, s.odometerMm()).lifePcts()
+                val due = care?.inspectionDueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                val petMood = mood(
+                    MoodInput(
+                        warningDays, satietyPct, lifePcts.minOrNull(), inspectionDaysLeft(due, today),
+                        attended || claimedIds.isNotEmpty() || level > Growth.level(total - todayExp),
+                    ),
+                )
                 LoungeUi(
                     nickname = p.petNickname,
                     vehicleLine = "${p.vehicleName} | ${fuelLabel(p.fuelType)}",
@@ -177,7 +189,7 @@ class LoungeViewModel(
                     stage = level,
                     mood = petMood,
                     gauge = Growth.gauge(total),
-                    healthPct = health(s.warnings.toWarningInput(), emptyList(), records.recentTripSafety()).score,
+                    healthPct = health(s.warnings.toWarningInput(), lifePcts, records.recentTripSafety()).score,
                     satietyPct = satietyPct,
                     parked = s.isParked,
                     attendedToday = attended,
