@@ -89,7 +89,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
         }
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
             OutlinedButton(
-                onBack, Modifier.width(300.dp).height(96.dp), shape = RoundedCornerShape(16.dp),
+                onBack, Modifier.width(300.dp).height(100.dp), shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(2.dp, DpColors.TrackInactive),
             ) { Text("이전", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {

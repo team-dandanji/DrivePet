@@ -92,7 +92,7 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                             }
                             FilledButton("라운지로 이동", { vm.enter(onLounge) }, Modifier.fillMaxWidth())
                             OutlinedButton(
-                                onSetup, Modifier.fillMaxWidth().height(96.dp), shape = RoundedCornerShape(16.dp),
+                                onSetup, Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(2.dp, DpColors.TrackInactive),
                             ) { Text("프로필 다시 설정", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
                             Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClick = onAccount), verticalAlignment = Alignment.CenterVertically) {

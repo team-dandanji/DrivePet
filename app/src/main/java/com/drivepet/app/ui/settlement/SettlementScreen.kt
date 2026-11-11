@@ -132,9 +132,14 @@ private fun Card(content: @Composable () -> Unit) {
 
 @Composable
 private fun RewardRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 26.sp)
-        Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (value == "미측정") DpColors.TextTertiary else DpColors.Text)
+        if (value.startsWith("+")) {
+            // Hi-fi: 받은 보상은 하늘색 칩
+            Text("$value EXP", Modifier.background(DpColors.Chip, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 2.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        } else {
+            Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (value == "미측정") DpColors.TextTertiary else DpColors.Text)
+        }
     }
 }
 

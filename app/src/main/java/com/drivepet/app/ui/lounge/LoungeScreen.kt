@@ -34,6 +34,7 @@ import com.drivepet.app.BuildConfig
 import com.drivepet.app.domain.formatExp
 import com.drivepet.app.drive.Speaker
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.faceOf
 import com.drivepet.app.ui.components.SpeechBubble
 import com.drivepet.app.ui.theme.DpColors
 
@@ -50,7 +51,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
 
     Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(Modifier.weight(1f).fillMaxSize()) {
-            Text(u.nickname, fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
+            Text("${u.nickname} ${faceOf(u.mood)}", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
             VehicleLine(u.vehicleLine, weather)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Character(
@@ -183,7 +184,7 @@ private fun WarningCard(u: LoungeUi, onCare: () -> Unit, modifier: Modifier) {
             Box(Modifier.weight(1f))
             u.careAction?.let {
                 Button(
-                    onCare, Modifier.fillMaxWidth().height(96.dp), shape = RoundedCornerShape(16.dp),
+                    onCare, Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
                 ) { Text(it.label, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
             }

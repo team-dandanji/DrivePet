@@ -25,6 +25,10 @@ object DpColors {
     val Divider = Color(0x1A131417)
     val Danger = Color(0xFFE73612)
     val Positive = Color(0xFF32B957)
+    /** 보상 칩 바탕(drivepet/palette/sky_300). */
+    val Chip = Color(0xFF89DEFF)
+    /** 보조 버튼 바탕(drivepet/button/secondary/bg). */
+    val Secondary = Color(0x0D131417)
 }
 
 fun Modifier.skyBackground(): Modifier = background(Brush.verticalGradient(listOf(DpColors.SkyTop, DpColors.SoftTop)))

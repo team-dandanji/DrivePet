@@ -147,7 +147,7 @@ internal fun OnboardCard(modifier: Modifier = Modifier, content: @Composable () 
 @Composable
 internal fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Button(
-        onClick, modifier.height(96.dp), enabled, shape = RoundedCornerShape(16.dp),
+        onClick, modifier.height(100.dp), enabled, shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = DpColors.Filled, contentColor = Color.White,
             disabledContainerColor = DpColors.TrackInactive, disabledContentColor = Color.White,

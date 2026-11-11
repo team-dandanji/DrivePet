@@ -95,7 +95,7 @@ fun LinkScreen(vm: LinkViewModel, onBack: (() -> Unit)?, onSkip: (() -> Unit)?, 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             if (onBack != null) {
                 OutlinedButton(
-                    onBack, Modifier.width(220.dp).height(96.dp), shape = RoundedCornerShape(16.dp),
+                    onBack, Modifier.width(220.dp).height(100.dp), shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(2.dp, DpColors.TrackInactive),
                 ) { Text("뒤로", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
             } else Spacer(Modifier.width(1.dp))
