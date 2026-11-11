@@ -1,6 +1,8 @@
 package com.drivepet.app.data
 
 import com.drivepet.app.domain.MeasurementStatus
+import com.drivepet.app.domain.MissionTrip
+import com.drivepet.app.domain.SafetyItem
 import com.drivepet.app.domain.SafetyLine
 import com.drivepet.app.domain.Settlement
 import com.drivepet.app.domain.apiExp
@@ -75,3 +77,23 @@ fun List<RecordEntity>.recentTripSafety(n: Int = 5): List<Int> =
 
 /** 프로필의 총 EXP(milli): 원장 합산 + 개발자 시작 EXP. 레벨·게이지는 모두 이 값에서 구한다. */
 fun growthTotalMilli(records: List<RecordEntity>, seedMilli: Long): Long = totalExpMilli(records.map { it.toLedger() }) + seedMilli
+
+/** API 명세 MissionClaimRecordPayload. */
+@Serializable
+data class MissionClaimPayload(val missionId: String, val periodKey: String, val rewardExp: String, val evidenceRecordIds: List<String>)
+
+/** TRIP 기록 → 미션 판정 입력. 측정 안 된 항목(breakdown 없음 포함)은 null. TRIP이 아니면 null. */
+fun RecordEntity.missionTrip(): MissionTrip? {
+    if (kind != "TRIP") return null
+    val st = tripPayload()?.settlement
+    val lines = st?.safetyBreakdown.orEmpty().filter { it.status == MeasurementStatus.MEASURED.name }.associateBy { it.item }
+    return MissionTrip(
+        recordId = recordId,
+        valid = valid == true,
+        distanceMm = st?.distanceMm,
+        safetyScore = st?.safetyScore,
+        sharpSteers = lines[SafetyItem.STEERING.name]?.value?.toInt(),
+        accelBrakeFull = lines[SafetyItem.ACCEL_BRAKE.name]?.let { it.score == SafetyItem.ACCEL_BRAKE.maxScore },
+        turnSignalPct = lines[SafetyItem.TURN_SIGNAL.name]?.value,
+    )
+}

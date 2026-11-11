@@ -2,6 +2,11 @@ package com.drivepet.app.ui.lounge
 
 import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
+import kotlinx.coroutines.flow.first
+import com.drivepet.app.domain.dailyMissions
+import com.drivepet.app.domain.MissionKind
+import com.drivepet.app.data.growthTotalMilli
+import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.drive.Bubble
 import com.drivepet.app.data.remote.WeatherDto
@@ -54,6 +59,32 @@ class LoungeViewModelTest {
 
     @After fun tearDown() = Dispatchers.resetMain()
 
+    /** 아무것도 안 한 날의 미션 줄(첫 미션). */
+    private fun ml(d: LocalDate) = "오늘 미션: ${dailyMissions("p1", d).first().title}"
+
+    @Test fun claimTwiceStoresOnce() = runTest {
+        now = Instant.parse("2026-11-11T03:00:00Z") // p1의 11/11 미션에는 출석이 있다
+        kotlinx.coroutines.runBlocking {
+            store.insertIfAbsent(RecordEntity("att1", "p1", null, "ATTENDANCE", now.toEpochMilli(), payloadJson = "{}", localDate = "2026-11-11"))
+        }
+        assertTrue(MissionKind.ATTENDANCE in dailyMissions("p1", LocalDate.parse("2026-11-11")))
+        val v = vm()
+        val att = v.ui.value!!.missions.first { it.kind == MissionKind.ATTENDANCE }
+        assertTrue(att.done)
+        v.claim(MissionKind.ATTENDANCE)
+        v.claim(MissionKind.ATTENDANCE)
+        assertEquals(1, store.records("p1").first().count { it.kind == "MISSION_CLAIM" })
+        assertTrue(v.ui.value!!.missions.first { it.kind == MissionKind.ATTENDANCE }.claimed)
+        assertEquals(10_000L + 30_000L, growthTotalMilli(store.records("p1").first(), 0))
+        assertEquals(Mood.HAPPY, v.ui.value!!.mood)
+    }
+
+    @Test fun claimIgnoredWhenNotDone() = runTest {
+        val v = vm()
+        v.ui.value!!.missions.forEach { v.claim(it.kind) }
+        assertEquals(0, store.records("p1").first().count { it.kind == "MISSION_CLAIM" })
+    }
+
     private fun vm(loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
         store, state, MutableStateFlow("p1"), belt, speaker, { true },
         kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now }, loadWeather,
@@ -88,13 +119,14 @@ class LoungeViewModelTest {
     @Test fun `하루 첫 진입만 전체 인사`() = runTest {
         val v = vm()
         v.greetIfFirstToday()
-        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
         assertEquals("2026-11-10", greetDate)
         v.greetIfFirstToday()
         assertEquals("오늘도 같이 달려요", speaker.said.last())
         now = Instant.parse("2026-11-11T03:00:00Z")
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L)) // 차 상태가 갱신되면 화면 값(오늘 미션)도 새 날짜로 다시 계산된다
         v.greetIfFirstToday()
-        assertEquals("안녕, 나 모모! 오늘도 같이 달려요", speaker.said.last())
+        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today.plusDays(1))}", speaker.said.last())
         assertNotNull(greetDate)
     }
 
@@ -110,7 +142,7 @@ class LoungeViewModelTest {
     @Test fun `greetIncludesWeatherWhenReady`() = runTest {
         val v = vm { clear12 }
         v.greetIfFirstToday()
-        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 오늘은 맑음, 12°C야.", speaker.said.single())
+        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 오늘은 맑음, 12°C야. ${ml(today)}", speaker.said.single())
         assertEquals("맑음", v.weather.value!!.label)
     }
 
@@ -121,7 +153,7 @@ class LoungeViewModelTest {
         assertTrue(speaker.said.isEmpty())
         advanceTimeBy(3_001)
         runCurrent()
-        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
         assertEquals(null, v.weather.value)
     }
 
@@ -129,6 +161,6 @@ class LoungeViewModelTest {
         val v = vm { null }
         v.greetIfFirstToday()
         assertEquals(null, v.weather.value)
-        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
     }
 }

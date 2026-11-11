@@ -4,7 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
+import com.drivepet.app.data.MissionClaimPayload
 import com.drivepet.app.data.RecordStore
+import com.drivepet.app.data.db.ProfileEntity
+import com.drivepet.app.data.db.RecordEntity
+import com.drivepet.app.data.missionTrip
 import com.drivepet.app.data.recentTripSafety
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.data.remote.WeatherDto
@@ -12,7 +16,13 @@ import com.drivepet.app.data.toLedger
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.Gauge
 import com.drivepet.app.domain.Growth
+import com.drivepet.app.domain.MISSION_MILLI
+import com.drivepet.app.domain.MissionKind
+import com.drivepet.app.domain.MissionStatus
 import com.drivepet.app.domain.Mood
+import com.drivepet.app.domain.apiExp
+import com.drivepet.app.domain.dailyMissions
+import com.drivepet.app.domain.missionStatus
 import com.drivepet.app.domain.MoodInput
 import com.drivepet.app.domain.health
 import com.drivepet.app.domain.mood
@@ -39,6 +49,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.UUID
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
@@ -60,6 +73,7 @@ data class LoungeUi(
     val showCheckInButton: Boolean,
     val warnings: List<String>,
     val careAction: CareAction?,
+    val missions: List<MissionStatus> = emptyList(),
 )
 
 data class WeatherUi(val label: String, val temp: String, val air: String?, val warning: String?, val stale: Boolean, val greetLine: String)
@@ -97,6 +111,12 @@ private const val WEATHER_WAIT_MS = 3_000L
 /** 포만·건강 모두 이 값 이하면 "부족". */
 const val LOW_PCT = 20
 
+/** 하루 첫 인사의 미션 줄. 미션이 없으면 null. */
+fun missionLine(missions: List<MissionStatus>): String? {
+    if (missions.isEmpty()) return null
+    return missions.firstOrNull { !it.done }?.let { "오늘 미션: ${it.kind.title}" } ?: "오늘 미션 다 했어!"
+}
+
 fun moodLine(m: Mood): String = when (m) {
     Mood.SICK_1, Mood.SICK_2, Mood.SICK_3 -> "몸이 좀 안 좋아…"
     Mood.HUNGRY -> "배고파…"
@@ -127,8 +147,11 @@ class LoungeViewModel(
     val weather: StateFlow<WeatherUi?> = _weather
     init { viewModelScope.launch { _weather.value = weatherLoad.await() } }
 
+    private val profile: StateFlow<ProfileEntity?> = combine(activeProfileId, store.profiles()) { id, list -> list.firstOrNull { it.profileId == id } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** 활성 프로필이 없으면 null. */
-    val ui: StateFlow<LoungeUi?> = combine(activeProfileId, store.profiles()) { id, list -> list.firstOrNull { it.profileId == id } }
+    val ui: StateFlow<LoungeUi?> = profile
         .flatMapLatest { p ->
             if (p == null) return@flatMapLatest flowOf(null)
             combine(
@@ -137,12 +160,16 @@ class LoungeViewModel(
                 val today = seoulDate(clock())
                 val total = growthTotalMilli(records, seed)
                 val todayExp = totalExpMilli(records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.map { it.toLedger() })
-                val attended = records.any { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
+                val attendance = records.firstOrNull { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
+                val attended = attendance != null
+                val claimedIds = records.filter { it.kind == "MISSION_CLAIM" && it.periodKey == today.toString() }.mapNotNull { it.missionId }.toSet()
+                val todayTrips = records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.mapNotNull { it.missionTrip() }
+                val missions = dailyMissions(p.profileId, today).map { missionStatus(it, todayTrips, attendance?.recordId, claimedIds) }
                 val level = Growth.level(total)
                 val names = seen.map { it.name }
                 val warningDays = seen.maxOfOrNull { ChronoUnit.DAYS.between(LocalDate.parse(it.firstSeenDate), today).toInt() }
                 val satietyPct = satiety(s.energyPct.valueOrNull())
-                val petMood = mood(MoodInput(warningDays, satietyPct, null, null, attended || level > Growth.level(total - todayExp)))
+                val petMood = mood(MoodInput(warningDays, satietyPct, null, null, attended || claimedIds.isNotEmpty() || level > Growth.level(total - todayExp)))
                 LoungeUi(
                     nickname = p.petNickname,
                     vehicleLine = "${p.vehicleName} | ${fuelLabel(p.fuelType)}",
@@ -161,6 +188,7 @@ class LoungeViewModel(
                         satietyPct != null && satietyPct <= LOW_PCT -> CareAction.FEED
                         else -> null
                     },
+                    missions = missions,
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -173,8 +201,32 @@ class LoungeViewModel(
             val first = lastGreetDate.first() != date
             val base = (if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood)
             val greetLine = if (first) withTimeoutOrNull(WEATHER_WAIT_MS) { weatherLoad.await() }?.greetLine else null
-            speaker.say(if (greetLine != null) "$base $greetLine" else base)
+            val missionLine = if (first) missionLine(u.missions) else null
+            speaker.say(listOfNotNull(base, greetLine, missionLine).joinToString(" "))
             if (first) setLastGreetDate(date)
+        }
+    }
+
+    /** 완료했고 아직 안 받은 미션만 +30. 같은 미션·같은 날은 recordId가 같아 두 번 눌러도 한 건이다. */
+    fun claim(kind: MissionKind) {
+        viewModelScope.launch {
+            val p = profile.value ?: return@launch
+            val m = ui.value?.missions?.firstOrNull { it.kind == kind } ?: return@launch
+            if (!m.done || m.claimed) return@launch
+            val date = seoulDate(clock()).toString()
+            store.insertIfAbsent(
+                RecordEntity(
+                    recordId = UUID.nameUUIDFromBytes("mission:${p.profileId}:${kind.id}:$date".toByteArray()).toString(),
+                    profileId = p.profileId,
+                    accountId = p.accountId,
+                    kind = "MISSION_CLAIM",
+                    occurredAt = clock().toEpochMilli(),
+                    payloadJson = Json.encodeToString(MissionClaimPayload(kind.id, date, apiExp(MISSION_MILLI), m.evidence)),
+                    missionId = kind.id,
+                    periodKey = date,
+                    rewardMilli = MISSION_MILLI,
+                ),
+            )
         }
     }
 

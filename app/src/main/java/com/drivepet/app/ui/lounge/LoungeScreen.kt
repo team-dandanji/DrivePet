@@ -34,6 +34,9 @@ import com.drivepet.app.BuildConfig
 import com.drivepet.app.domain.formatExp
 import com.drivepet.app.drive.Speaker
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.domain.MissionStatus
+import com.drivepet.app.domain.MissionKind
+import androidx.compose.foundation.layout.PaddingValues
 import com.drivepet.app.ui.components.faceOf
 import com.drivepet.app.ui.components.SpeechBubble
 import com.drivepet.app.ui.theme.DpColors
@@ -70,7 +73,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
                     ) { Text("출석하기", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
                 }
             }
-            ExpCard(u)
+            ExpCard(u, vm::claim)
         }
         Column(Modifier.width(592.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text("펫 컨디션", fontSize = 36.sp, fontWeight = FontWeight.Bold)
@@ -110,7 +113,7 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 }
 
 @Composable
-private fun ExpCard(u: LoungeUi) {
+private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -124,10 +127,30 @@ private fun ExpCard(u: LoungeUi) {
                     drawStopIndicator = {}, modifier = Modifier.fillMaxWidth().height(12.dp),
                 )
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Today's mission", fontSize = 24.sp, color = DpColors.TextTertiary)
-                Text("준비 중이에요", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                u.missions.forEach { m -> MissionRow(m) { onClaim(m.kind) } }
             }
+        }
+    }
+}
+
+/** 미션 한 줄: 제목(+진행), 오른쪽에 보상 칩 / 받기 / 받음. */
+@Composable
+private fun MissionRow(m: MissionStatus, onClaim: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(m.kind.title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        if (m.progress.isNotEmpty()) Text(m.progress, Modifier.padding(end = 12.dp), fontSize = 20.sp, color = DpColors.TextTertiary)
+        when {
+            m.claimed -> Text("받음", fontSize = 22.sp, color = DpColors.TextTertiary)
+            m.done -> Button(
+                onClaim, Modifier.height(48.dp), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
+            ) { Text("받기 +30", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
+            else -> Text(
+                "+30EXP", Modifier.background(DpColors.TrackInactive, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 2.dp),
+                fontSize = 20.sp, color = DpColors.Text,
+            )
         }
     }
 }
