@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -234,7 +233,14 @@ fun AppNav(container: AppContainer) {
                             viewModel(scanEntry, factory = OnboardingViewModel.factory(container)),
                             onBack = { nav.popBackStack() },
                             // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
-                            onDone = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } },
+                            // 저장한 프로필이 활성으로 반영된 뒤 옮긴다. 먼저 옮기면 그 사이 WELCOME 판정이 라운지를 01로 되돌린다.
+                            onDone = {
+                                scope.launch {
+                                    val id = container.settings.activeProfileId.first()
+                                    withTimeoutOrNull(1_000) { coordinator.activeProfile.first { it?.profileId == id } }
+                                    nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } }
+                                }
+                            },
                         )
                     }
                     composable(Routes.LOUNGE) {
@@ -288,16 +294,21 @@ fun AppNav(container: AppContainer) {
             }
         }
     }
-    LaunchedEffect(forced) { syncRoute(nav, forced) }
+    // 효과가 늦게 돌 수 있어 실행 시점에 활성 프로필을 다시 본다(그 사이 활성이 정해졌으면 01로 되돌리지 않는다).
+    LaunchedEffect(forced) {
+        resetTarget(nav.currentDestination?.route, forced, coordinator.activeProfile.value == null)?.let { target ->
+            nav.navigate(target) { popUpTo(nav.graph.id) { inclusive = true } }
+        }
+    }
 }
 
-private fun syncRoute(nav: NavHostController, forced: Forced) {
-    val cur = nav.currentDestination?.route
+/** 강제 화면이 NavHost 경로일 때 스택을 비우고 갈 곳. 그대로 두면 null. */
+fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
     val onboarding = cur == Routes.LINK || cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_MATE
-    val reset = { target: String -> nav.navigate(target) { popUpTo(nav.graph.id) { inclusive = true } } }
-    when {
-        forced == Forced.ONBOARDING && !onboarding -> reset(linkRoute("scan"))
-        forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME -> reset(Routes.WELCOME)
+    return when {
+        forced == Forced.ONBOARDING && !onboarding -> linkRoute("scan")
+        forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME
+        else -> null
     }
 }
 

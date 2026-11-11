@@ -7,6 +7,8 @@ import com.drivepet.app.data.remote.ApiJson
 import com.drivepet.app.data.remote.AuthState
 import com.drivepet.app.data.remote.DrivePetApi
 import com.drivepet.app.data.remote.Envelope
+import com.drivepet.app.data.remote.ExpectedAccount
+import com.drivepet.app.data.remote.Remote
 import com.drivepet.app.data.remote.QrSession
 import com.drivepet.app.data.remote.QrStatus
 import com.drivepet.app.data.remote.TokenStore
@@ -22,8 +24,10 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -83,8 +87,8 @@ private class FakeApi : DrivePetApi {
     var onUpload: (UploadRequest) -> Envelope<UploadResult> = ::applied
     val pages = ArrayDeque<DownloadResult>()
 
-    override suspend fun upload(r: UploadRequest): Envelope<UploadResult> { uploads += r; return onUpload(r) }
-    override suspend fun download(v: Int, cursor: String?, limit: Int): Envelope<DownloadResult> {
+    override suspend fun upload(r: UploadRequest, a: ExpectedAccount): Envelope<UploadResult> { uploads += r; return onUpload(r) }
+    override suspend fun download(v: Int, cursor: String?, limit: Int, a: ExpectedAccount): Envelope<DownloadResult> {
         downloads += cursor
         return Envelope(pages.removeFirstOrNull() ?: DownloadResult(emptyList(), "c-end", false))
     }
@@ -248,6 +252,34 @@ class SyncEngineTest {
             val op = ApiJson.parseToJsonElement(up.body.readUtf8()).jsonObject.getValue("operations").jsonArray.single().jsonObject
             assertEquals("\"CREATE_PROFILE\"", op.getValue("type").toString())
             assertEquals("/api/v1/sync/backup?schemaVersion=1&limit=200", server.takeRequest().path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    /** 첫 요청을 받는 사이 다른 계정으로 바뀌면(QR 연결), 다음 요청은 보내지 않고 기록 표시·커서도 남기지 않는다. */
+    @Test fun accountSwitchMidSyncStopsBeforeNextRequest() = runBlocking {
+        val server = MockWebServer().apply { start() }
+        try {
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    runBlocking { tokens.update { it.copy(accessToken = "b", refreshToken = "rb", accountId = "acc2", nickname = "새") } }
+                    return MockResponse().setHeader("Content-Type", "application/json").setBody(
+                        """{"data":{"clientEventId":"e","serverRevision":1,"results":[{"operationId":"${createOpId("p-1")}","status":"APPLIED",""" +
+                            """"revision":1,"currentStateRevision":null,"currentProfileRevision":null,"error":null}]},"error":null}""",
+                    )
+                }
+            }
+            val remote = Remote({ server.url("/api/v1/").toString() }, tokens, "1.0.0")
+            profile(rev = null); record("r1", 1)
+
+            assertThrows(IOException::class.java) { runBlocking { SyncEngine(remote::api, store, tokens).run() } }
+
+            assertEquals(1, server.requestCount) // 기록 올리기·내려받기는 나가지 않았다
+            assertEquals("Bearer a", server.takeRequest().getHeader("Authorization"))
+            assertNull(store.records.getValue("r1").syncState)
+            assertTrue(store.cursors.isEmpty())
+            assertTrue(store.pages.isEmpty())
         } finally {
             server.shutdown()
         }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.db.ProfileEntity
+import com.drivepet.app.data.remote.AuthState
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.onboarding.FUELS
@@ -21,17 +22,30 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** 카카오 연결 상태. 연결돼 있어도 닉네임은 없을 수 있다. */
+data class KakaoLink(val nickname: String?)
+
+/** 계정이 있으면 연결됨(R11: 닉네임은 없을 수 있음). */
+fun kakaoLink(s: AuthState): KakaoLink? = s.accountId?.let { KakaoLink(s.nickname) }
+
+/** 01 카카오 줄 문구. 연결 여부는 계정으로 정한다(닉네임 아님). */
+fun kakaoLabel(k: KakaoLink?): String = when {
+    k == null -> "카카오 계정 연결하기"
+    k.nickname != null -> "카카오 ${k.nickname}님으로 연결됨 · 계정 바꾸기"
+    else -> "카카오 계정으로 연결됨 · 계정 바꾸기"
+}
+
 data class ProfileCard(val profileId: String, val petNickname: String, val vehicleName: String, val fuelLabel: String, val level: Int)
 
-/** 01 · 저장된 프로필 불러오기. kakaoNickname이 null이면 카카오 계정 미연결. */
+/** 01 · 저장된 프로필 불러오기. kakao가 null이면 카카오 계정 미연결. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WelcomeViewModel(
     store: RecordStore,
     private val activeId: Flow<String?>,
     private val setActive: suspend (String) -> Unit,
-    kakaoNickname: Flow<String?>,
+    kakaoLink: Flow<KakaoLink?>,
 ) : ViewModel() {
-    val kakao: StateFlow<String?> = kakaoNickname.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val kakao: StateFlow<KakaoLink?> = kakaoLink.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // createdAt 순 카드. 레벨은 프로필마다 원장 합계로 구한다.
     private val cards: Flow<List<Pair<ProfileEntity, ProfileCard>>> = store.profiles().flatMapLatest { list ->
@@ -73,7 +87,7 @@ class WelcomeViewModel(
         fun factory(c: AppContainer) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = WelcomeViewModel(
-                c.store, c.settings.activeProfileId, c.settings::setActiveProfile, c.auth.state.map { it.nickname },
+                c.store, c.settings.activeProfileId, c.settings::setActiveProfile, c.auth.state.map(::kakaoLink),
             ) as T
         }
     }

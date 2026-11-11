@@ -58,4 +58,15 @@ class RouteForTest {
             assertEquals(false, isDriving(st(ux, Signal.Unknown)))
         }
     }
+
+    /** 06 완료 직후: WELCOME 판정이 늦게 돌아도 그 사이 활성 프로필이 정해졌으면 라운지를 01로 되돌리지 않는다. */
+    @Test fun resetTargetRechecksActiveProfile() {
+        assertEquals(null, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = false))
+        assertEquals(Routes.WELCOME, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = true)) // 다른 곳에서 활성 프로필이 지워짐
+        assertEquals(null, resetTarget(Routes.ONBOARD_MATE, Forced.WELCOME, noActive = true))
+        assertEquals(null, resetTarget(Routes.WELCOME, Forced.WELCOME, noActive = true))
+        assertEquals(linkRoute("scan"), resetTarget(Routes.LOUNGE, Forced.ONBOARDING, noActive = true))
+        assertEquals(null, resetTarget(Routes.ONBOARD_SCAN, Forced.ONBOARDING, noActive = true))
+        assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
+    }
 }

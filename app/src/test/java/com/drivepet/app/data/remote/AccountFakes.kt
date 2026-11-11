@@ -55,8 +55,8 @@ class QrApi : DrivePetApi {
     }
     override suspend fun qrStatus(id: String): Envelope<QrStatus> = Envelope(script(++statusCalls))
     override suspend fun unlink(): Envelope<UnlinkResult> = Envelope(unlinkResult)
-    override suspend fun upload(r: UploadRequest): Envelope<UploadResult> = error("unused")
-    override suspend fun download(v: Int, cursor: String?, limit: Int): Envelope<DownloadResult> = error("unused")
+    override suspend fun upload(r: UploadRequest, a: ExpectedAccount): Envelope<UploadResult> = error("unused")
+    override suspend fun download(v: Int, cursor: String?, limit: Int, a: ExpectedAccount): Envelope<DownloadResult> = error("unused")
     override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")
 }
 

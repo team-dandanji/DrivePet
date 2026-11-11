@@ -11,16 +11,20 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Tag
+
+/** 동기화 요청이 기대하는 계정. 붙인 토큰의 계정과 다르면 Remote가 보내지 않는다. */
+data class ExpectedAccount(val id: String)
 
 /** 인증이 붙는 호출. */
 interface DrivePetApi {
     @POST("auth/kakao/qr-sessions") suspend fun createQr(): Envelope<QrSession>
     @GET("auth/kakao/qr-sessions/{id}") suspend fun qrStatus(@Path("id") id: String): Envelope<QrStatus>
     @DELETE("auth/kakao") suspend fun unlink(): Envelope<UnlinkResult>
-    @PUT("sync/backup") suspend fun upload(@Body r: UploadRequest): Envelope<UploadResult>
+    @PUT("sync/backup") suspend fun upload(@Body r: UploadRequest, @Tag a: ExpectedAccount): Envelope<UploadResult>
     @GET("weather") suspend fun weather(@Query("lat") lat: Double, @Query("lng") lng: Double): Envelope<WeatherDto>
     @GET("sync/backup") suspend fun download(
-        @Query("schemaVersion") v: Int, @Query("cursor") cursor: String?, @Query("limit") limit: Int,
+        @Query("schemaVersion") v: Int, @Query("cursor") cursor: String?, @Query("limit") limit: Int, @Tag a: ExpectedAccount,
     ): Envelope<DownloadResult>
 }
 

@@ -54,8 +54,9 @@ class Remote(
         .build()
 
     private val bearer = Interceptor { chain ->
-        val token = runBlocking { tokens.get().accessToken } ?: synchronized(lock) { ensureRegistered() }
-        chain.proceed(chain.request().withBearer(token))
+        val s = runBlocking { tokens.get() }.takeIf { it.accessToken != null } ?: synchronized(lock) { ensureRegistered() }
+        val req = chain.request().authorizedBy(s) ?: throw IOException("계정이 바뀌었거나 토큰이 없어 요청을 보내지 않습니다")
+        chain.proceed(req)
     }
 
     private val recover = Authenticator { _: Route?, response: Response ->
@@ -64,18 +65,29 @@ class Remote(
         synchronized(lock) {
             val s = runBlocking { tokens.get() }
             // 다른 요청이 이미 갱신했으면 저장된 토큰으로 다시 보낸다.
-            if (s.accessToken != null && s.accessToken != failed) return@synchronized response.request.withBearer(s.accessToken)
-            val refreshed = s.refreshToken?.let { refresh(it) }
-            val token = refreshed ?: registerWithFallback()
-            token?.let { response.request.withBearer(it) }
+            if (s.accessToken != null && s.accessToken != failed) return@synchronized response.request.authorizedBy(s)
+            s.refreshToken?.let { refresh(it) } ?: registerWithFallback() ?: return@synchronized null
+            // 재등록은 계정을 바꿀 수 있다: 다시 읽은 상태 하나로 계정을 대조하고 그 토큰을 붙인다.
+            response.request.authorizedBy(runBlocking { tokens.get() })
         }
     }
 
-    private fun Request.withBearer(token: String) = newBuilder().header("Authorization", "Bearer $token").build()
+    /**
+     * [s]의 토큰을 붙인 요청. 동기화 요청([ExpectedAccount] 태그)인데 [s]의 계정과 다르면 null
+     * (A의 기록을 B의 토큰으로 보내지 않는다). 토큰이 없어도 null.
+     */
+    private fun Request.authorizedBy(s: AuthState): Request? {
+        val expected = tag(ExpectedAccount::class.java)
+        if (expected != null && expected.id != s.accountId) return null
+        return s.accessToken?.let { newBuilder().header("Authorization", "Bearer $it").build() }
+    }
 
-    /** lock 안에서만 부른다. 다른 요청이 먼저 등록했을 수 있어 다시 확인한다. */
-    private fun ensureRegistered(): String =
-        runBlocking { tokens.get().accessToken } ?: registerWithFallback() ?: throw IOException("기기 등록 실패")
+    /** lock 안에서만 부른다. 다른 요청이 먼저 등록했을 수 있어 다시 확인한다. 토큰이 있는 상태를 돌려준다. */
+    private fun ensureRegistered(): AuthState {
+        runBlocking { tokens.get() }.let { if (it.accessToken != null) return it }
+        registerWithFallback() ?: throw IOException("기기 등록 실패")
+        return runBlocking { tokens.get() }
+    }
 
     /** 갱신 성공이면 새 access, 401이면 null. 그 밖의 오류는 IOException. */
     private fun refresh(refreshToken: String): String? {

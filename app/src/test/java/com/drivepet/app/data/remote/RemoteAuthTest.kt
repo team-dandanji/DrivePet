@@ -17,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
+import com.drivepet.app.data.sync.UploadRequest
 import retrofit2.HttpException
 import java.util.UUID
 
@@ -39,8 +40,8 @@ class RemoteAuthTest {
         MockResponse().setResponseCode(code).setHeader("Content-Type", "application/json").setBody(body)
 
     private val qr = """{"data":{"sessionId":"s","qrUrl":"u","expiresAt":"t","status":"PENDING"},"error":null}"""
-    private fun register(a: String, r: String) =
-        """{"data":{"accessToken":"$a","refreshToken":"$r","expiresIn":3600,"accountId":null,"hasAccount":false},"error":null}"""
+    private fun register(a: String, r: String, account: String? = null) =
+        """{"data":{"accessToken":"$a","refreshToken":"$r","expiresIn":3600,"accountId":${account?.let { "\"$it\"" }},"hasAccount":${account != null}},"error":null}"""
     private fun pair(a: String, r: String) =
         """{"data":{"accessToken":"$a","refreshToken":"$r","expiresIn":3600},"error":null}"""
     private val expired = """{"data":null,"error":{"code":"AUTH_EXPIRED_TOKEN","message":"만료"}}"""
@@ -162,5 +163,35 @@ class RemoteAuthTest {
 
         assertEquals(1, refreshes.get())
         assertEquals("a2", store.get().accessToken)
+    }
+
+    /** 401 복구(갱신 거절 → 재등록)로 계정이 바뀌면, 이전 계정을 기대한 동기화 요청은 새 토큰으로 다시 보내지 않는다. */
+    @Test fun syncRequestNotResentWhenRecoveryChangesAccount() = runBlocking {
+        val store = MemoryTokenStore(AuthState("dev-1", "s".repeat(43), "a1", "r1", "acc_A", null))
+        server.enqueue(json(401, expired))
+        server.enqueue(json(401, invalid))
+        server.enqueue(json(200, register("a3", "r3", account = "acc_B")))
+
+        try {
+            remote(store).api().upload(UploadRequest(1, "e", emptyList()), ExpectedAccount("acc_A"))
+            fail("HttpException expected")
+        } catch (e: HttpException) {
+            assertEquals(401, e.code())
+        }
+        assertEquals(3, server.requestCount) // 업로드 → 갱신 → 등록, 다시 보내기 없음
+        assertEquals("acc_B", store.get().accountId)
+    }
+
+    /** 복구 뒤에도 같은 계정이면 동기화 요청은 새 토큰으로 다시 보낸다. */
+    @Test fun syncRequestResentWhenAccountUnchanged() = runBlocking {
+        val store = MemoryTokenStore(AuthState("dev-1", "s".repeat(43), "a1", "r1", "acc_A", null))
+        server.enqueue(json(401, expired))
+        server.enqueue(json(200, pair("a2", "r2")))
+        server.enqueue(json(200, """{"data":{"clientEventId":"e","serverRevision":0,"results":[]},"error":null}"""))
+
+        remote(store).api().upload(UploadRequest(1, "e", emptyList()), ExpectedAccount("acc_A"))
+
+        server.takeRequest(); server.takeRequest()
+        assertEquals("Bearer a2", server.takeRequest().getHeader("Authorization"))
     }
 }

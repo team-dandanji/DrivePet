@@ -3,6 +3,7 @@ package com.drivepet.app.ui.welcome
 import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
+import com.drivepet.app.data.remote.AuthState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,7 @@ import org.junit.Test
 class WelcomeViewModelTest {
     private val store = FakeRecordStore()
     private val active = MutableStateFlow<String?>(null)
-    private val kakao = MutableStateFlow<String?>(null)
+    private val kakao = MutableStateFlow<KakaoLink?>(null)
     private val setCalls = mutableListOf<String>()
 
     private fun profile(id: String, createdAt: Long, fuel: String = "EV") =
@@ -82,9 +83,17 @@ class WelcomeViewModelTest {
     @Test fun kakaoFollowsAuth() = runTest {
         val v = vm()
         assertNull(v.kakao.value)
-        kakao.value = "지우"
-        assertEquals("지우", v.kakao.value)
+        kakao.value = KakaoLink("지우")
+        assertEquals(KakaoLink("지우"), v.kakao.value)
         kakao.value = null
         assertNull(v.kakao.value)
+    }
+
+    /** 연결 여부는 계정으로 정한다: 닉네임 없이 연결된 계정도 "연결됨"으로 보인다. */
+    @Test fun kakaoRowDecidedByAccount() {
+        fun auth(account: String?, nick: String?) = AuthState("d", "s", "a", "r", account, nick)
+        assertEquals("카카오 지우님으로 연결됨 · 계정 바꾸기", kakaoLabel(kakaoLink(auth("acc", "지우"))))
+        assertEquals("카카오 계정으로 연결됨 · 계정 바꾸기", kakaoLabel(kakaoLink(auth("acc", null))))
+        assertEquals("카카오 계정 연결하기", kakaoLabel(kakaoLink(auth(null, null))))
     }
 }

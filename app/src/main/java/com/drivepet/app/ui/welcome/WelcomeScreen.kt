@@ -97,7 +97,7 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                             ) { Text("프로필 다시 설정", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
                             Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClick = onAccount), verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    kakao?.let { "카카오 ${it}님으로 연결됨 · 계정 바꾸기" } ?: "카카오 계정 연결하기",
+                                    kakaoLabel(kakao),
                                     fontSize = 26.sp, fontWeight = FontWeight.Bold,
                                 )
                             }

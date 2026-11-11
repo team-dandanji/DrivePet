@@ -158,7 +158,7 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
                 val url = normalizeServerUrl(serverUrl)
                 if (url == null) serverError = true else { serverUrl = url; scope.launch { container.settings.setServerUrl(url) } }
             })
-            DevButton("지금 동기화", { container.kickSync() })
+            DevButton("지금 동기화", { scope.launch { runCatching { container.sync.run() } } }) // 워커 재시도 대기(backoff)를 거치지 않고 바로 돈다
             DevButton("카카오 연결 해제", {
                 // 해제 요청이 실패하면(오프라인 등) 연결 상태를 그대로 둔다.
                 scope.launch { unlinkFailed = try { container.account.unlink(); false } catch (e: IOException) { true } catch (e: HttpException) { true } }

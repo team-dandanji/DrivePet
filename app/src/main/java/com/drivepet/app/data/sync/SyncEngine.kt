@@ -2,6 +2,7 @@ package com.drivepet.app.data.sync
 
 import com.drivepet.app.data.remote.DrivePetApi
 import com.drivepet.app.data.remote.Envelope
+import com.drivepet.app.data.remote.ExpectedAccount
 import com.drivepet.app.data.remote.TokenStore
 import com.drivepet.app.data.remote.apiCode
 import kotlinx.coroutines.sync.Mutex
@@ -28,6 +29,7 @@ private class Unlinked : Exception()
 /**
  * 올리기(프로필 생성 → 기록 추가) → 내려받기. 미연결이면 아무것도 하지 않는다.
  * IOException·HTTP 오류는 밖으로 던진다(워커가 재시도). 이미 표시한 것은 표시된 채로 남는다.
+ * 요청마다 계정을 붙여, 도중에 계정이 바뀌면 Remote가 보내지 않고 IOException으로 끝낸다(다음 실행이 새 계정으로 돈다).
  */
 class SyncEngine(
     private val api: suspend () -> DrivePetApi,
@@ -86,7 +88,7 @@ class SyncEngine(
         var downloaded = 0
         var cursor = store.cursor(account)
         do {
-            val page = call { it.download(SCHEMA_VERSION, cursor, DOWNLOAD_LIMIT) }
+            val page = call { it.download(SCHEMA_VERSION, cursor, DOWNLOAD_LIMIT, ExpectedAccount(account)) }
             store.applyPage(account, page.changes.mapNotNull { it.toLocal(account, store.profile(it.profileId)) }, page.nextCursor)
             downloaded += page.changes.size
             val stuck = page.nextCursor == cursor // 커서가 안 움직이면 hasMore여도 멈춘다
@@ -100,10 +102,10 @@ class SyncEngine(
     private suspend fun upload(account: String, ops: List<SyncOp>): UploadResult {
         val req = UploadRequest(SCHEMA_VERSION, clientEventId(account, ops), ops)
         return try {
-            call { it.upload(req) }
+            call { it.upload(req, ExpectedAccount(account)) }
         } catch (e: HttpException) {
             if (e.code() != 409 || e.apiCode() != "IDEMPOTENCY_CONFLICT") throw e
-            call { it.upload(req.copy(clientEventId = UUID.randomUUID().toString())) }
+            call { it.upload(req.copy(clientEventId = UUID.randomUUID().toString()), ExpectedAccount(account)) }
         }
     }
 

@@ -47,6 +47,12 @@ class Settings(context: Context) {
 
     suspend fun setServerUrl(url: String) { store.edit { it[serverUrlKey] = url } }
 
-    /** 개발자 메뉴 "로컬 데이터 초기화": 설정을 모두 지운다. */
-    suspend fun clear() { store.edit { it.clear() } }
+    /** 개발자 메뉴 "로컬 데이터 초기화": 서버 주소만 남기고 설정을 지운다(지우면 시연 빌드가 기본 http 주소로 돌아가 서버 기능이 끊긴다). */
+    suspend fun clear() {
+        store.edit { p ->
+            val url = p[serverUrlKey]
+            p.clear()
+            url?.let { p[serverUrlKey] = it }
+        }
+    }
 }
