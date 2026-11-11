@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -77,7 +78,7 @@ fun CareHistoryScreen(
             Text("관리 배점 합계 30점", fontSize = 26.sp, fontWeight = FontWeight.Bold)
         }
         // EV 3열, ICE·HEV 2×2
-        items.chunked(if (items.size == 3) 3 else 2).forEach { row ->
+        items.chunked(if (LocalConfiguration.current.screenWidthDp < 1200) 1 else if (items.size == 3) 3 else 2).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 row.forEach { item ->
                     ItemCard(item, score, baselines[item], { onPeriod(item, it) }, { editing = item }, Modifier.weight(1f))

@@ -6,6 +6,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,36 +55,74 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
     LaunchedEffect(vm) { vm.greetIfFirstToday() }
     val u = ui ?: return
 
-    Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(Modifier.weight(1f).fillMaxSize()) {
-            Text("${u.nickname} ${faceOf(u.mood)}", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
-            VehicleLine(u.vehicleLine, weather)
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Character(
-                    u.starter, u.stage, u.mood,
-                    Modifier.then(if (BuildConfig.DEMO_TOOLS) Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onDev() }) } else Modifier),
-                )
+    val devPress = if (BuildConfig.DEMO_TOOLS) Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onDev() }) } else Modifier
+    val header: @Composable () -> Unit = {
+        Text("${u.nickname} ${faceOf(u.mood)}", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
+        VehicleLine(u.vehicleLine, weather)
+    }
+    val bubbleRow: @Composable () -> Unit = { Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) { SpeechBubble(bubble) } }
+    val statusRow: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (u.parked) Chip("주차중")
+            Box(Modifier.weight(1f))
+            if (u.showCheckInButton) {
+                Button(
+                    vm::checkInNow, Modifier.height(72.dp), shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
+                ) { Text("출석하기", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
             }
-            Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) { SpeechBubble(bubble) }
-            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (u.parked) Chip("주차중")
-                Box(Modifier.weight(1f))
-                if (u.showCheckInButton) {
-                    Button(
-                        vm::checkInNow, Modifier.height(72.dp), shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
-                    ) { Text("출석하기", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        }
+    }
+    val stats: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            StatCard("배터리", u.satietyPct, "%", Modifier.weight(1f))
+            StatCard("건강점수", u.healthPct, "/ 100점", Modifier.weight(1f))
+        }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        when (loungeLayout(maxWidth.value.toInt(), maxHeight.value.toInt())) {
+            // 17 Connect-S 분할 세로 창: 위아래로 쌓고 스크롤
+            LoungeLayout.NARROW -> Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                header()
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                bubbleRow()
+                stats()
+                WarningCard(u, onCare, Modifier.fillMaxWidth().height(if (u.careAction != null || u.warnings.isNotEmpty()) 420.dp else 200.dp))
+                statusRow()
+                ExpCard(u, vm::claim, stacked = true)
+            }
+            // 18 Connect-W 낮고 넓은 창: 캐릭터 왼쪽, 게이지·특이사항·미션 오른쪽
+            LoungeLayout.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1f).fillMaxSize()) {
+                    header()
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                    bubbleRow()
+                    statusRow()
+                }
+                Column(Modifier.width(720.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    stats()
+                    WarningCard(u, onCare, Modifier.weight(1f))
+                    ExpCard(u, vm::claim)
                 }
             }
-            ExpCard(u, vm::claim)
-        }
-        Column(Modifier.width(592.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("펫 컨디션", fontSize = 36.sp, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                StatCard("배터리", u.satietyPct, "%", Modifier.weight(1f))
-                StatCard("건강점수", u.healthPct, "/ 100점", Modifier.weight(1f))
+            LoungeLayout.DEFAULT -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1f).fillMaxSize()) {
+                    header()
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                    bubbleRow()
+                    statusRow()
+                    ExpCard(u, vm::claim)
+                }
+                Column(Modifier.width(592.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("펫 컨디션", fontSize = 36.sp, fontWeight = FontWeight.Bold)
+                    stats()
+                    WarningCard(u, onCare, Modifier.weight(1f))
+                }
             }
-            WarningCard(u, onCare, Modifier.weight(1f))
         }
     }
 }
@@ -113,24 +154,31 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 }
 
 @Composable
-private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit) {
+private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit, stacked: Boolean = false) {
+    val level: @Composable (Modifier) -> Unit = { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("LV. ${u.gauge.level}", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                u.gauge.needMilli?.let { "${formatExp(u.gauge.inLevelMilli)} / ${formatExp(it)} EXP" } ?: "MAX",
+                fontSize = 26.sp, color = DpColors.TextTertiary,
+            )
+            LinearProgressIndicator(
+                progress = { u.gauge.percent / 100f }, color = DpColors.Filled, trackColor = DpColors.TrackInactive,
+                drawStopIndicator = {}, modifier = Modifier.fillMaxWidth().height(12.dp),
+            )
+        }
+    }
+    val missions: @Composable (Modifier) -> Unit = { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Today's mission", fontSize = 24.sp, color = DpColors.TextTertiary)
+            u.missions.forEach { ms -> MissionRow(ms) { onClaim(ms.kind) } }
+        }
+    }
     Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("LV. ${u.gauge.level}", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    u.gauge.needMilli?.let { "${formatExp(u.gauge.inLevelMilli)} / ${formatExp(it)} EXP" } ?: "MAX",
-                    fontSize = 26.sp, color = DpColors.TextTertiary,
-                )
-                LinearProgressIndicator(
-                    progress = { u.gauge.percent / 100f }, color = DpColors.Filled, trackColor = DpColors.TrackInactive,
-                    drawStopIndicator = {}, modifier = Modifier.fillMaxWidth().height(12.dp),
-                )
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Today's mission", fontSize = 24.sp, color = DpColors.TextTertiary)
-                u.missions.forEach { m -> MissionRow(m) { onClaim(m.kind) } }
-            }
+        if (stacked) {
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) { level(Modifier.fillMaxWidth()); missions(Modifier.fillMaxWidth()) }
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) { level(Modifier.weight(0.7f)); missions(Modifier.weight(1.3f)) }
         }
     }
 }
