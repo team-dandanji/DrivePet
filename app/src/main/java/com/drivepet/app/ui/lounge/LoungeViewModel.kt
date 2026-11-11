@@ -244,7 +244,6 @@ class LoungeViewModel(
 
     fun checkInNow() { viewModelScope.launch { checkIn() } } // 출석 말풍선은 코디네이터가 띄운다.
 
-    fun careTapped() = speaker.say("정비소 안내는 곧 열려요")
 
     private fun fuelLabel(fuelType: String) = when (runCatching { FuelType.valueOf(fuelType) }.getOrNull()) {
         FuelType.EV -> "전기차(EV)"

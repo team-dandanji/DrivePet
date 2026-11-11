@@ -44,11 +44,16 @@ import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
 import com.drivepet.app.ui.components.TopTabs
+import com.drivepet.app.domain.FuelType
 import com.drivepet.app.ui.care.CareDoneScreen
 import com.drivepet.app.ui.care.CareHistoryScreen
 import com.drivepet.app.ui.care.GarageEditScreen
 import com.drivepet.app.ui.care.GarageScreen
 import com.drivepet.app.ui.care.GarageViewModel
+import com.drivepet.app.ui.care.PlaceScreen
+import com.drivepet.app.ui.care.PlaceTab
+import com.drivepet.app.ui.care.placeRoute
+import com.drivepet.app.ui.lounge.CareAction
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
@@ -260,7 +265,10 @@ fun AppNav(container: AppContainer) {
                         )
                     }
                     composable(Routes.LOUNGE) {
-                        LoungeScreen(viewModel(factory = LoungeViewModel.factory(container)), container.speaker) { nav.navigate(Routes.DEV) }
+                        LoungeScreen(
+                            viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
+                            onCare = { nav.navigate(placeRoute(if (it == CareAction.HOSPITAL) PlaceTab.REPAIR else PlaceTab.ENERGY)) },
+                        ) { nav.navigate(Routes.DEV) }
                     }
                     composable(Routes.GARAGE) {
                         GarageScreen(
@@ -280,6 +288,11 @@ fun AppNav(container: AppContainer) {
                         )
                     }
                     composable(Routes.TRIPS) { TripsScreen(container) }
+                    composable("place/{tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType })) { entry ->
+                        val tab = runCatching { PlaceTab.valueOf(entry.arguments?.getString("tab").orEmpty()) }.getOrDefault(PlaceTab.REPAIR)
+                        val fuel = profile?.fuelType ?: FuelType.EV
+                        PlaceScreen(tab, fuel, state.warnings.valueOrNull()?.firstOrNull(), pet.first, pet.second) { nav.popBackStack() }
+                    }
                     composable(
                         "${Routes.LEVEL_UP}/{before}/{after}",
                         arguments = listOf(navArgument("before") { type = NavType.IntType }, navArgument("after") { type = NavType.IntType }),

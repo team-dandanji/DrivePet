@@ -45,7 +45,7 @@ private const val MAX_WARNING_ROWS = 3
 
 /** 07 · 08 메인 라운지. 08(이상 감지)은 같은 화면에서 특이사항·CTA가 채워진 상태다. 프로필이 없으면 아무것도 그리지 않는다. */
 @Composable
-fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
+fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> Unit, onDev: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val bubble by speaker.bubble.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
@@ -81,7 +81,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
                 StatCard("배터리", u.satietyPct, "%", Modifier.weight(1f))
                 StatCard("건강점수", u.healthPct, "/ 100점", Modifier.weight(1f))
             }
-            WarningCard(u, vm::careTapped, Modifier.weight(1f))
+            WarningCard(u, onCare, Modifier.weight(1f))
         }
     }
 }
@@ -184,7 +184,7 @@ private fun StatCard(label: String, value: Int?, unit: String, modifier: Modifie
 }
 
 @Composable
-private fun WarningCard(u: LoungeUi, onCare: () -> Unit, modifier: Modifier) {
+private fun WarningCard(u: LoungeUi, onCare: (CareAction) -> Unit, modifier: Modifier) {
     Card(modifier) {
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -207,7 +207,7 @@ private fun WarningCard(u: LoungeUi, onCare: () -> Unit, modifier: Modifier) {
             Box(Modifier.weight(1f))
             u.careAction?.let {
                 Button(
-                    onCare, Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(16.dp),
+                    { onCare(it) }, Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
                 ) { Text(it.label, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
             }

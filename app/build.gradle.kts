@@ -53,6 +53,7 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 
 dependencies {
     implementation(project(":vehicle"))
+    implementation("ai.pleos.playground:NaviHelper:3.0.5")
 
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation("androidx.compose.ui:ui")
