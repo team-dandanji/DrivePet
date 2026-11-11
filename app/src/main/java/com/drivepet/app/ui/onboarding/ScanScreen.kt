@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,6 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import com.drivepet.app.ui.components.AdaptiveRow
+import com.drivepet.app.ui.components.isNarrowWindow
+import com.drivepet.app.ui.components.scrollWhen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -46,14 +50,16 @@ fun ScanScreen(vm: OnboardingViewModel, onNext: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val odometer = state.odometerKm.valueOrNull()
 
-    Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    val narrow = isNarrowWindow()
+    Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("차량 정보를 확인해 주세요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
             Text("차에서 읽은 정보예요. 읽지 못한 항목은 직접 적어 주세요", fontSize = 26.sp, color = DpColors.TextTertiary)
         }
-        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
-                Column(Modifier.padding(32.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        // 넓은 창: 두 카드를 나란히(카드 안만 스크롤). 좁은 창: 위아래로 쌓고 화면 전체를 스크롤.
+        AdaptiveRow(narrow, if (narrow) Modifier else Modifier.weight(1f)) { card ->
+            OnboardCard(card.fillMaxHeight()) {
+                Column(Modifier.padding(32.dp).scrollWhen(!narrow), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     Text("차량 프로필", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
                     Field("차량 이름") {
                         OutlinedTextField(
@@ -94,10 +100,10 @@ fun ScanScreen(vm: OnboardingViewModel, onNext: () -> Unit) {
                     }
                 }
             }
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
+            OnboardCard(card.fillMaxHeight()) {
                 Column(Modifier.padding(32.dp)) {
                     Text("차량 기능 확인", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                    Column(Modifier.weight(1f).padding(top = 12.dp).verticalScroll(rememberScrollState())) {
+                    Column((if (narrow) Modifier else Modifier.weight(1f).verticalScroll(rememberScrollState())).padding(top = 12.dp)) {
                         caps.forEachIndexed { i, c ->
                             if (i > 0) HorizontalDivider(color = DpColors.Divider)
                             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), Arrangement.SpaceBetween) {
@@ -135,7 +141,7 @@ internal fun Choice(label: String, selected: Boolean, onClick: () -> Unit, modif
             .selectable(selected, onClick = onClick, role = Role.RadioButton),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else DpColors.Text)
+        Text(label, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else DpColors.Text, maxLines = 1, softWrap = false)
     }
 }
 

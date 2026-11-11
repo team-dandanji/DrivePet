@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.ui.components.FilledButton
 import com.drivepet.app.ui.onboarding.OnboardCard
+import com.drivepet.app.ui.components.AdaptiveRow
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -37,12 +39,13 @@ fun CareDoneScreen(vm: GarageViewModel, recordId: String, onGarage: () -> Unit, 
     val u = d ?: return
     // 받침이 있으면 "을", 없으면 "를"
     val obj = if ((u.title.last().code - 0xAC00) % 28 != 0) "을" else "를"
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 120.dp, vertical = 40.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+    val narrow = isNarrowWindow()
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = if (narrow) 40.dp else 120.dp, vertical = 40.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Text("${u.title}$obj 기록했어요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
         OnboardCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(32.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+            AdaptiveRow(narrow, Modifier.padding(32.dp), gap = if (narrow) 28.dp else 48.dp, weighted = false) {
                 Column(
-                    Modifier.width(360.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp)).padding(28.dp),
+                    (if (narrow) Modifier.fillMaxWidth() else Modifier.width(360.dp)).background(DpColors.Secondary, RoundedCornerShape(16.dp)).padding(28.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("관리 주기", fontSize = 26.sp, color = DpColors.TextTertiary)
@@ -64,11 +67,11 @@ fun CareDoneScreen(vm: GarageViewModel, recordId: String, onGarage: () -> Unit, 
                 Text("TPMS 경고 유지 · 정비 기록만으로 차량 경고가 해제되지는 않아요.", Modifier.padding(28.dp), fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onGarage, Modifier.weight(1f).height(100.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp))) {
+        AdaptiveRow(narrow) { cell ->
+            TextButton(onGarage, cell.height(100.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp))) {
                 Text("내 차 정비소로 돌아가기", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Text)
             }
-            FilledButton("라운지에서 갱신 상태 확인", onLounge, Modifier.weight(1f))
+            FilledButton("라운지에서 갱신 상태 확인", onLounge, cell)
         }
     }
 }

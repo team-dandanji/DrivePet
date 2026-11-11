@@ -35,6 +35,8 @@ import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.FilledButton
 import com.drivepet.app.ui.onboarding.Choice
 import com.drivepet.app.ui.onboarding.OnboardCard
+import com.drivepet.app.ui.components.isNarrowWindow
+import com.drivepet.app.ui.components.scrollWhen
 import com.drivepet.app.ui.theme.DpColors
 
 /** 09 탭. 라운지 08의 "병원 가기" → REPAIR, "밥 주러 가기" → ENERGY. */
@@ -56,47 +58,60 @@ fun PlaceScreen(start: PlaceTab, fuel: FuelType, warning: String?, starter: Stri
     val energy = if (fuel == FuelType.EV) "충전소" else "주유소"
     val target = if (tab == PlaceTab.REPAIR) "정비소" else energy
 
-    Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
-        Text("가까운 ${target}를 찾아요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Choice("정비소", tab == PlaceTab.REPAIR, { tab = PlaceTab.REPAIR; failed = false }, Modifier.width(240.dp))
-                    Choice(if (fuel == FuelType.EV) "충전소" else "충전소 · 주유소", tab == PlaceTab.ENERGY, { tab = PlaceTab.ENERGY; failed = false }, Modifier.width(300.dp))
-                }
-                OnboardCard(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("내비게이션에서 가까운 ${target}를 골라 주세요", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                        Text("고른 곳은 내비게이션에서 목적지나 경유지로 바로 추가할 수 있어요.", fontSize = 26.sp, color = DpColors.TextTertiary)
-                        if (failed) Text("내비게이션을 열지 못했어요. 내비게이션 앱에서 직접 찾아 주세요.", fontSize = 26.sp, color = DpColors.Danger)
-                    }
+    val narrow = isNarrowWindow()
+    val guide: @Composable (Modifier) -> Unit = { m ->
+        Column(m, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Choice("정비소", tab == PlaceTab.REPAIR, { tab = PlaceTab.REPAIR; failed = false }, Modifier.width(240.dp))
+                Choice(if (fuel == FuelType.EV) "충전소" else "충전소 · 주유소", tab == PlaceTab.ENERGY, { tab = PlaceTab.ENERGY; failed = false }, Modifier.width(300.dp))
+            }
+            OnboardCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("내비게이션에서 가까운 ${target}를 골라 주세요", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                    Text("고른 곳은 내비게이션에서 목적지나 경유지로 바로 추가할 수 있어요.", fontSize = 26.sp, color = DpColors.TextTertiary)
+                    if (failed) Text("내비게이션을 열지 못했어요. 내비게이션 앱에서 직접 찾아 주세요.", fontSize = 26.sp, color = DpColors.Danger)
                 }
             }
-            OnboardCard(Modifier.width(520.dp)) {
-                Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("차량 상태", fontSize = 26.sp, color = DpColors.TextTertiary)
-                    Text(warning?.let { "차량 경고: $it" } ?: if (tab == PlaceTab.REPAIR) "켜진 경고등 없음" else "배터리·연료가 부족해요", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        if (tab == PlaceTab.REPAIR) "정비소에서 점검을 요청하세요. 다녀온 뒤 내 차 정비소에 관리 기록을 남길 수 있어요." else "가까운 ${energy}에서 충분히 채워 주세요.",
-                        fontSize = 24.sp, color = DpColors.TextTertiary,
-                    )
-                }
+        }
+    }
+    val status: @Composable (Modifier) -> Unit = { m ->
+        OnboardCard(m) {
+            Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("차량 상태", fontSize = 26.sp, color = DpColors.TextTertiary)
+                Text(warning?.let { "차량 경고: $it" } ?: if (tab == PlaceTab.REPAIR) "켜진 경고등 없음" else "배터리·연료가 부족해요", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (tab == PlaceTab.REPAIR) "정비소에서 점검을 요청하세요. 다녀온 뒤 내 차 정비소에 관리 기록을 남길 수 있어요." else "가까운 ${energy}에서 충분히 채워 주세요.",
+                    fontSize = 24.sp, color = DpColors.TextTertiary,
+                )
+            }
+        }
+    }
+    Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(40.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        Text("가까운 ${target}를 찾아요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
+        // 좁은 창: 탭·안내 카드·차량 상태 카드를 위아래로
+        if (narrow) {
+            guide(Modifier.fillMaxWidth())
+            status(Modifier.fillMaxWidth())
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                guide(Modifier.weight(1f))
+                status(Modifier.width(520.dp))
             }
         }
         // Hi-fi "펫 돌보기"처럼 가운데에 캐릭터
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box((if (narrow) Modifier else Modifier.weight(1f)).fillMaxWidth(), contentAlignment = Alignment.Center) {
             Character(starter, stage, if (tab == PlaceTab.REPAIR) Mood.SICK_1 else Mood.HUNGRY)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onBack, Modifier.width(360.dp).height(100.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp))) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = if (narrow) Arrangement.spacedBy(24.dp) else Arrangement.SpaceBetween) {
+            TextButton(onBack, (if (narrow) Modifier.weight(1f) else Modifier.width(360.dp)).height(100.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp))) {
                 Text("라운지로 돌아가기", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Text)
             }
-            Box {
+            Box(if (narrow) Modifier.weight(1f) else Modifier) {
                 FilledButton("내비게이션에서 찾기", {
                     failed = false
                     val req = if (tab == PlaceTab.ENERGY && fuel == FuelType.EV) NavigationScreenRequest.NearbyChargingStations else NavigationScreenRequest.SearchPlace(target)
                     navi.open(req) { ok -> if (!ok) failed = true }
-                }, Modifier.width(520.dp))
+                }, if (narrow) Modifier.fillMaxWidth() else Modifier.width(520.dp))
             }
         }
     }

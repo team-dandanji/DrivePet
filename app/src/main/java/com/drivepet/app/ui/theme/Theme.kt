@@ -5,11 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.unit.TextUnit
 
 /** Pleos_UI Hi-fi(Figma LVJcQ8Cjio1BUABnSWzC6h)에서 읽은 값. Figma px = dp/sp. */
 object DpColors {
@@ -33,9 +37,23 @@ object DpColors {
 
 fun Modifier.skyBackground(): Modifier = background(Brush.verticalGradient(listOf(DpColors.SkyTop, DpColors.SoftTop)))
 
+/**
+ * 화면마다 글자 크기만 키워 쓰므로 줄 간격은 글자 크기를 따르게 하고(기본 24sp로 두면 두 줄일 때 겹친다),
+ * 한국어는 글자 단위가 아니라 띄어쓰기 단위로 줄을 바꾼다(Android 13+ 구 단위 줄바꿈).
+ */
+private val KOREAN_LINE_BREAK = LineBreak(LineBreak.Strategy.Balanced, LineBreak.Strictness.Strict, LineBreak.WordBreak.Phrase)
+private fun TextStyle.fit() = copy(lineHeight = TextUnit.Unspecified, lineBreak = KOREAN_LINE_BREAK)
+private val TYPOGRAPHY = Typography().run {
+    Typography(
+        displayLarge.fit(), displayMedium.fit(), displaySmall.fit(), headlineLarge.fit(), headlineMedium.fit(), headlineSmall.fit(),
+        titleLarge.fit(), titleMedium.fit(), titleSmall.fit(), bodyLarge.fit(), bodyMedium.fit(), bodySmall.fit(),
+        labelLarge.fit(), labelMedium.fit(), labelSmall.fit(),
+    )
+}
+
 @Composable
 fun DrivePetTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = lightColorScheme(primary = DpColors.Filled, onSurface = DpColors.Text)) {
+    MaterialTheme(colorScheme = lightColorScheme(primary = DpColors.Filled, onSurface = DpColors.Text), typography = TYPOGRAPHY) {
         // 창 전체 배경. Surface가 있어야 어두운 창 배경 위에서도 글자색이 DpColors.Text로 잡힌다.
         Box(Modifier.fillMaxSize().skyBackground()) {
             Surface(color = Color.Transparent, contentColor = DpColors.Text, modifier = Modifier.fillMaxSize(), content = content)

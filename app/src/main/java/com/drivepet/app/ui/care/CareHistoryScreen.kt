@@ -26,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +42,7 @@ import com.drivepet.app.domain.seoulDate
 import com.drivepet.app.ui.components.FilledButton
 import com.drivepet.app.ui.onboarding.Choice
 import com.drivepet.app.ui.onboarding.OnboardCard
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import java.time.Instant
 import java.time.LocalDate
@@ -72,13 +72,20 @@ fun CareHistoryScreen(
             Text("마지막으로 언제 관리했나요?", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
             Text("교체·관리 시기를 등록해요. 정확히 기억나지 않아도 나중에 수정할 수 있어요.", fontSize = 26.sp, color = DpColors.TextTertiary)
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        val narrow = isNarrowWindow()
+        val tags: @Composable () -> Unit = {
             FuelTag("ICE / HEV · 4종 · 각 7.5점", fuel != FuelType.EV)
             FuelTag("EV · 3종 · 각 10점", fuel == FuelType.EV)
-            Text("관리 배점 합계 30점", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        }
+        val total: @Composable () -> Unit = { Text("관리 배점 합계 30점", fontSize = 26.sp, fontWeight = FontWeight.Bold) }
+        if (narrow) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) { tags() }
+            total()
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) { tags(); total() }
         }
         // EV 3열, ICE·HEV 2×2
-        items.chunked(if (LocalConfiguration.current.screenWidthDp < 1200) 1 else if (items.size == 3) 3 else 2).forEach { row ->
+        items.chunked(if (narrow) 1 else if (items.size == 3) 3 else 2).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 row.forEach { item ->
                     ItemCard(item, score, baselines[item], { onPeriod(item, it) }, { editing = item }, Modifier.weight(1f))
@@ -86,7 +93,7 @@ fun CareHistoryScreen(
             }
         }
         Text("관리 당시 주행거리 미입력 시 잔여거리는 미산출로 표시해요.", fontSize = 24.sp, color = DpColors.TextTertiary)
-        if (onInspection != null) InspectionField(inspection, onInspection)
+        if (onInspection != null) InspectionField(inspection, onInspection, narrow)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onBack, Modifier.width(220.dp).height(100.dp).background(DpColors.Secondary, RoundedCornerShape(16.dp))) {
                 Text("이전", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text)
@@ -163,19 +170,28 @@ private fun DirectInputDialog(item: CareItem, b: CareBaseline?, onDismiss: () ->
 }
 
 @Composable
-private fun InspectionField(due: LocalDate?, onChange: (LocalDate?) -> Unit) {
+private fun InspectionField(due: LocalDate?, onChange: (LocalDate?) -> Unit, narrow: Boolean) {
     var text by remember { mutableStateOf(due?.toString() ?: "") }
     val parsed = parseDate(text)
+    val label: @Composable () -> Unit = { Text("정기검사 예정일", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+    val field: @Composable (Modifier) -> Unit = { m ->
+        OutlinedTextField(
+            text, { text = it; if (it.isBlank()) onChange(null) else parseDate(it)?.let(onChange) },
+            m, singleLine = true, textStyle = FIELD,
+            placeholder = { Text("2026-12-02", fontSize = 24.sp) }, isError = text.isNotBlank() && parsed == null,
+        )
+    }
+    val note: @Composable () -> Unit = { Text("비워 두면 미입력", fontSize = 22.sp, color = DpColors.TextTertiary) }
     OnboardCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            Text("정기검사 예정일", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
-                text, { text = it; if (it.isBlank()) onChange(null) else parseDate(it)?.let(onChange) },
-                Modifier.width(360.dp), singleLine = true, textStyle = FIELD,
-                placeholder = { Text("2026-12-02", fontSize = 24.sp) }, isError = text.isNotBlank() && parsed == null,
-            )
-            Box(Modifier.weight(1f))
-            Text("비워 두면 미입력", fontSize = 22.sp, color = DpColors.TextTertiary)
+        if (narrow) {
+            Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { label(); field(Modifier.fillMaxWidth()); note() }
+        } else {
+            Row(Modifier.padding(28.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                label()
+                field(Modifier.width(360.dp))
+                Box(Modifier.weight(1f))
+                note()
+            }
         }
     }
 }

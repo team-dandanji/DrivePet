@@ -20,12 +20,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.drive.ExitCheck
 import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.FilledButton
+import com.drivepet.app.ui.components.isNarrowWindow
+import com.drivepet.app.ui.components.scrollWhen
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.vehicle.model.ExitItem
 import kotlinx.coroutines.delay
@@ -69,7 +72,8 @@ fun ExitCheckScreen(check: ExitCheck, starter: String, stage: Int, onDismiss: ()
 
 @Composable
 private fun ExitWarning(check: ExitCheck, onDismiss: () -> Unit) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 80.dp, vertical = 48.dp), Arrangement.spacedBy(20.dp)) {
+    val narrow = isNarrowWindow()
+    Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(horizontal = if (narrow) 40.dp else 80.dp, vertical = 48.dp), Arrangement.spacedBy(20.dp)) {
         Text("하차 전에 확인해주세요", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
         Text("차량에서 조치하면 확인된 상태가 자동으로 갱신돼요.", fontSize = 30.sp, color = DpColors.TextTertiary)
         check.items.forEach { (item, done) ->
@@ -78,7 +82,7 @@ private fun ExitWarning(check: ExitCheck, onDismiss: () -> Unit) {
         // DOORS_UNLOCKED가 점검 항목이 아닐 때만 따로 알린다.
         if (check.lockUnknown && ExitItem.DOORS_UNLOCKED !in check.items) CheckRow(null, false)
         Text("앱이 확인한 항목만 표시해요. 확인되지 않은 차량 상태는 직접 점검해주세요.", fontSize = 26.sp, color = DpColors.TextTertiary)
-        Column(Modifier.weight(1f)) {}
+        if (!narrow) Column(Modifier.weight(1f)) {}
         FilledButton("확인했어요", onDismiss, Modifier.width(480.dp).align(Alignment.End))
     }
 }
@@ -105,7 +109,7 @@ private fun CheckRow(item: ExitItem?, done: Boolean) {
 private fun ExitDone(check: ExitCheck, starter: String, stage: Int, onDismiss: () -> Unit) {
     Column(Modifier.fillMaxSize(), Arrangement.spacedBy(20.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
         Character(starter, stage, Mood.NORMAL)
-        Text("점검 완료! 오늘도 수고했어요", fontSize = 56.sp, lineHeight = 72.sp, fontWeight = FontWeight.ExtraBold)
+        Text("점검 완료! 오늘도 수고했어요", Modifier.padding(horizontal = 40.dp), fontSize = 56.sp, lineHeight = 72.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
         check.items.forEach { (item, done) ->
             if (!lockUnverified(check, item, done)) Text("✓ ${resolved(item)}", fontSize = 30.sp, color = DpColors.TextTertiary)
         }

@@ -30,8 +30,8 @@ import com.drivepet.app.ui.theme.DpColors
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun Character(starter: String, stage: Int, mood: Mood, modifier: Modifier = Modifier) {
-    val size = when (stage) { 1 -> 240.dp; 2 -> 300.dp; else -> 360.dp }
+fun Character(starter: String, stage: Int, mood: Mood, modifier: Modifier = Modifier, size: Dp? = null) {
+    val size = size ?: when (stage) { 1 -> 240.dp; 2 -> 300.dp; else -> 360.dp }
     Box(modifier.width(size).height(size * 1.1f), contentAlignment = Alignment.BottomCenter) {
         // Hi-fi: 캐릭터 아래 납작한 타원 바닥
         Box(Modifier.requiredWidth(size * 1.1f).height(size * 0.22f).drawBehind { drawOval(DpColors.Ground) })

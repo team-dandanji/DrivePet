@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -54,6 +56,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
     var saving by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
 
+    val narrow = isNarrowWindow()
     Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("함께 달릴 메이트를 골라 주세요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
@@ -68,7 +71,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                         .selectable(selected, onClick = { vm.starter = type }, role = Role.RadioButton),
                 ) {
                     Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.SpaceBetween, Alignment.CenterHorizontally) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = 40.dp), contentAlignment = Alignment.TopEnd) { // 배지 자리를 늘 비워 둬 고를 때 알이 움직이지 않게
                             if (selected) {
                                 Text(
                                     "선택 중", Modifier.background(DpColors.Filled, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 4.dp),
@@ -76,7 +79,8 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                                 )
                             }
                         }
-                        Character(type, 1, Mood.NORMAL)
+                        // 좁은 창(카드 폭 약 190dp)에서는 바닥 타원까지 카드 안에 들어오게 줄인다.
+                        Character(type, 1, Mood.NORMAL, size = if (narrow) 150.dp else null)
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(label, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
                             Text(about, fontSize = 22.sp, color = DpColors.TextTertiary)

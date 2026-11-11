@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -186,8 +187,9 @@ private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit, stacked: Boolea
 /** 미션 한 줄: 제목(+진행), 오른쪽에 보상 칩 / 받기 / 받음. */
 @Composable
 private fun MissionRow(m: MissionStatus, onClaim: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(m.kind.title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    // 칸이 좁으면 미션 이름을 단어 단위로 두 줄까지(글자 중간에서 자르지 않는다)
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(m.kind.title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2)
         if (m.progress.isNotEmpty()) Text(m.progress, Modifier.padding(end = 12.dp), fontSize = 20.sp, color = DpColors.TextTertiary)
         when {
             m.claimed -> Text("받음", fontSize = 22.sp, color = DpColors.TextTertiary)

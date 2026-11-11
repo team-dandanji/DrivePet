@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +35,7 @@ import com.drivepet.app.data.CareRow
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.careScore
 import com.drivepet.app.ui.onboarding.OnboardCard
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
@@ -50,9 +50,16 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
     val u = ui ?: return
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("소모품을 간편하게 관리해요", Modifier.weight(1f), fontSize = 44.sp, lineHeight = 56.sp, fontWeight = FontWeight.ExtraBold)
+        val narrow = isNarrowWindow()
+        val title: @Composable (Modifier) -> Unit = { m -> Text("소모품을 간편하게 관리해요", m, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold) }
+        val odo: @Composable () -> Unit = {
             Text(u.odometerKm?.let { "현재 누적거리 ${km(it)}" } ?: "누적거리 미측정", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.TextTertiary)
+        }
+        if (narrow) {
+            title(Modifier)
+            odo()
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { title(Modifier.weight(1f)); odo() }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
@@ -68,18 +75,23 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
             ) { Text("관리 이력 수정", fontSize = 26.sp, fontWeight = FontWeight.Bold) }
         }
         // EV 3열, ICE·HEV 2×2(와이어프레임 10·21)
-        u.rows.chunked(if (LocalConfiguration.current.screenWidthDp < 1200) 1 else if (u.rows.size == 3) 3 else 2).forEach { row ->
+        u.rows.chunked(if (narrow) 1 else if (u.rows.size == 3) 3 else 2).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 row.forEach { r -> CareCard(r, careScore(u.fuel), { scope.launch { vm.replace(r.item.itemId)?.let(onReplaced) } }, Modifier.weight(1f)) }
             }
         }
         OnboardCard(Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+            val inspection: @Composable (Modifier) -> Unit = { m ->
                 Text(
                     u.inspectionDate?.let { "정기검사 ${dday(u.inspectionDays!!)} · ${DOTTED.format(it)} / 직접 입력한 일정" } ?: "정기검사 일정 미입력",
-                    Modifier.weight(1f), fontSize = 28.sp, fontWeight = FontWeight.Bold,
+                    m, fontSize = 28.sp, fontWeight = FontWeight.Bold,
                 )
-                Text("관리 주기는 실제 부품 수명이 아니에요.", fontSize = 22.sp, color = DpColors.TextTertiary)
+            }
+            val note: @Composable () -> Unit = { Text("관리 주기는 실제 부품 수명이 아니에요.", fontSize = 22.sp, color = DpColors.TextTertiary) }
+            if (narrow) {
+                Column(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { inspection(Modifier); note() }
+            } else {
+                Row(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) { inspection(Modifier.weight(1f)); note() }
             }
         }
     }
