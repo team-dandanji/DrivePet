@@ -96,4 +96,12 @@ class WelcomeViewModelTest {
         assertEquals("카카오 계정으로 연결됨 · 계정 바꾸기", kakaoLabel(kakaoLink(auth("acc", null))))
         assertEquals("카카오 계정 연결하기", kakaoLabel(kakaoLink(auth(null, null))))
     }
+
+    @Test fun chooseStaysWhenSaveFails() = runTest {
+        val v = WelcomeViewModel(store, active, { throw java.io.IOException("disk") }, kakao)
+        var moved = false
+        v.choose("p1") { moved = true }
+        v.enter { moved = true }
+        assertEquals(false, moved)
+    }
 }

@@ -24,6 +24,7 @@ import com.drivepet.app.drive.Speaker
 import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.VehicleState
 import com.drivepet.vehicle.model.valueOrNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -119,7 +120,9 @@ class LoungeViewModel(
     loadWeather: suspend () -> WeatherDto?,
 ) : ViewModel() {
     // 만들어질 때 한 번만 부른다. 어떤 실패든 null이면 날씨 칸도 인사 줄도 없다.
-    private val weatherLoad = viewModelScope.async { runCatching { loadWeather() }.getOrNull()?.let(::weatherUi) }
+    private val weatherLoad = viewModelScope.async {
+        try { loadWeather()?.let(::weatherUi) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+    }
     private val _weather = MutableStateFlow<WeatherUi?>(null)
     val weather: StateFlow<WeatherUi?> = _weather
     init { viewModelScope.launch { _weather.value = weatherLoad.await() } }

@@ -296,6 +296,10 @@ fun AppNav(container: AppContainer) {
     }
     // 효과가 늦게 돌 수 있어 실행 시점에 활성 프로필을 다시 본다(그 사이 활성이 정해졌으면 01로 되돌리지 않는다).
     LaunchedEffect(forced) {
+        // 라운지에서 WELCOME이 잠깐 잡히는 경우(첫 설치의 저장 → 활성 반영 사이)는 활성 프로필이 오는지 조금 기다린 뒤 본다.
+        if (forced == Forced.WELCOME && nav.currentDestination?.route == Routes.LOUNGE) {
+            withTimeoutOrNull(1_000) { coordinator.activeProfile.first { it != null } }
+        }
         resetTarget(nav.currentDestination?.route, forced, coordinator.activeProfile.value == null)?.let { target ->
             nav.navigate(target) { popUpTo(nav.graph.id) { inclusive = true } }
         }
