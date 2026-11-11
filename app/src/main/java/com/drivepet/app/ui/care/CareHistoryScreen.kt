@@ -121,7 +121,7 @@ private fun ItemCard(item: CareItem, score: Double, b: CareBaseline?, onPeriod: 
             }
             val direct = b?.servicedOn?.let { d -> "$d" + (b.odometerMm?.let { " · ${km((it / 1_000_000).toInt())}" } ?: "") }
             Text(
-                direct ?: "관리일·당시 주행거리 직접 입력  >",
+                direct ?: "관리일·교환 당시 주행거리 직접 입력  >",
                 Modifier.fillMaxWidth().clickable(onClick = onDirect).padding(vertical = 8.dp),
                 fontSize = 22.sp, fontWeight = if (direct != null) FontWeight.Bold else FontWeight.Normal,
                 color = if (direct != null) DpColors.Text else DpColors.TextTertiary,
@@ -150,7 +150,7 @@ private fun DirectInputDialog(item: CareItem, b: CareBaseline?, onDismiss: () ->
                 )
                 OutlinedTextField(
                     kmText, { kmText = it.filter(Char::isDigit).take(7) }, Modifier.fillMaxWidth(), singleLine = true, textStyle = FIELD,
-                    label = { Text("그때 누적 주행거리 (선택)", fontSize = 20.sp) }, suffix = { Text("km", fontSize = 24.sp) },
+                    label = { Text("교환 당시 누적 주행거리 (선택)", fontSize = 20.sp) }, suffix = { Text("km", fontSize = 24.sp) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
             }
