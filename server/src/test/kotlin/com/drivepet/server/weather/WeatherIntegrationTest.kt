@@ -119,9 +119,18 @@ class WeatherIntegrationTest : IntegrationTest() {
     }
 
     @Test
-    fun `특보 조회 실패를 특보 없음으로 바꾸지 않는다`() {
+    fun `특보 조회가 실패해도 날씨는 특보 없이 응답하고, 곧 다시 조회한다`() {
         fake.failWarnings = true
-        assertEquals(502, get(seoul, token).status)
+        val r = get(seoul, token)
+        assertEquals(200, r.status, r.raw)
+        assertEquals(6.5, r.data["tempC"].asDouble())
+        assertTrue(r.data["warnings"].isArray && r.data["warnings"].isEmpty)
+        assertEquals(false, r.data["stale"].asBoolean())
+
+        fake.failWarnings = false
+        fake.warnings = listOf(WarningItem("강풍주의보", "서울"))
+        clock.advance(Duration.ofMinutes(2)) // 실패한 특보는 캐시되지 않고 격자 캐시도 1분만 산다
+        assertEquals(1, get(seoul, token).data["warnings"].size())
     }
 
     @Test

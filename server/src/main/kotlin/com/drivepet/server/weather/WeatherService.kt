@@ -179,7 +179,7 @@ class WeatherService(
 
     private fun <T> join(f: CompletableFuture<T>): T = try { f.join() } catch (e: CompletionException) { throw e.cause ?: e }
 
-    /** 실황·예보·특보를 동시에 부르고, 하나라도 실패하면 기상청 실패로 본다(특보 실패를 '특보 없음'으로 바꾸지 않음) */
+    /** 실황·예보·특보를 동시에 부른다. 실황·예보가 하나라도 실패하면 기상청 실패, 특보 실패는 빈 특보로 넘어간다 */
     private fun fetchKma(grid: Grid, sido: Sido, now: Instant): KmaEntry {
         val at = now.atZone(seoul).toOffsetDateTime()
         val n = async { kma.now(grid, at) }
@@ -194,10 +194,19 @@ class WeatherService(
         )
     }
 
-    /** 특보 현황은 전국 하나라 격자와 따로 캐시한다 */
+    /**
+     * 특보 현황은 전국 하나라 격자와 따로 캐시한다.
+     * 특보를 못 읽으면 날씨는 살리고 이번 응답만 빈 특보로 한다. 특보 캐시에는 넣지 않아 다음 요청이 다시 조회하고,
+     * 담기는 격자 캐시는 [WARNING_RETRY]만 살도록 특보 시각을 TTL보다 그만큼만 남기고 당겨 둔다.
+     */
     private fun nationalWarnings(at: OffsetDateTime, now: Instant): WarningEntry {
         warningCache.get("KR")?.takeIf { fresh(it.fetchedAt, now) }?.let { return it }
-        return WarningEntry(kma.activeWarnings(at), now).also { warningCache.putIfNewer("KR", it) }
+        return try {
+            WarningEntry(kma.activeWarnings(at), now).also { warningCache.putIfNewer("KR", it) }
+        } catch (e: Exception) {
+            log.warn("기상특보 조회 실패, 특보 없이 응답: {}", e.message)
+            WarningEntry(emptyList(), now.minus(props.cacheTtl).plus(minOf(WARNING_RETRY, props.cacheTtl)))
+        }
     }
 
     private fun fetchAir(lat: Double, lng: Double): AirQualityDto? {
@@ -212,6 +221,8 @@ class WeatherService(
     }
 
     companion object {
+        private val WARNING_RETRY = java.time.Duration.ofMinutes(1)
+
         fun sky(code: Int) = when (code) { 1 -> "CLEAR"; 3 -> "PARTLY_CLOUDY"; else -> "CLOUDY" }
 
         fun precipitation(code: Int) = when (code) {

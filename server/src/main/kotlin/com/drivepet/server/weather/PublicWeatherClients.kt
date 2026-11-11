@@ -119,8 +119,8 @@ class HttpKmaClient(private val http: DataGoKrHttp) : KmaClient {
     companion object {
         /**
          * "o 강풍주의보 : 강원도(강원북부산지), 경상북도(...)" 형식의 특보 현황 문구를 나눈다.
-         * "o 없음"이면 빈 목록. 해석할 줄이 하나도 없거나, "o 이름 : 지역" 줄 중 이름·지역이 빈 줄이 있으면 null(형식 오류).
-         * 일부 특보만 조용히 빠지는 것보다 실패(이전 캐시 또는 502)가 낫다.
+         * "o 없음"(공백이 끼어 "o 없 음"이어도)이면 빈 목록. 해석할 줄이 하나도 없거나, "o 이름 : 지역" 줄 중 이름·지역이 빈 줄이 있으면 null(형식 오류).
+         * null이면 호출한 쪽(WeatherService)이 특보만 빼고 날씨를 응답한다.
          * shortcut: "o"로 시작하지 않는 줄(참고 문구 등)은 건너뛴다, 실제 응답에서 다른 형식을 보면 규칙을 늘린다
          */
         fun parseWarnings(text: String): List<WarningItem>? {
@@ -133,7 +133,7 @@ class HttpKmaClient(private val http: DataGoKrHttp) : KmaClient {
                     WarningItem(name, regions)
                 }
             if (items.isNotEmpty()) return items
-            return if (lines.any { it.removePrefix("o").trim() == "없음" }) emptyList() else null
+            return if (lines.any { it.removePrefix("o").filterNot(Char::isWhitespace) == "없음" }) emptyList() else null
         }
     }
 }
