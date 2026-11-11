@@ -38,7 +38,14 @@ import com.drivepet.app.ui.theme.DpColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private val STARTERS = listOf("STARTER_1" to "노란 알", "STARTER_2" to "초록 알", "STARTER_3" to "하얀 알")
+/** Hi-fi 메이트 선택(onboarding_알_노란색·초록색)의 이름과 소개. 세 번째는 슬라임. */
+private data class Starter(val type: String, val egg: String, val about: String)
+
+private val STARTERS = listOf(
+    Starter("STARTER_1", "노란색 알", "짧고 밝게 응원하는 병아리로 자라나요"),
+    Starter("STARTER_2", "초록색 알", "힘차게 응원하는 공룡으로 자라나요"),
+    Starter("STARTER_3", "하늘색 알", "말랑하게 응원하는 슬라임으로 자라나요"), // Hi-fi의 흰색 알(눈사람) 대신 슬라임(사용자 11/11)
+)
 
 /** 06 · 스타터 알 고르기 + 이름 짓기. 완료하면(프로필 저장·활성화 뒤) onDone으로 화면을 옮긴다. */
 @Composable
@@ -53,7 +60,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
             Text("알 3종 중 1종을 고르고 이름을 지어 주세요", fontSize = 26.sp, color = DpColors.TextTertiary)
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            for ((type, label) in STARTERS) {
+            for ((type, label, about) in STARTERS) {
                 val selected = vm.starter == type
                 OnboardCard(
                     Modifier.weight(1f).fillMaxSize()
@@ -70,7 +77,10 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                             }
                         }
                         Character(type, 1, Mood.NORMAL)
-                        Text(label, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(label, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(about, fontSize = 22.sp, color = DpColors.TextTertiary)
+                        }
                     }
                 }
             }

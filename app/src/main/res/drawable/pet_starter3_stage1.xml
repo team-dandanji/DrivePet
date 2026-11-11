@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 APP Graphic(LVJcQ8Cjio1BUABnSWzC6h, 134:15508)에서 내보낸 SVG를 옮긴 것 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp" android:height="148dp"
+    android:viewportWidth="128.15" android:viewportHeight="147.96">
+    <path android:pathData="M128.15 80.98C128.15 121.84 99.46 147.96 64.08 147.96C28.7 147.96 0 121.84 0 80.98C0 40.12 28.69 0 64.07 0C99.45 0 128.14 40.12 128.14 80.98H128.15Z" android:fillColor="#CEEBF4"/>
+</vector>
