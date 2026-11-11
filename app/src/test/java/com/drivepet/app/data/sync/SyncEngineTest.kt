@@ -2,6 +2,7 @@ package com.drivepet.app.data.sync
 
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
+import com.drivepet.app.data.remote.WeatherDto
 import com.drivepet.app.data.remote.ApiJson
 import com.drivepet.app.data.remote.AuthState
 import com.drivepet.app.data.remote.DrivePetApi
@@ -90,6 +91,7 @@ private class FakeApi : DrivePetApi {
     override suspend fun createQr(): Envelope<QrSession> = TODO()
     override suspend fun qrStatus(id: String): Envelope<QrStatus> = TODO()
     override suspend fun unlink(): Envelope<UnlinkResult> = TODO()
+    override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")
 }
 
 class SyncEngineTest {

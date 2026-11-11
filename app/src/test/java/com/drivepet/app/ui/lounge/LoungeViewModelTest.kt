@@ -4,13 +4,17 @@ import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.drive.Bubble
+import com.drivepet.app.data.remote.WeatherDto
 import com.drivepet.app.drive.Speaker
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -50,9 +54,9 @@ class LoungeViewModelTest {
 
     @After fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm() = LoungeViewModel(
+    private fun vm(loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
         store, state, MutableStateFlow("p1"), belt, speaker, { true },
-        kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now },
+        kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now }, loadWeather,
     )
 
     @Test fun `370 seed는 Lv1 92퍼센트`() = runTest {
@@ -99,5 +103,32 @@ class LoungeViewModelTest {
         val ui = vm().ui.value!!
         assertEquals(Mood.HUNGRY, ui.mood)
         assertEquals(CareAction.FEED, ui.careAction)
+    }
+
+    private val clear12 = WeatherDto(12.0, "CLEAR", null, emptyList(), null, false)
+
+    @Test fun `greetIncludesWeatherWhenReady`() = runTest {
+        val v = vm { clear12 }
+        v.greetIfFirstToday()
+        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 오늘은 맑음, 12°C야.", speaker.said.single())
+        assertEquals("맑음", v.weather.value!!.label)
+    }
+
+    @Test fun `greetWithoutWeatherAfterTimeout`() = runTest {
+        val v = vm { awaitCancellation() }
+        v.greetIfFirstToday()
+        runCurrent()
+        assertTrue(speaker.said.isEmpty())
+        advanceTimeBy(3_001)
+        runCurrent()
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
+        assertEquals(null, v.weather.value)
+    }
+
+    @Test fun `weatherFailureHidesCard`() = runTest {
+        val v = vm { null }
+        v.greetIfFirstToday()
+        assertEquals(null, v.weather.value)
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
     }
 }

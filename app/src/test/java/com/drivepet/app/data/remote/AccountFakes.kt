@@ -57,6 +57,7 @@ class QrApi : DrivePetApi {
     override suspend fun unlink(): Envelope<UnlinkResult> = Envelope(unlinkResult)
     override suspend fun upload(r: UploadRequest): Envelope<UploadResult> = error("unused")
     override suspend fun download(v: Int, cursor: String?, limit: Int): Envelope<DownloadResult> = error("unused")
+    override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")
 }
 
 fun linked(account: String = "acc_1", nick: String? = "지우", synced: Boolean = true) = QrStatus(

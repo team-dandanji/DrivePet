@@ -7,6 +7,7 @@ import com.drivepet.app.AppContainer
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.recentTripSafety
 import com.drivepet.app.data.growthTotalMilli
+import com.drivepet.app.data.remote.WeatherDto
 import com.drivepet.app.data.toLedger
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.Gauge
@@ -24,7 +25,9 @@ import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.VehicleState
 import com.drivepet.vehicle.model.valueOrNull
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -34,6 +37,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -55,6 +60,38 @@ data class LoungeUi(
     val warnings: List<String>,
     val careAction: CareAction?,
 )
+
+data class WeatherUi(val label: String, val temp: String, val air: String?, val warning: String?, val stale: Boolean, val greetLine: String)
+
+fun weatherUi(w: WeatherDto): WeatherUi {
+    val label = when (w.precipitationType) {
+        "RAIN" -> "비"
+        "SNOW" -> "눈"
+        "RAIN_SNOW" -> "비나 눈"
+        "SHOWER" -> "소나기"
+        else -> when (w.sky) {
+            "CLEAR" -> "맑음"
+            "PARTLY_CLOUDY" -> "구름 조금"
+            else -> "흐림"
+        }
+    }
+    val temp = "${w.tempC.roundToInt()}°C"
+    val air = w.airQuality?.let {
+        when (it.grade) {
+            "GOOD" -> "미세먼지 좋음"
+            "NORMAL" -> "미세먼지 보통"
+            "BAD" -> "미세먼지 나쁨"
+            "VERY_BAD" -> "미세먼지 매우 나쁨"
+            else -> null
+        }
+    }
+    val warning = w.warnings.firstOrNull()
+    val greet = "오늘은 $label, ${temp}야." + (warning?.let { " $it 발효 중이니 조심해!" } ?: "") + if (w.stale) " (이전 정보)" else ""
+    return WeatherUi(label, temp, air, warning, w.stale, greet)
+}
+
+/** 날씨를 기다리는 최대 시간(하루 첫 인사). */
+private const val WEATHER_WAIT_MS = 3_000L
 
 /** 포만·건강 모두 이 값 이하면 "부족". */
 const val LOW_PCT = 20
@@ -79,7 +116,14 @@ class LoungeViewModel(
     private val lastGreetDate: Flow<String?>,
     private val setLastGreetDate: suspend (String) -> Unit,
     private val clock: () -> Instant,
+    loadWeather: suspend () -> WeatherDto?,
 ) : ViewModel() {
+    // 만들어질 때 한 번만 부른다. 어떤 실패든 null이면 날씨 칸도 인사 줄도 없다.
+    private val weatherLoad = viewModelScope.async { runCatching { loadWeather() }.getOrNull()?.let(::weatherUi) }
+    private val _weather = MutableStateFlow<WeatherUi?>(null)
+    val weather: StateFlow<WeatherUi?> = _weather
+    init { viewModelScope.launch { _weather.value = weatherLoad.await() } }
+
     /** 활성 프로필이 없으면 null. */
     val ui: StateFlow<LoungeUi?> = combine(activeProfileId, store.profiles()) { id, list -> list.firstOrNull { it.profileId == id } }
         .flatMapLatest { p ->
@@ -124,7 +168,9 @@ class LoungeViewModel(
             val u = ui.filterNotNull().first()
             val date = seoulDate(clock()).toString()
             val first = lastGreetDate.first() != date
-            speaker.say((if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood))
+            val base = (if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood)
+            val greetLine = if (first) withTimeoutOrNull(WEATHER_WAIT_MS) { weatherLoad.await() }?.greetLine else null
+            speaker.say(if (greetLine != null) "$base $greetLine" else base)
             if (first) setLastGreetDate(date)
         }
     }
@@ -145,7 +191,7 @@ class LoungeViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = LoungeViewModel(
                 c.store, VehicleModule.repository.state, c.settings.activeProfileId, c.coordinator.beltReadable, c.speaker,
-                c.coordinator::manualCheckIn, c.settings.lastGreetDate, c.settings::setLastGreetDate, Instant::now,
+                c.coordinator::manualCheckIn, c.settings.lastGreetDate, c.settings::setLastGreetDate, Instant::now, c.weather::load,
             ) as T
         }
     }

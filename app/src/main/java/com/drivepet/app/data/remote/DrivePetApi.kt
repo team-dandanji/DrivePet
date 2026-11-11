@@ -18,6 +18,7 @@ interface DrivePetApi {
     @GET("auth/kakao/qr-sessions/{id}") suspend fun qrStatus(@Path("id") id: String): Envelope<QrStatus>
     @DELETE("auth/kakao") suspend fun unlink(): Envelope<UnlinkResult>
     @PUT("sync/backup") suspend fun upload(@Body r: UploadRequest): Envelope<UploadResult>
+    @GET("weather") suspend fun weather(@Query("lat") lat: Double, @Query("lng") lng: Double): Envelope<WeatherDto>
     @GET("sync/backup") suspend fun download(
         @Query("schemaVersion") v: Int, @Query("cursor") cursor: String?, @Query("limit") limit: Int,
     ): Envelope<DownloadResult>

@@ -1,6 +1,7 @@
 package com.drivepet.app
 
 import android.content.Context
+import com.drivepet.app.data.LocationSource
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.RoomRecordStore
 import com.drivepet.app.data.Settings
@@ -8,6 +9,7 @@ import com.drivepet.app.data.db.AppDatabase
 import com.drivepet.app.data.remote.AccountService
 import com.drivepet.app.data.remote.AuthStore
 import com.drivepet.app.data.remote.Remote
+import com.drivepet.app.data.remote.WeatherRepo
 import com.drivepet.app.data.sync.RoomSyncStore
 import com.drivepet.app.data.sync.SyncEngine
 import com.drivepet.app.data.sync.SyncStore
@@ -31,6 +33,7 @@ class AppContainer(context: Context) {
     val syncStore: SyncStore = RoomSyncStore(db)
     val sync = SyncEngine(remote::api, syncStore, auth)
     val account = AccountService(remote::api, auth, syncStore) { sync.run() }
+    val weather = WeatherRepo(remote::api, LocationSource(app)::latLng)
     val speaker: Speaker = BubbleSpeaker(scope)
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)
 

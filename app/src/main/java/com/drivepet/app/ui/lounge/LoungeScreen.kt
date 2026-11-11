@@ -44,13 +44,14 @@ private const val MAX_WARNING_ROWS = 3
 fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val bubble by speaker.bubble.collectAsStateWithLifecycle()
+    val weather by vm.weather.collectAsStateWithLifecycle()
     LaunchedEffect(vm) { vm.greetIfFirstToday() }
     val u = ui ?: return
 
     Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(Modifier.weight(1f).fillMaxSize()) {
             Text(u.nickname, fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
-            Text(u.vehicleLine, fontSize = 26.sp, color = DpColors.TextTertiary)
+            VehicleLine(u.vehicleLine, weather)
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Character(
                     u.starter, u.stage, u.mood,
@@ -77,6 +78,19 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onDev: () -> Unit) {
                 StatCard("건강점수", u.healthPct, "/ 100점", Modifier.weight(1f))
             }
             WarningCard(u, vm::careTapped, Modifier.weight(1f))
+        }
+    }
+}
+
+/** 07: 펫 이름 아래 차량 줄 뒤에 "맑음 · 18°C"를 잇고, 미세먼지·경고·이전 정보는 작은 글씨로 뒤따른다. 날씨가 없으면 차량 이름만. */
+@Composable
+private fun VehicleLine(vehicle: String, w: WeatherUi?) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(if (w == null) vehicle else "$vehicle  /  ${w.label} · ${w.temp}", fontSize = 26.sp, color = DpColors.TextTertiary)
+        if (w != null) {
+            w.air?.let { Text(it, fontSize = 20.sp, color = DpColors.TextTertiary) }
+            w.warning?.let { Text(it, fontSize = 20.sp, color = DpColors.Danger, fontWeight = FontWeight.Bold) }
+            if (w.stale) Text("이전 정보", fontSize = 20.sp, color = DpColors.TextTertiary)
         }
     }
 }

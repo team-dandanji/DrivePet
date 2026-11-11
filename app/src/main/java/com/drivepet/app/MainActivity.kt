@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
             DrivePetTheme { AppNav((application as DrivePetApp).container) }
         }
         if (savedInstanceState == null) {
-            permissions.launch(arrayOf(CAR_SPEED, Manifest.permission.POST_NOTIFICATIONS))
+            permissions.launch(arrayOf(CAR_SPEED, Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
     }
 
