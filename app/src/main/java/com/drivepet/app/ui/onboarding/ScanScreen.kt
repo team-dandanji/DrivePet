@@ -116,7 +116,7 @@ fun ScanScreen(vm: OnboardingViewModel, onNext: () -> Unit) {
 }
 
 private val FIELD_TEXT = TextStyle(fontSize = 28.sp, color = DpColors.Text)
-private val FUELS = listOf(FuelType.EV to "EV", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")
+internal val FUELS =listOf(FuelType.EV to "EV", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")
 
 @Composable
 private fun Field(label: String, content: @Composable () -> Unit) {

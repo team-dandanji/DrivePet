@@ -56,6 +56,8 @@ import com.drivepet.app.ui.onboarding.ScanScreen
 import com.drivepet.app.ui.settlement.LevelUpScreen
 import com.drivepet.app.ui.settlement.SettlementScreen
 import com.drivepet.app.ui.trips.TripsScreen
+import com.drivepet.app.ui.welcome.WelcomeScreen
+import com.drivepet.app.ui.welcome.WelcomeViewModel
 import com.drivepet.app.ui.theme.skyBackground
 import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.Gear
@@ -68,10 +70,12 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 object Routes {
+    const val WELCOME = "welcome"
     const val ONBOARD_SCAN = "onboard/scan"
     const val ONBOARD_MATE = "onboard/mate"
     const val LOUNGE = "lounge"
@@ -100,18 +104,19 @@ fun isDriving(s: VehicleState): Boolean {
     return gear == Gear.D || gear == Gear.R
 }
 
-/** 상태가 정하는 강제 화면. DRIVING·EXIT_CHECK·SETTLEMENT는 NavHost 위 덮개로, ONBOARDING은 NavHost 경로로 보여 준다. */
-enum class Forced { NONE, DRIVING, EXIT_CHECK, SETTLEMENT, ONBOARDING }
+/** 상태가 정하는 강제 화면. DRIVING·EXIT_CHECK·SETTLEMENT는 NavHost 위 덮개로, ONBOARDING·WELCOME은 NavHost 경로로 보여 준다. */
+enum class Forced { NONE, DRIVING, EXIT_CHECK, SETTLEMENT, ONBOARDING, WELCOME }
 
 /**
- * 우선순위: 주행 제한 > 프로필 없음(읽기 완료 후) > (정차 중 운전석 문이 열렸으면 하차 점검 > 정산, 아니면 정산 > 하차 점검) > 평상시.
+ * 우선순위: 주행 제한 > 활성 프로필 없음(읽기 완료 후; 저장된 프로필이 있으면 WELCOME, 없으면 ONBOARDING) > (정차 중 운전석 문이 열렸으면 하차 점검 > 정산, 아니면 정산 > 하차 점검) > 평상시.
  * 프로필이 없으면 점검·정산 대상도 없다.
  */
 fun routeFor(
-    loaded: Boolean, hasProfile: Boolean, driving: Boolean, exitOpen: Boolean, settlementPending: Boolean, parked: Boolean,
-    doorOpenedParked: Boolean,
+    loaded: Boolean, hasProfile: Boolean, hasAnyProfile: Boolean, driving: Boolean, exitOpen: Boolean, settlementPending: Boolean,
+    parked: Boolean, doorOpenedParked: Boolean,
 ): Forced = when {
     driving -> Forced.DRIVING
+    loaded && !hasProfile && hasAnyProfile -> Forced.WELCOME
     loaded && !hasProfile -> Forced.ONBOARDING
     exitOpen && doorOpenedParked -> Forced.EXIT_CHECK
     settlementPending && parked -> Forced.SETTLEMENT
@@ -137,6 +142,9 @@ fun AppNav(container: AppContainer) {
         withTimeoutOrNull(300) { coordinator.activeProfile.first { it != null } }
         value = true
     }
+    // 저장된 프로필이 하나라도 있는지(삭제된 것 제외). 첫 값이 오기 전(null)에는 읽기 완료로 보지 않는다.
+    val anyProfile by remember { container.store.profiles().map { it.isNotEmpty() } }.collectAsStateWithLifecycle<Boolean?>(null)
+    val ready = loaded && anyProfile != null
 
     val scope = rememberCoroutineScope()
     val trip by VehicleModule.repository.trip.collectAsStateWithLifecycle()
@@ -144,7 +152,7 @@ fun AppNav(container: AppContainer) {
 
     val driving = isDriving(state)
     val forced = routeFor(
-        loaded, profile != null, driving, exitCheck != null, settlement != null, state.isParked,
+        ready, profile != null, anyProfile == true, driving, exitCheck != null, settlement != null, state.isParked,
         doorOpenedParked = state.isParked && state.driverDoorOpen.valueOrNull() == true,
     )
 
@@ -158,11 +166,18 @@ fun AppNav(container: AppContainer) {
         }
     }
 
-    if (!loaded && !driving) return
+    if (!ready && !driving) return
     val nav = rememberNavController()
-    val start = remember { if (forced == Forced.ONBOARDING) Routes.ONBOARD_SCAN else Routes.LOUNGE }
+    // 앱을 켤 때 한 번만 정한다(회전·복귀에는 다시 01을 띄우지 않는다). 프로필이 있으면 01, 없으면 온보딩.
+    val start = remember {
+        when {
+            forced == Forced.ONBOARDING -> Routes.ONBOARD_SCAN
+            anyProfile == true -> Routes.WELCOME
+            else -> Routes.LOUNGE
+        }
+    }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
-    val overlay = forced != Forced.NONE && forced != Forced.ONBOARDING
+    val overlay = forced != Forced.NONE && forced != Forced.ONBOARDING && forced != Forced.WELCOME
 
     // 입력창(IME)도 별도 창이라 주행이 시작되면 포커스를 풀어 닫는다.
     val focus = LocalFocusManager.current
@@ -181,6 +196,14 @@ fun AppNav(container: AppContainer) {
                     nav, startDestination = start, modifier = Modifier.weight(1f),
                     enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
                 ) {
+                    composable(Routes.WELCOME) {
+                        // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 03(Routes.LINK)은 Task 6에서 연결한다.
+                        WelcomeScreen(
+                            viewModel(factory = WelcomeViewModel.factory(container)),
+                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.WELCOME) { inclusive = true } } },
+                            onSetup = { nav.navigate(Routes.ONBOARD_SCAN) },
+                        )
+                    }
                     // 두 온보딩 화면이 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
                     composable(Routes.ONBOARD_SCAN) { entry ->
                         ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container))) { nav.navigate(Routes.ONBOARD_MATE) }
@@ -240,7 +263,8 @@ fun AppNav(container: AppContainer) {
             }
         }
     }
-    LaunchedEffect(forced) { syncRoute(nav, forced) }
+    // 프로필이 바뀌어도 다시 본다: 01에서 새 프로필을 만들면 forced가 그대로 NONE이라도 온보딩에서 라운지로 나가야 한다.
+    LaunchedEffect(forced, profile?.profileId) { syncRoute(nav, forced) }
 }
 
 private fun syncRoute(nav: NavHostController, forced: Forced) {
@@ -249,6 +273,7 @@ private fun syncRoute(nav: NavHostController, forced: Forced) {
     val reset = { target: String -> nav.navigate(target) { popUpTo(nav.graph.id) { inclusive = true } } }
     when {
         forced == Forced.ONBOARDING && !onboarding -> reset(Routes.ONBOARD_SCAN)
+        forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME -> reset(Routes.WELCOME)
         forced == Forced.NONE && onboarding -> reset(Routes.LOUNGE)
     }
 }

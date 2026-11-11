@@ -9,7 +9,7 @@ import org.junit.Test
 class RouteForTest {
     private data class Case(
         val name: String, val expected: Forced,
-        val loaded: Boolean = true, val hasProfile: Boolean = true, val driving: Boolean = false,
+        val loaded: Boolean = true, val hasProfile: Boolean = true, val hasAnyProfile: Boolean = true, val driving: Boolean = false,
         val exitOpen: Boolean = false, val settlement: Boolean = false, val parked: Boolean = true,
         val doorOpenedParked: Boolean = false,
     )
@@ -23,18 +23,22 @@ class RouteForTest {
         Case("정차 중 문이 열렸으면 하차 점검이 정산보다 앞", Forced.EXIT_CHECK, exitOpen = true, settlement = true, doorOpenedParked = true),
         Case("정산이 없으면 하차 점검", Forced.EXIT_CHECK, exitOpen = true),
         Case("주행 중이면 문이 열려도 DRIVING", Forced.DRIVING, driving = true, exitOpen = true, settlement = true, doorOpenedParked = true),
-        Case("프로필이 없으면 하차 점검보다 ONBOARDING", Forced.ONBOARDING, exitOpen = true, hasProfile = false),
+        Case("프로필이 없으면 하차 점검보다 ONBOARDING", Forced.ONBOARDING, exitOpen = true, hasProfile = false, hasAnyProfile = false),
         Case("정차 중 정산 대기 → SETTLEMENT", Forced.SETTLEMENT, settlement = true),
         Case("정차가 아니면 정산은 보류", Forced.NONE, settlement = true, parked = false),
-        Case("프로필이 없으면 정산보다 ONBOARDING", Forced.ONBOARDING, settlement = true, hasProfile = false),
-        Case("읽기 완료 후 프로필 없음 → ONBOARDING", Forced.ONBOARDING, hasProfile = false),
+        Case("프로필이 없으면 정산보다 ONBOARDING", Forced.ONBOARDING, settlement = true, hasProfile = false, hasAnyProfile = false),
+        Case("읽기 완료 후 프로필 없음 → ONBOARDING", Forced.ONBOARDING, hasProfile = false, hasAnyProfile = false),
         Case("읽기 전에는 프로필 없음으로 보지 않는다", Forced.NONE, hasProfile = false, loaded = false),
+        Case("활성 프로필은 없지만 프로필이 있으면 WELCOME", Forced.WELCOME, hasProfile = false, hasAnyProfile = true),
+        Case("프로필이 하나도 없으면 ONBOARDING", Forced.ONBOARDING, hasProfile = false, hasAnyProfile = false),
+        Case("주행 중이면 WELCOME 조건이어도 DRIVING", Forced.DRIVING, driving = true, hasProfile = false, hasAnyProfile = true),
+        Case("읽기 전에는 WELCOME도 아니다", Forced.NONE, hasProfile = false, hasAnyProfile = true, loaded = false),
     )
 
     @Test
     fun routeFor_table() {
         for (c in cases) {
-            assertEquals(c.name, c.expected, routeFor(c.loaded, c.hasProfile, c.driving, c.exitOpen, c.settlement, c.parked, c.doorOpenedParked))
+            assertEquals(c.name, c.expected, routeFor(c.loaded, c.hasProfile, c.hasAnyProfile, c.driving, c.exitOpen, c.settlement, c.parked, c.doorOpenedParked))
         }
     }
 
