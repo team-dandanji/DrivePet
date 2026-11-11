@@ -33,12 +33,13 @@ import com.drivepet.app.ui.theme.DpColors
 
 /**
  * 01 · 탑승 후 앱 실행. 저장된 프로필을 불러왔다고 알리고 라운지로 보낸다.
- * onSetup은 새로 시작하거나 프로필을 다시 설정할 때(기존 프로필은 지우지 않는다).
+ * onSetup은 새로 시작하거나 프로필을 다시 설정할 때(기존 프로필은 지우지 않는다). onAccount는 카카오 계정 연결·바꾸기.
  */
 @Composable
-fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Unit) {
+fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Unit, onAccount: () -> Unit) {
     val current by vm.current.collectAsStateWithLifecycle()
     val others by vm.others.collectAsStateWithLifecycle()
+    val kakao by vm.kakao.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(32.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -94,6 +95,12 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                                 onSetup, Modifier.fillMaxWidth().height(96.dp), shape = RoundedCornerShape(16.dp),
                                 border = BorderStroke(2.dp, DpColors.TrackInactive),
                             ) { Text("프로필 다시 설정", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
+                            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClick = onAccount), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    kakao?.let { "카카오 ${it}님으로 연결됨 · 계정 바꾸기" } ?: "카카오 계정 연결하기",
+                                    fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                                )
+                            }
                         }
                     }
                     Text("시동 후 앱 실행 · 차량 상태 기록 준비", fontSize = 22.sp, color = DpColors.TextTertiary)

@@ -5,6 +5,7 @@ import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.RoomRecordStore
 import com.drivepet.app.data.Settings
 import com.drivepet.app.data.db.AppDatabase
+import com.drivepet.app.data.remote.AccountService
 import com.drivepet.app.data.remote.AuthStore
 import com.drivepet.app.data.remote.Remote
 import com.drivepet.app.data.sync.RoomSyncStore
@@ -29,6 +30,7 @@ class AppContainer(context: Context) {
     val remote = Remote({ settings.serverUrl.first() }, auth, BuildConfig.VERSION_NAME)
     val syncStore: SyncStore = RoomSyncStore(db)
     val sync = SyncEngine(remote::api, syncStore, auth)
+    val account = AccountService(remote::api, auth, syncStore) { sync.run() }
     val speaker: Speaker = BubbleSpeaker(scope)
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)
 

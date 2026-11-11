@@ -49,6 +49,8 @@ import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
 import com.drivepet.app.ui.lounge.LoungeScreen
+import com.drivepet.app.ui.link.LinkScreen
+import com.drivepet.app.ui.link.LinkViewModel
 import com.drivepet.app.ui.lounge.LoungeViewModel
 import com.drivepet.app.ui.onboarding.MateScreen
 import com.drivepet.app.ui.onboarding.OnboardingViewModel
@@ -76,6 +78,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 object Routes {
     const val WELCOME = "welcome"
+    const val LINK = "onboard/link?next={next}" // next = scan(기본, 온보딩 이어가기) | welcome(01에서 계정만 바꾸기)
     const val ONBOARD_SCAN = "onboard/scan"
     const val ONBOARD_MATE = "onboard/mate"
     const val LOUNGE = "lounge"
@@ -87,6 +90,8 @@ object Routes {
     const val EXIT_CHECK = "exit"
     const val DEV = "dev"
 }
+
+fun linkRoute(next: String) = "onboard/link?next=$next"
 
 /** 레벨 업 화면 경로. 레벨은 경로 인자로 넘긴다. */
 fun levelUpRoute(before: Int, after: Int) = "${Routes.LEVEL_UP}/$before/$after"
@@ -171,7 +176,7 @@ fun AppNav(container: AppContainer) {
     // 앱을 켤 때 한 번만 정한다(회전·복귀에는 다시 01을 띄우지 않는다). 프로필이 있으면 01, 없으면 온보딩.
     val start = remember {
         when {
-            forced == Forced.ONBOARDING -> Routes.ONBOARD_SCAN
+            forced == Forced.ONBOARDING -> linkRoute("scan")
             anyProfile == true -> Routes.WELCOME
             else -> Routes.LOUNGE
         }
@@ -197,11 +202,26 @@ fun AppNav(container: AppContainer) {
                     enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
                 ) {
                     composable(Routes.WELCOME) {
-                        // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 03(Routes.LINK)은 Task 6에서 연결한다.
+                        // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 03(카카오 연결)을 거쳐 04로 간다.
                         WelcomeScreen(
                             viewModel(factory = WelcomeViewModel.factory(container)),
                             onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.WELCOME) { inclusive = true } } }, // 저장이 끝난 뒤 불린다
-                            onSetup = { nav.navigate(Routes.ONBOARD_SCAN) },
+                            onSetup = { nav.navigate(linkRoute("scan")) },
+                            onAccount = { nav.navigate(linkRoute("welcome")) },
+                        )
+                    }
+                    composable(Routes.LINK, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "scan" })) { entry ->
+                        val next = entry.arguments?.getString("next") ?: "scan"
+                        LinkScreen(
+                            viewModel(factory = LinkViewModel.factory(container)),
+                            onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
+                            onSkip = if (next == "scan") ({ nav.navigate(Routes.ONBOARD_SCAN) }) else null,
+                            onLinked = { linked ->
+                                container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
+                                // 계정만 바꾸는 경우와 복원된 경우는 01로(복원된 프로필은 이미 활성으로 저장됨). 새 연결이고 복원할 게 없으면 04로.
+                                if (next == "welcome" || linked.restored) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
+                                else nav.navigate(Routes.ONBOARD_SCAN)
+                            },
                         )
                     }
                     // 두 온보딩 화면이 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
@@ -273,10 +293,10 @@ fun AppNav(container: AppContainer) {
 
 private fun syncRoute(nav: NavHostController, forced: Forced) {
     val cur = nav.currentDestination?.route
-    val onboarding = cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_MATE
+    val onboarding = cur == Routes.LINK || cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_MATE
     val reset = { target: String -> nav.navigate(target) { popUpTo(nav.graph.id) { inclusive = true } } }
     when {
-        forced == Forced.ONBOARDING && !onboarding -> reset(Routes.ONBOARD_SCAN)
+        forced == Forced.ONBOARDING && !onboarding -> reset(linkRoute("scan"))
         forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME -> reset(Routes.WELCOME)
     }
 }

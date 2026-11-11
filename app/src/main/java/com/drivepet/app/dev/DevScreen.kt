@@ -52,6 +52,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import retrofit2.HttpException
+import java.io.IOException
 
 val SCENARIOS = listOf("commute_12km", "demo_levelup", "demo_exit_warning")
 
@@ -87,6 +89,7 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
         .collectAsStateWithLifecycle(0)
     var serverUrl by remember { mutableStateOf("") }
     var serverError by remember { mutableStateOf(false) }
+    var unlinkFailed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { serverUrl = container.settings.serverUrl.first() }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp, vertical = 24.dp), Arrangement.spacedBy(16.dp)) {
@@ -156,6 +159,10 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
                 if (url == null) serverError = true else { serverUrl = url; scope.launch { container.settings.setServerUrl(url) } }
             })
             DevButton("지금 동기화", { container.kickSync() })
+            DevButton("카카오 연결 해제", {
+                // 해제 요청이 실패하면(오프라인 등) 연결 상태를 그대로 둔다.
+                scope.launch { unlinkFailed = try { container.account.unlink(); false } catch (e: IOException) { true } catch (e: HttpException) { true } }
+            }, auth?.accountId != null)
         }
         val a = auth
         Text(
@@ -163,6 +170,7 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
                 "${if (a?.accountId != null) "계정 ${a.nickname ?: ""}".trim() else "계정 미연결"} · 대기 ${pending}건",
             fontSize = 26.sp, color = DpColors.TextTertiary,
         )
+        if (unlinkFailed) Text("연결을 해제하지 못했어요", fontSize = 24.sp, color = DpColors.Danger)
 
         Section("로컬 데이터")
         DevButton("로컬 데이터 초기화", { confirmReset = true })
