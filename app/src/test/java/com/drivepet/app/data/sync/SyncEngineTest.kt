@@ -196,6 +196,37 @@ class SyncEngineTest {
         assertEquals("dev", tokens.get().deviceId)
     }
 
+    @Test fun alreadyExistsConflictMarksCreated() = runBlocking {
+        profile(rev = null); record("r1", 1)
+        api.onUpload = { r ->
+            if (r.operations.first() is CreateProfileOp) Envelope(UploadResult(r.clientEventId, 9, r.operations.map {
+                OpResult(it.operationId, "CONFLICT", null, OpError("PROFILE_ALREADY_EXISTS", "m"), currentStateRevision = 3)
+            })) else applied(r)
+        }
+        engine.run()
+        assertEquals(3L, store.profiles["p-1"]!!.stateRevision)
+        assertEquals(listOf("r1"), api.uploads[1].operations.map { (it as AppendRecordOp).record.recordId })
+        assertEquals("SYNCED", store.records["r1"]!!.syncState)
+    }
+
+    @Test fun downloadStopsWhenCursorDoesNotMove() = runBlocking {
+        store.cursors["acc"] = "c0"
+        repeat(2) { api.pages += DownloadResult(emptyList(), "c0", true) }
+        engine.run()
+        assertEquals(listOf("c0"), api.downloads)
+    }
+
+    @Test fun notLinkedErrorKeepsAccountChangedMidSync() = runBlocking {
+        profile(rev = null)
+        api.onUpload = {
+            runBlocking { tokens.update { it.copy(accountId = "acc2", nickname = "새") } }
+            throw httpError(403, "KAKAO_NOT_LINKED")
+        }
+        assertEquals(SyncOutcome.NotLinked, engine.run())
+        assertEquals("acc2", tokens.get().accountId)
+        assertEquals("새", tokens.get().nickname)
+    }
+
     /** 가짜 API가 건너뛰는 실제 Retrofit 변환: 판별자 "type", null 커서 생략, 서버 전용 키 무시. */
     @Test fun retrofitWireFormat() = runBlocking {
         val server = MockWebServer().apply { start() }

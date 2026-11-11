@@ -56,7 +56,13 @@ class SyncEngine(
             val byOp = ops.associate { it.operationId to it.profileId }
             for (r in upload(account, ops).results) {
                 val profileId = byOp[r.operationId] ?: continue
-                if (r.status in OK && r.revision != null) { store.markProfileCreated(profileId, r.revision); uploaded++ } else rejected++
+                val rev = when {
+                    r.status in OK -> r.revision
+                    // 이미 내 계정에 있음(앞 응답을 못 받은 뒤 상태가 바뀜): 서버 상태를 따르고 내려받기가 덮어쓴다
+                    r.status == "CONFLICT" && r.error?.code == "PROFILE_ALREADY_EXISTS" -> r.currentStateRevision
+                    else -> null
+                }
+                if (rev != null) { store.markProfileCreated(profileId, rev); uploaded++ } else rejected++
             }
         }
 
@@ -83,8 +89,9 @@ class SyncEngine(
             val page = call { it.download(SCHEMA_VERSION, cursor, DOWNLOAD_LIMIT) }
             store.applyPage(account, page.changes.mapNotNull { it.toLocal(account, store.profile(it.profileId)) }, page.nextCursor)
             downloaded += page.changes.size
+            val stuck = page.nextCursor == cursor // 커서가 안 움직이면 hasMore여도 멈춘다
             cursor = page.nextCursor
-        } while (page.hasMore)
+        } while (page.hasMore && !stuck)
 
         return SyncOutcome.Done(uploaded, rejected, downloaded)
     }

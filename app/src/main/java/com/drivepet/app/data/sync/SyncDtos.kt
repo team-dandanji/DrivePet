@@ -26,7 +26,10 @@ data class AppendRecordOp(override val operationId: String, override val profile
 
 @Serializable data class UploadRequest(val schemaVersion: Int, val clientEventId: String, val operations: List<SyncOp>)
 @Serializable data class OpError(val code: String, val message: String)
-@Serializable data class OpResult(val operationId: String, val status: String, val revision: Long? = null, val error: OpError? = null)
+@Serializable data class OpResult(
+    val operationId: String, val status: String, val revision: Long? = null, val error: OpError? = null,
+    val currentStateRevision: Long? = null,
+)
 @Serializable data class UploadResult(val clientEventId: String, val serverRevision: Long, val results: List<OpResult>)
 @Serializable data class ChangeDto(val revision: Long, val profileId: String, val type: String, val savedAt: String, val payload: JsonObject)
 @Serializable data class DownloadResult(val changes: List<ChangeDto>, val nextCursor: String, val hasMore: Boolean)

@@ -82,4 +82,14 @@ class SyncMappingTest {
         assertEquals(77.4, kept.batteryKwh!!, 0.0)
         assertEquals(7L, kept.stateRevision)
     }
+
+    @Test fun otherAccountProfileIgnored() {
+        val foreign = profile.copy(accountId = "other")
+        val state = SyncJson.encodeToJsonElement(ProfileStateDto.serializer(), profile.toState())
+        assertNull(ChangeDto(7, "p-1", "STATE_UPDATED", "2026-11-10T08:00:00+09:00", JsonObject(mapOf("state" to state))).toLocal("acc", foreign))
+        val deleted = buildJsonObject { put("deletedAt", "2026-11-10T09:00:00+09:00") }
+        assertNull(ChangeDto(8, "p-1", "PROFILE_DELETED", "2026-11-10T09:00:00+09:00", deleted).toLocal("acc", foreign))
+        // 같은 계정이면 삭제가 반영된다
+        assertTrue(ChangeDto(8, "p-1", "PROFILE_DELETED", "2026-11-10T09:00:00+09:00", deleted).toLocal("acc", profile) is LocalChange.DeleteProfile)
+    }
 }
