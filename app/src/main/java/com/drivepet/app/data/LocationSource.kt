@@ -8,7 +8,17 @@ import android.location.LocationManager
 const val SEOUL_CITY_HALL_LAT = 37.5665
 const val SEOUL_CITY_HALL_LNG = 126.9780
 
-/** 권한이 있으면 마지막으로 알려진 위치 중 가장 최근 것, 아니면 서울시청. Play 서비스는 쓰지 않는다. */
+// 기상청 격자는 한국 안에서만 유효하다. 밖이면 서울시청으로 대신한다(에뮬레이터 기본 위치 등).
+const val KOREA_LAT_MIN = 33.0
+const val KOREA_LAT_MAX = 38.7
+const val KOREA_LNG_MIN = 124.5
+const val KOREA_LNG_MAX = 132.0
+
+internal fun pickOrSeoul(lat: Double, lng: Double): Pair<Double, Double> =
+    if (lat in KOREA_LAT_MIN..KOREA_LAT_MAX && lng in KOREA_LNG_MIN..KOREA_LNG_MAX) lat to lng
+    else SEOUL_CITY_HALL_LAT to SEOUL_CITY_HALL_LNG
+
+/** 권한이 있으면 마지막으로 알려진 위치 중 가장 최근 것, 아니면(한국 밖 포함) 서울시청. Play 서비스는 쓰지 않는다. */
 class LocationSource(private val context: Context) {
     @Suppress("MissingPermission")
     fun latLng(): Pair<Double, Double> {
@@ -18,6 +28,6 @@ class LocationSource(private val context: Context) {
         val best = listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER, LocationManager.PASSIVE_PROVIDER)
             .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
             .maxByOrNull { it.time }
-        return best?.let { it.latitude to it.longitude } ?: seoul
+        return best?.let { pickOrSeoul(it.latitude, it.longitude) } ?: seoul
     }
 }
