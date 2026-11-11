@@ -1,5 +1,6 @@
 package com.drivepet.app.data.remote
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +13,6 @@ import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -143,18 +143,24 @@ class RemoteAuthTest {
     @Test fun concurrent401sRefreshOnce() = runBlocking {
         val store = stored()
         val refreshes = java.util.concurrent.atomic.AtomicInteger()
+        // 두 요청이 모두 Bearer a1로 도착할 때까지 401을 붙잡아, "이미 갱신됨" 분기를 반드시 거치게 한다.
+        val bothArrived = java.util.concurrent.CountDownLatch(2)
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse = when {
                 request.path == "/api/v1/auth/refresh" -> { refreshes.incrementAndGet(); json(200, pair("a2", "r2")) }
                 request.getHeader("Authorization") == "Bearer a2" -> json(200, qr)
-                else -> json(401, expired)
+                else -> {
+                    bothArrived.countDown()
+                    check(bothArrived.await(5, java.util.concurrent.TimeUnit.SECONDS)) { "두 요청이 함께 도착하지 않음" }
+                    json(401, expired)
+                }
             }
         }
         val api = remote(store).api()
 
-        listOf(async { api.createQr() }, async { api.createQr() }).awaitAll()
+        listOf(async(Dispatchers.IO) { api.createQr() }, async(Dispatchers.IO) { api.createQr() }).awaitAll()
 
         assertEquals(1, refreshes.get())
-        assertNotNull(store.get().accessToken)
+        assertEquals("a2", store.get().accessToken)
     }
 }

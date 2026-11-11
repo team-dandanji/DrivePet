@@ -25,14 +25,15 @@ class Remote(
     private val tokens: TokenStore,
     private val appVersion: String,
 ) {
-    private val lock = Any()
+    private val lock = Any() // 인증 복구 전용(네트워크 I/O를 쥔다)
+    private val cacheLock = Any() // URL·클라이언트 캐시 전용, api()가 인증 I/O를 기다리지 않게 분리
     private var cachedUrl: String? = null
     private var cachedApi: DrivePetApi? = null
-    private var authApi: AuthApi? = null
+    @Volatile private var authApi: AuthApi? = null
 
     suspend fun api(): DrivePetApi {
         val url = baseUrl().let { if (it.endsWith("/")) it else "$it/" }
-        return synchronized(lock) {
+        return synchronized(cacheLock) {
             if (url != cachedUrl) {
                 val plain = OkHttpClient.Builder().timeouts().build()
                 authApi = retrofit(url, plain).create(AuthApi::class.java)
