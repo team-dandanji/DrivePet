@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.drivepet.app.BuildConfig
 import com.drivepet.vehicle.VehicleModule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -15,6 +16,7 @@ class Settings(context: Context) {
     private val modeKey = stringPreferencesKey("mode")
     private val profileKey = stringPreferencesKey("active_profile_id")
     private val greetKey = stringPreferencesKey("last_greet_date")
+    private val serverUrlKey = stringPreferencesKey("server_url")
 
     // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 22·개발자 메뉴에서만 시작한다.
     private val defaultMode = VehicleModule.Mode.REAL
@@ -33,6 +35,10 @@ class Settings(context: Context) {
     val lastGreetDate: Flow<String?> = store.data.map { it[greetKey] }
 
     suspend fun setLastGreetDate(date: String) { store.edit { it[greetKey] = date } }
+
+    val serverUrl: Flow<String> = store.data.map { it[serverUrlKey] ?: BuildConfig.DEFAULT_SERVER_URL }
+
+    suspend fun setServerUrl(url: String) { store.edit { it[serverUrlKey] = url } }
 
     /** 개발자 메뉴 "로컬 데이터 초기화": 설정을 모두 지운다. */
     suspend fun clear() { store.edit { it.clear() } }
