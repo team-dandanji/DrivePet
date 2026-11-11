@@ -192,7 +192,7 @@ fun AppNav(container: AppContainer) {
                     composable(Routes.LOUNGE) {
                         LoungeScreen(viewModel(factory = LoungeViewModel.factory(container)), container.speaker) { nav.navigate(Routes.DEV) }
                     }
-                    composable(Routes.GARAGE) { Placeholder("2부에서 열려요") }
+                    composable(Routes.GARAGE) { Placeholder("준비 중이에요") }
                     composable(Routes.TRIPS) { TripsScreen(container) }
                     composable(
                         "${Routes.LEVEL_UP}/{before}/{after}",

@@ -67,6 +67,12 @@ class SafetyTest {
         }
     }
 
+    @Test fun `trip over 1000 km is unverified`() {
+        assertTrue(settle(metrics(start = 0, end = 1_000_000_000), h).valid) // 정확히 1,000km
+        val s = settle(metrics(start = 0, end = 60_703_000_000), h)
+        assertFalse(s.valid); assertNull(s.distanceMm); assertNull(s.baseDrivingExpMilli)
+    }
+
     @Test fun `nothing measured gives null score`() {
         val s = settle(metrics(steeringMeasured = false, speedMeasured = false, fuelType = FuelType.ICE, bigTurns = 0), h)
         assertNull(s.safetyScore); assertEquals(UNMEASURED, s.safetyStatus)

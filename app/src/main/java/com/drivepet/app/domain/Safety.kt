@@ -30,6 +30,8 @@ private const val STEERING_BONUS_MILLI = 15_000L
 private const val SIGNAL_BONUS_MILLI = 20_000L
 private const val SIGNAL_BONUS_PERCENT = 80
 private const val FULL_EFFICIENCY_KM_PER_KWH = 5.0
+// 자체 기준: 한 번 주행에 1,000km 넘게 늘어난 누적거리는 값 오류로 보고 거리 미확인 처리(Virtual Console 막대는 한 칸에 수천 km씩 움직인다)
+private const val MAX_TRIP_MM = 1_000L * 1_000_000
 
 private fun measured(item: SafetyItem, score: Int, value: Double?) = SafetyLine(item, score, MeasurementStatus.MEASURED, value)
 private fun unmeasured(item: SafetyItem) = SafetyLine(item, null, MeasurementStatus.UNMEASURED, null)
@@ -37,7 +39,7 @@ private fun unmeasured(item: SafetyItem) = SafetyLine(item, null, MeasurementSta
 fun settle(m: TripMetrics, health: HealthResult): Settlement {
     val start = m.startMm
     val end = m.endMm
-    val valid = start != null && end != null && end >= start
+    val valid = start != null && end != null && end >= start && end - start <= MAX_TRIP_MM
     val distanceMm = if (valid) end!! - start!! else null
 
     val accelBrake = if (!m.speedMeasured) unmeasured(SafetyItem.ACCEL_BRAKE)

@@ -111,7 +111,7 @@ private fun ExpCard(u: LoungeUi) {
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Today's mission", fontSize = 24.sp, color = DpColors.TextTertiary)
-                Text("2부에서 열려요", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("준비 중이에요", fontSize = 28.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
