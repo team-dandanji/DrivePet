@@ -132,3 +132,27 @@ interface SyncDao {
     @Query("UPDATE profile SET deletedAt = :deletedAt WHERE profileId = :profileId")
     suspend fun markProfileDeleted(profileId: String, deletedAt: Long)
 }
+
+@Dao
+interface MaintenanceDao {
+    @Query("SELECT * FROM maintenance_item WHERE profileId = :profileId AND archived = 0")
+    fun items(profileId: String): Flow<List<MaintenanceItemEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<MaintenanceItemEntity>)
+
+    @Query("SELECT COUNT(*) FROM maintenance_item WHERE profileId = :profileId")
+    suspend fun count(profileId: String): Int
+
+    /** 그 프로필 항목이 하나도 없을 때만 넣는다(정비 탭을 여러 번 열어도 한 벌). */
+    @Transaction
+    suspend fun ensure(profileId: String, defaults: List<MaintenanceItemEntity>) {
+        if (count(profileId) == 0) upsertAll(defaults)
+    }
+
+    @Query("SELECT * FROM vehicle_care WHERE profileId = :profileId")
+    fun care(profileId: String): Flow<VehicleCareEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setCare(c: VehicleCareEntity)
+}

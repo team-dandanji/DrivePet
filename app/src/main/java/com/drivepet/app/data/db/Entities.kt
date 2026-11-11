@@ -84,3 +84,23 @@ data class DevSeedEntity(
     @PrimaryKey val profileId: String,
     val seedMilli: Long,
 )
+
+/** 소모품 한 항목의 처음 등록 기준(API MaintenanceItemSetting 모양). 기기 안에만 두고 동기화하지 않는다. kind = CareItem 이름. */
+@Entity(tableName = "maintenance_item", indices = [Index("profileId")])
+data class MaintenanceItemEntity(
+    @PrimaryKey val itemId: String,
+    val profileId: String,
+    val kind: String,
+    val intervalKm: Int,
+    val baselineOdometerMm: Long?,
+    val baselineServicedOn: String?,
+    val baselineServicedPeriod: String?,
+    val archived: Boolean = false,
+)
+
+/** 프로필별 정기검사 예정일(yyyy-MM-dd). profile 열로 두지 않는 이유: ProfileDao.upsert(REPLACE)가 stateRevision을 지운다. */
+@Entity(tableName = "vehicle_care")
+data class VehicleCareEntity(
+    @PrimaryKey val profileId: String,
+    val inspectionDueDate: String?,
+)
