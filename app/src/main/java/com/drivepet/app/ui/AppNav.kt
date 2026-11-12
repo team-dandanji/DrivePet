@@ -4,13 +4,9 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -21,14 +17,10 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -47,6 +39,7 @@ import com.drivepet.app.ui.components.TopTabs
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
+import com.drivepet.app.ui.garage.GarageScreen
 import com.drivepet.app.ui.lounge.LoungeScreen
 import com.drivepet.app.ui.link.LinkScreen
 import com.drivepet.app.ui.link.LinkViewModel
@@ -246,7 +239,7 @@ fun AppNav(container: AppContainer) {
                     composable(Routes.LOUNGE) {
                         LoungeScreen(viewModel(factory = LoungeViewModel.factory(container)), container.speaker) { nav.navigate(Routes.DEV) }
                     }
-                    composable(Routes.GARAGE) { Placeholder("준비 중이에요") }
+                    composable(Routes.GARAGE) { GarageScreen(container) { nav.navigate(linkRoute("welcome")) } }
                     composable(Routes.TRIPS) { TripsScreen(container) }
                     composable(
                         "${Routes.LEVEL_UP}/{before}/{after}",
@@ -322,11 +315,3 @@ private fun petLook(c: AppContainer): Flow<Pair<String, Int>> =
                 Pair(p.starterType, Growth.level(growthTotalMilli(records, seed)))
             }
         }
-
-@Composable
-private fun Placeholder(title: String, extra: @Composable ColumnScope.() -> Unit = {}) {
-    Column(Modifier.fillMaxSize(), Arrangement.spacedBy(24.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
-        Text(title, fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
-        extra()
-    }
-}

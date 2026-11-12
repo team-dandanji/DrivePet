@@ -48,6 +48,7 @@ class QrApi : DrivePetApi {
     /** n번째(1부터) qrStatus 호출의 응답. */
     var script: (Int) -> QrStatus = { QrStatus("PENDING") }
     var unlinkResult: UnlinkResult? = null
+    var deleteResult: AccountDeleted? = null
 
     override suspend fun createQr(): Envelope<QrSession> {
         createCalls++
@@ -55,6 +56,7 @@ class QrApi : DrivePetApi {
     }
     override suspend fun qrStatus(id: String): Envelope<QrStatus> = Envelope(script(++statusCalls))
     override suspend fun unlink(): Envelope<UnlinkResult> = Envelope(unlinkResult)
+    override suspend fun deleteAccount(): Envelope<AccountDeleted> = Envelope(deleteResult)
     override suspend fun upload(r: UploadRequest, a: ExpectedAccount): Envelope<UploadResult> = error("unused")
     override suspend fun download(v: Int, cursor: String?, limit: Int, a: ExpectedAccount): Envelope<DownloadResult> = error("unused")
     override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")

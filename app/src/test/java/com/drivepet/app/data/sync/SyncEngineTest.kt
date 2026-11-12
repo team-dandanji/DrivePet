@@ -95,6 +95,7 @@ private class FakeApi : DrivePetApi {
     override suspend fun createQr(): Envelope<QrSession> = TODO()
     override suspend fun qrStatus(id: String): Envelope<QrStatus> = TODO()
     override suspend fun unlink(): Envelope<UnlinkResult> = TODO()
+    override suspend fun deleteAccount(): Envelope<com.drivepet.app.data.remote.AccountDeleted> = TODO()
     override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")
 }
 

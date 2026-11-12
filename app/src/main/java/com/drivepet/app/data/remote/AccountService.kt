@@ -5,11 +5,12 @@ import com.drivepet.app.data.sync.SyncStore
 import kotlinx.coroutines.CancellationException
 import java.io.IOException
 
-/** 카카오 계정 연결·해제. QR 세션은 서버가 만들고, 앱은 상태를 조회해 연결을 마무리한다. */
+/** 카카오 계정 연결·해제·탈퇴. QR 세션은 서버가 만들고, 앱은 상태를 조회해 연결을 마무리한다. */
 class AccountService(
     private val api: suspend () -> DrivePetApi,
     private val tokens: TokenStore,
     private val store: SyncStore,
+    private val wipeLocal: suspend () -> Unit = {},
     private val sync: suspend () -> SyncOutcome,
 ) {
     suspend fun createQr(): QrSession = api().createQr().data ?: throw IOException("QR 세션 응답에 data가 없습니다")
@@ -43,5 +44,12 @@ class AccountService(
     suspend fun unlink() {
         val r = api().unlink().data ?: throw IOException("연결 해제 응답에 data가 없습니다")
         tokens.update { it.copy(accessToken = r.tokens.accessToken, refreshToken = r.tokens.refreshToken, accountId = null, nickname = null) }
+    }
+
+    /** 탈퇴: 서버가 계정 데이터를 지우면 미연결 토큰으로 바꾸고 로컬 데이터도 지운다. 서버 요청이 실패하면 아무것도 바꾸지 않는다. */
+    suspend fun deleteAccount() {
+        val r = api().deleteAccount().data ?: throw IOException("탈퇴 응답에 data가 없습니다")
+        tokens.update { it.copy(accessToken = r.tokens.accessToken, refreshToken = r.tokens.refreshToken, accountId = null, nickname = null) }
+        wipeLocal()
     }
 }

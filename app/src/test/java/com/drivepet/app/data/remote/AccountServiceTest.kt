@@ -103,4 +103,28 @@ class AccountServiceTest {
         assertEquals("acc_1", store.profiles.getValue("pa").accountId)
         assertEquals(0, store.calls)
     }
+
+    @Test fun deleteAccountClearsAccountThenWipesLocal() = runBlocking {
+        var wipedWith: AuthState? = null
+        val svc = AccountService({ api }, tokens, store, { wipedWith = tokens.get() }) { error("unused") }
+        tokens.update { it.copy(accountId = "acc_1", nickname = "지우") }
+        api.deleteResult = AccountDeleted(TokenPair("u1", "ur1", 3600))
+        svc.deleteAccount()
+        val t = tokens.get()
+        assertEquals("u1", t.accessToken)
+        assertNull(t.accountId)
+        assertNull(t.nickname)
+        assertEquals(t, wipedWith) // 미연결 토큰을 저장한 뒤 로컬을 지운다
+    }
+
+    @Test fun deleteAccountFailureChangesNothing() = runBlocking {
+        var wiped = false
+        val svc = AccountService({ api }, tokens, store, { wiped = true }) { error("unused") }
+        tokens.update { it.copy(accountId = "acc_1") }
+        val before = tokens.get()
+        api.deleteResult = null
+        try { svc.deleteAccount(); error("실패해야 한다") } catch (e: IOException) { }
+        assertEquals(before, tokens.get())
+        assertFalse(wiped)
+    }
 }

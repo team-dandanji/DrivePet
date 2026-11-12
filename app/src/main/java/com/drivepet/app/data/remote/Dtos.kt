@@ -21,6 +21,7 @@ import retrofit2.HttpException
     val tokens: TokenPair? = null,
 )
 @Serializable data class UnlinkResult(val kakaoLinked: Boolean, val tokens: TokenPair)
+@Serializable data class AccountDeleted(val tokens: TokenPair)
 
 val ApiJson = Json { ignoreUnknownKeys = true }
 

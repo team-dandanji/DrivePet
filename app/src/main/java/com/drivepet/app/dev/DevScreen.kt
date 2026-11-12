@@ -44,7 +44,6 @@ import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.VehicleModule.Mode
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.TurnSide
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -184,7 +183,7 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
                 TextButton({
                     confirmReset = false
                     // 화면이 온보딩으로 바뀌면 이 화면의 scope는 사라지므로 앱 scope에서 끝까지 지운다. AuthStore(기기 신원)는 남긴다.
-                    container.scope.launch(Dispatchers.IO) { container.db.clearAllTables(); container.settings.clear() }
+                    container.scope.launch { container.wipeLocal() }
                 }) { Text("지우기", fontSize = 26.sp, color = DpColors.Danger) }
             },
             dismissButton = { TextButton({ confirmReset = false }) { Text("취소", fontSize = 26.sp) } },

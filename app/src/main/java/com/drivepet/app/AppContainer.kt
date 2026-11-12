@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 
 class AppContainer(context: Context) {
     private val app = context.applicationContext
@@ -32,10 +33,13 @@ class AppContainer(context: Context) {
     val remote = Remote({ settings.serverUrl.first() }, auth, BuildConfig.VERSION_NAME)
     val syncStore: SyncStore = RoomSyncStore(db)
     val sync = SyncEngine(remote::api, syncStore, auth)
-    val account = AccountService(remote::api, auth, syncStore) { sync.run() }
+    val account = AccountService(remote::api, auth, syncStore, ::wipeLocal) { sync.run() }
     val weather = WeatherRepo(remote::api, LocationSource(app)::latLng)
     val speaker: Speaker = BubbleSpeaker(scope)
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)
 
     fun kickSync() = SyncWorker.enqueue(app)
+
+    /** 앱 안의 기록과 설정을 지운다. 서버 주소와 기기 신원(AuthStore)은 남긴다. */
+    suspend fun wipeLocal() = withContext(Dispatchers.IO) { db.clearAllTables(); settings.clear() }
 }
