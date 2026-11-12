@@ -143,7 +143,7 @@ fun AppHeader(modifier: Modifier = Modifier) {
 private val STEP_LABELS = listOf("회원가입/로그인", "차량정보 확인하기", "소모품 이력 확인하기", "메이트 선택하기")
 
 /**
- * 단계 화면 상단(403:36018): ‹ 제목 ⋯ 과 4칸 진행 막대. [step] 0..3까지 막대가 진해진다.
+ * 단계 화면 상단(403:36018): ‹ 제목 ⋯ 과 4칸 진행 막대. [step] 칸만 막대 progress/active · 글자 tertiary, 나머지는 inactive · quaternary.
  * 오른쪽 위 소단계 번호는 화면이 [StepDots]로 따로 놓는다.
  */
 @Composable
@@ -159,7 +159,7 @@ fun StepHeader(title: String, step: Int, onBack: () -> Unit, modifier: Modifier 
         }
         Row(Modifier.fillMaxWidth().padding(top = 24.dp).padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             STEP_LABELS.forEachIndexed { i, label ->
-                val on = i <= step
+                val on = i == step // 지금 칸만 진하다(403:36018 · 403:36100 · 404:41673)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.fillMaxWidth().height(4.dp).background(if (on) DpColors.Filled else DpColors.TrackInactive))
                     Text(label, style = DpType.labelS, color = if (on) DpColors.TextTertiary else DpColors.TextQuaternary, maxLines = 1)

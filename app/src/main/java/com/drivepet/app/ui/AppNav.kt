@@ -270,8 +270,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
                             onLinked = { linked ->
                                 container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
-                                // 로그인·계정만 바꾸는 경우와 복원된 경우는 01로(복원된 프로필은 이미 활성으로 저장됨). 새 연결이고 복원할 게 없으면 차량 정보로.
-                                if (next == "welcome" || linked.restored) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
+                                if (afterLink(next, linked.restored, anyProfile == true) == Routes.WELCOME) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
                                 else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // QR은 스택에 남기지 않는다
                             },
                         )
@@ -445,6 +444,13 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
 }
 
 fun careRoute(index: Int) = "onboard/care/$index"
+
+/**
+ * 카카오 연결 뒤 갈 곳. 복원됐거나 01에서 계정만 바꾸는 경우(기기에 프로필이 있음)는 01, 그 밖에는 차량 정보로 온보딩을 이어 간다.
+ * 인트로의 「이미 계정이 있어요」로 연결했는데 서버 기록도 기기 프로필도 없으면 01로 가 봐야 곧바로 인트로로 되돌아가므로 이어 간다.
+ */
+fun afterLink(next: String, restored: Boolean, hasAnyProfile: Boolean): String =
+    if (restored || (next == "welcome" && hasAnyProfile)) Routes.WELCOME else Routes.ONBOARD_SCAN
 
 /** ONBOARD_SCAN 항목에 둔 공유 ViewModel(차량 정보 뒤 온보딩 화면들이 쓴다). */
 @Composable

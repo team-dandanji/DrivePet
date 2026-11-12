@@ -73,6 +73,15 @@ class RouteForTest {
         assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
     }
 
+    @Test fun afterLinkContinuesOnboardingWithoutRecords() {
+        assertEquals(Routes.ONBOARD_SCAN, afterLink("scan", restored = false, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("scan", restored = true, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = true, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = true, hasAnyProfile = true))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = false, hasAnyProfile = true)) // 01에서 계정만 바꿈
+        assertEquals(Routes.ONBOARD_SCAN, afterLink("welcome", restored = false, hasAnyProfile = false)) // 인트로 로그인, 서버 기록 없음
+    }
+
     @Test
     fun restrictedCopy_introVsGeneral() {
         val intro = "안전하게 주차한 뒤 시작해주세요"
