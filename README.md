@@ -7,7 +7,7 @@
 
 ## APK
 
-**[`apk/단단지_DrivePet_release.apk`](apk/단단지_DrivePet_release.apk)** — release 빌드, 버전 1.0.0
+**[`apk/단단지_Carpet_release.apk`](apk/단단지_Carpet_release.apk)** — release 빌드, 버전 1.0.0
 
 ## 실행 방법
 
@@ -16,7 +16,7 @@
 1. Pleos Connect 에뮬레이터를 켭니다(아래 [테스트 환경](#테스트-환경)).
 2. APK를 설치합니다.
    ```bash
-   adb install apk/단단지_DrivePet_release.apk
+   adb install apk/단단지_Carpet_release.apk
    ```
 3. 하단 앱 목록에서 **DrivePet**을 엽니다.
 4. 처음 실행하면 권한을 두 번 묻습니다. 모두 **허용**을 누릅니다. (차속 권한은 에뮬레이터에서 "위치 정보에 액세스" 창으로 표시됩니다. 두 번째는 알림 권한입니다.)
