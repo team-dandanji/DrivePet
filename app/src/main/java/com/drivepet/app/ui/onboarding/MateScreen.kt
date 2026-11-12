@@ -38,12 +38,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.R
-import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.LocalDriving
-import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.DpPopup
 import com.drivepet.app.ui.components.DpTag
+import com.drivepet.app.ui.components.PetMotionView
 import com.drivepet.app.ui.components.PopupButton
+import com.drivepet.app.ui.components.eggMotion
 import com.drivepet.app.ui.components.PopupSpec
 import com.drivepet.app.ui.components.TagStyle
 import com.drivepet.app.ui.theme.DpColors
@@ -90,7 +90,8 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                 Row(m, verticalAlignment = Alignment.CenterVertically) {
                     Slider(left = true) { shift(-1) }
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(25.dp)) {
-                        Character(vm.starter, 1, Mood.NORMAL, size = if (narrow) 260.dp else 320.dp)
+                        // 알 모션 400×400: 고른 알이 바뀔 때마다 한 번 재생, 반복 없음
+                        PetMotionView(eggMotion(vm.starter), Modifier.size(if (narrow) 320.dp else 400.dp), loop = false)
                         Text(
                             "나랑 같이 달려볼래요?", Modifier.clip(RoundedCornerShape(20.dp)).background(DpColors.Sky500).padding(horizontal = 28.dp, vertical = 20.dp),
                             style = DpType.bodyL.copy(fontWeight = FontWeight.Bold), color = Color.White, maxLines = 1,

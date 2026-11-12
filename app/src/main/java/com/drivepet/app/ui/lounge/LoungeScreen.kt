@@ -52,7 +52,9 @@ import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.characterSize
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
+import com.drivepet.app.ui.components.PetMotionView
 import com.drivepet.app.ui.components.SpeechBubble
+import com.drivepet.app.ui.components.homeMotion
 import com.drivepet.app.ui.components.TagStyle
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
@@ -157,7 +159,13 @@ private fun LoungePet(u: LoungeUi, devPress: Modifier, modifier: Modifier) {
         val want = characterSize(u.stage) * LOUNGE_PET_SCALE
         // Character 높이 = size × 1.1
         val size = if (constraints.hasBoundedHeight) minOf(want, maxHeight / 1.1f) else want
-        Character(u.starter, u.stage, u.mood, devPress, size)
+        val motion = homeMotion(u.starter, u.stage, u.mood)
+        if (motion != null) {
+            // 1004×480 모션: 칸 높이가 정해져 있으면 그 안에 맞추고, 아니면(좁은 창) 폭에 맞춰 480
+            PetMotionView(motion, devPress.then(if (constraints.hasBoundedHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(motion.h.dp)))
+        } else {
+            Character(u.starter, u.stage, u.mood, devPress, size)
+        }
     }
 }
 

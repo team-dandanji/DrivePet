@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -20,6 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.PetMotion
+import com.drivepet.app.ui.components.PetMotionView
+import com.drivepet.app.ui.components.hasChickMotion
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.components.scrollWhen
@@ -47,7 +51,9 @@ fun RouteDoneScreen(placeName: String, starter: String, stage: Int, onBack: () -
             (if (narrow) Modifier else Modifier.weight(1f)).fillMaxWidth().padding(horizontal = 40.dp),
             verticalArrangement = Arrangement.spacedBy(52.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Character(starter, stage, Mood.HAPPY, size = if (narrow) 360.dp else 440.dp)
+            // 목적지 등록 모션 970×512(반복). 모션이 없는 캐릭터는 정지 그림
+            if (hasChickMotion(starter, stage)) PetMotionView(PetMotion.CAR_CHICK, Modifier.fillMaxWidth().height(if (narrow) 360.dp else 512.dp))
+            else Character(starter, stage, Mood.HAPPY, size = if (narrow) 360.dp else 440.dp)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     "$placeName${objectParticle(placeName)}\n네비게이션 목적지로 등록했어요",

@@ -51,6 +51,9 @@ import com.drivepet.app.domain.formatExp
 import com.drivepet.app.domain.gaugeExpText
 import com.drivepet.app.drive.RecorderOutput
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.PetMotion
+import com.drivepet.app.ui.components.PetMotionView
+import com.drivepet.app.ui.components.hasChickMotion
 import com.drivepet.app.ui.components.characterSize
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
@@ -132,8 +135,10 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
         // 419:51084: 위에서부터 칩 → 그래픽 칸 618(펫 그룹 가운데) → 막대, 간격 16
         Column(m, Arrangement.spacedBy(16.dp), Alignment.CenterHorizontally) {
             ExpChip(paidMilli)
-            Box(Modifier.height(618.dp), contentAlignment = Alignment.Center) {
-                Character(starter, stage, Mood.HAPPY, size = characterSize(stage) * SETTLEMENT_PET_SCALE)
+            Box(Modifier.height(618.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                // 보상 모션 798×618(반복). 모션이 없는 캐릭터는 정지 그림
+                if (hasChickMotion(starter, stage)) PetMotionView(PetMotion.REWARD_CHICK, Modifier.fillMaxSize())
+                else Character(starter, stage, Mood.HAPPY, size = characterSize(stage) * SETTLEMENT_PET_SCALE)
             }
             CumulativeGauge(beforeMilli, afterMilli, narrow)
         }

@@ -39,6 +39,9 @@ import com.drivepet.app.domain.Mood
 import com.drivepet.app.domain.formatExp
 import com.drivepet.app.domain.gaugeExpText
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.PetMotion
+import com.drivepet.app.ui.components.PetMotionView
+import com.drivepet.app.ui.components.hasChickMotion
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
 import com.drivepet.app.ui.components.TagStyle
@@ -70,7 +73,9 @@ fun CareDoneScreen(vm: GarageViewModel, recordId: String, starter: String, stage
         Column(m, verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             RisingExpTag("+ ${formatExp(paidMilli)} EXP")
             Box(Modifier.then(if (narrow) Modifier.height(500.dp) else Modifier.weight(1f)).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Character(starter, stage, Mood.HAPPY, size = 440.dp)
+                // 보상 모션 798×618(반복). 모션이 없는 캐릭터는 정지 그림
+                if (hasChickMotion(starter, stage)) PetMotionView(PetMotion.REWARD_CHICK, Modifier.fillMaxSize())
+                else Character(starter, stage, Mood.HAPPY, size = 440.dp)
             }
             ExpGauge(u.beforeMilli, u.afterMilli)
         }
