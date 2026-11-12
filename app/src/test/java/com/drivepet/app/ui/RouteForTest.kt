@@ -1,5 +1,6 @@
 package com.drivepet.app.ui
 
+import com.drivepet.app.drive.isDriving
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState

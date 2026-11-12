@@ -2,6 +2,7 @@ package com.drivepet.app.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.drivepet.app.BuildConfig
@@ -18,8 +19,8 @@ fun normalizeServerUrl(input: String): String? {
     return if (t.endsWith("/")) t else "$t/"
 }
 
-/** 내비로 안내를 시작한 정비(itemId = CareItem 이름). 방문 후 기록 팝업이 쓴다. */
-data class PendingCare(val itemId: String, val placeName: String)
+/** 내비로 안내를 시작한 정비(itemId = CareItem 이름). 방문 후 기록 팝업이 쓴다. armed = 안내를 시작한 뒤 실제로 주행했는지(그 전에는 묻지 않는다). */
+data class PendingCare(val itemId: String, val placeName: String, val armed: Boolean = false)
 
 class Settings(context: Context) {
     private val store = context.applicationContext.settingsStore
@@ -29,6 +30,7 @@ class Settings(context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val pendingItemKey = stringPreferencesKey("pending_care_item")
     private val pendingPlaceKey = stringPreferencesKey("pending_care_place")
+    private val pendingArmedKey = booleanPreferencesKey("pending_care_armed")
 
     // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 22·개발자 메뉴에서만 시작한다.
     private val defaultMode = VehicleModule.Mode.REAL
@@ -54,15 +56,20 @@ class Settings(context: Context) {
 
     val pendingCare: Flow<PendingCare?> = store.data.map { p ->
         val item = p[pendingItemKey] ?: return@map null
-        PendingCare(item, p[pendingPlaceKey].orEmpty())
+        PendingCare(item, p[pendingPlaceKey].orEmpty(), p[pendingArmedKey] == true)
     }
 
     /** null이면 지운다. */
     suspend fun setPendingCare(c: PendingCare?) {
         store.edit {
-            if (c == null) { it.remove(pendingItemKey); it.remove(pendingPlaceKey) }
-            else { it[pendingItemKey] = c.itemId; it[pendingPlaceKey] = c.placeName }
+            if (c == null) { it.remove(pendingItemKey); it.remove(pendingPlaceKey); it.remove(pendingArmedKey) }
+            else { it[pendingItemKey] = c.itemId; it[pendingPlaceKey] = c.placeName; it[pendingArmedKey] = c.armed }
         }
+    }
+
+    /** 대기 중인 정비가 있을 때만 armed로 바꾼다(없으면 아무것도 쓰지 않는다). */
+    suspend fun armPendingCare() {
+        store.edit { if (it[pendingItemKey] != null) it[pendingArmedKey] = true }
     }
 
     /** 개발자 메뉴 "로컬 데이터 초기화": 서버 주소만 남기고 설정을 지운다(지우면 시연 빌드가 기본 http 주소로 돌아가 서버 기능이 끊긴다). */

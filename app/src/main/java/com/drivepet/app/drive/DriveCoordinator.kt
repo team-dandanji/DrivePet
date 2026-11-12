@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import com.drivepet.app.MainActivity
+import com.drivepet.app.data.PendingCare
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.Settings
 import com.drivepet.app.data.careRows
@@ -25,8 +26,10 @@ import com.drivepet.app.domain.seoulDate
 import com.drivepet.app.domain.toWarningInput
 import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.DriveEvent
+import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
+import com.drivepet.vehicle.model.valueOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -49,6 +52,17 @@ private const val TAG = "DriveCoordinator"
 private const val CHANNEL_SETTLEMENT = "settlement"
 private const val NOTIFICATION_SETTLEMENT = 2001
 
+/** 주행 제한이 읽히면 그 값을 따르고, 못 읽으면(Ok 아님) 기어가 D/R일 때 주행 중으로 본다. */
+fun isDriving(s: VehicleState): Boolean {
+    val ux = s.uxRestricted.valueOrNull()
+    if (ux != null) return ux
+    val gear = s.gear.valueOrNull()
+    return gear == Gear.D || gear == Gear.R
+}
+
+/** 정비소 안내를 시작한 뒤 처음 주행하면 팝업을 켠다(armed). 이미 켰거나 대기가 없으면 쓰지 않는다. */
+fun shouldArm(pending: PendingCare?, driving: Boolean): Boolean = driving && pending != null && !pending.armed
+
 /** 라운지 진입만으로 출석시켜도 되는 때: 실차(REAL)에서 벨트를 못 읽고 정차 중. FAKE·REPLAY는 제외. */
 fun shouldAutoCheckIn(mode: VehicleModule.Mode?, beltReadable: Boolean, parked: Boolean): Boolean =
     mode == VehicleModule.Mode.REAL && !beltReadable && parked
@@ -61,7 +75,7 @@ fun shouldAutoCheckIn(mode: VehicleModule.Mode?, beltReadable: Boolean, parked: 
 class DriveCoordinator(
     private val context: Context,
     private val store: RecordStore,
-    settings: Settings,
+    private val settings: Settings,
     private val speaker: Speaker,
     scope: CoroutineScope,
 ) {
@@ -80,6 +94,8 @@ class DriveCoordinator(
                 runCatching { ProfileSnapshot(it.profileId, it.accountId, FuelType.valueOf(it.fuelType), it.batteryKwh) }.getOrNull()
             }
         }.stateIn(scope, SharingStarted.Eagerly, null)
+
+    private val pendingCare: StateFlow<PendingCare?> = settings.pendingCare.stateIn(scope, SharingStarted.Eagerly, null)
 
     private val _pendingSettlement = MutableStateFlow<RecorderOutput.Settled?>(null)
     val pendingSettlement: StateFlow<RecorderOutput.Settled?> = _pendingSettlement
@@ -144,6 +160,7 @@ class DriveCoordinator(
     private suspend fun onState(prev: VehicleState, next: VehicleState) {
         exitTracker.onState(next)
         recorder.onState(prev, next)
+        if (shouldArm(pendingCare.value, isDriving(next))) settings.armPendingCare()
         val p = activeProfile.value ?: return
         val warnings = (next.warnings as? Signal.Ok)?.value
         if (warnings != null && lastSyncedWarnings != p.profileId to warnings) {

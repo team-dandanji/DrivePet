@@ -32,6 +32,7 @@ import androidx.navigation.navArgument
 import com.drivepet.app.AppContainer
 import com.drivepet.app.BuildConfig
 import com.drivepet.app.dev.DevScreen
+import com.drivepet.app.drive.isDriving
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
@@ -109,14 +110,6 @@ private val TAB_ROUTES = Tab.entries.associateBy { it.name.lowercase() } // 라�
 
 /** 주행 중이면 true. 대화상자(별도 창)는 덮개 위에 그려지므로 스스로 닫는 데 쓴다. */
 val LocalDriving = compositionLocalOf { false }
-
-/** 주행 제한이 읽히면 그 값을 따르고, 못 읽으면(Ok 아님) 기어가 D/R일 때 주행 중으로 본다. */
-fun isDriving(s: VehicleState): Boolean {
-    val ux = s.uxRestricted.valueOrNull()
-    if (ux != null) return ux
-    val gear = s.gear.valueOrNull()
-    return gear == Gear.D || gear == Gear.R
-}
 
 /** 상태가 정하는 강제 화면. DRIVING·EXIT_CHECK·SETTLEMENT는 NavHost 위 덮개로, ONBOARDING·WELCOME은 NavHost 경로로 보여 준다. */
 enum class Forced { NONE, DRIVING, EXIT_CHECK, SETTLEMENT, ONBOARDING, WELCOME }
