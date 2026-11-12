@@ -114,7 +114,7 @@ private fun FuelTag(text: String, on: Boolean) {
 private fun ItemCard(item: CareItem, score: Double, b: CareBaseline?, onPeriod: (ServicedPeriod) -> Unit, onDirect: () -> Unit, modifier: Modifier) {
     DpCard(modifier) {
         Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(item.title, style = DpType.bodyL.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
+            Text(item.title, style = DpType.bodyL.copy(fontWeight = FontWeight.ExtraBold), maxLines = 2)
             Text("권장 ${km(item.intervalKm)} · 항목 배점 ${scoreText(score)}점", style = DpType.labelM, color = DpColors.TextTertiary)
             ServicedPeriod.entries.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

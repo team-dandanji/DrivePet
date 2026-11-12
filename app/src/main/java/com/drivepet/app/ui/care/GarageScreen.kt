@@ -99,8 +99,9 @@ private fun CareCard(r: CareRow, score: Double, onDone: () -> Unit, modifier: Mo
     val life = r.life
     DpCard(modifier) {
         Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(r.care.title, Modifier.weight(1f), style = DpType.bodyL.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
+            // 제목은 정보라 잘리면 안 된다: 카드 폭을 다 쓰고 두 줄까지 늘어나며, 배점 칩은 그 아래에 둔다.
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(r.care.title, style = DpType.bodyL.copy(fontWeight = FontWeight.ExtraBold), maxLines = 2)
                 DpTag("배점 ${if (score % 1.0 == 0.0) score.toInt() else score}", TagStyle.Done)
             }
             Text("권장 ${km(r.care.intervalKm)} · " + (life.lastServiced?.let { "마지막 관리 $it" } ?: "관리 이력 미등록"), style = DpType.labelM, color = DpColors.TextTertiary)
