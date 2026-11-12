@@ -223,6 +223,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     val overlay = forced != Forced.NONE && forced != Forced.ONBOARDING && forced != Forced.WELCOME
     // 팝업·덮개 아래 화면은 접근성 트리에서도 숨긴다.
+    var closing by remember { mutableStateOf(false) } // 하차 점검 완료로 앱을 닫는 중
     val hidden = forced == Forced.DRIVING || forced == Forced.SETTLEMENT || (forced == Forced.EXIT_CHECK && exitShown)
 
     var menu by remember { mutableStateOf<HeaderMenuKind?>(null) }
@@ -328,7 +329,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             // 정비 기록 팝업은 라운지 위에 같은 창 안으로 겹친다(LoungeScreen은 건드리지 않는다).
                             Box(Modifier.fillMaxSize()) {
                                 LoungeScreen(
-                                    viewModel(factory = LoungeViewModel.factory(container)), container.speaker, shown = !hidden,
+                                    viewModel(factory = LoungeViewModel.factory(container)), container.speaker, shown = !hidden && !closing,
                                     onCare = { nav.navigate(Routes.CARE_COURSE) },
                                 ) { nav.navigate(Routes.DEV) }
                                 CareRecordPopup(container, visible = forced == Forced.NONE) { id -> nav.navigate("garage/done/$id") }
@@ -393,7 +394,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             val args = entry.arguments
                             LevelUpScreen(pet.first, args?.getInt("before") ?: 1, args?.getInt("after") ?: 1, visible = forced == Forced.NONE) {
                                 // 설계: "좋아요" → 라운지. 어디서 왔든(DEV·주행기록 등) 라운지로 돌아간다
-                                nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
+                                toLoungeRoot(nav)
                             }
                         }
                         // 릴리스 빌드(DEMO_TOOLS 꺼짐)에는 경로 자체가 없다.
@@ -426,7 +427,11 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         check, exitItemsResolvedNow(check, state),
                         onStay = { scope.launch { coordinator.dismissExitCheck() } },
                         // 대기 중인 정산이 있으면 앱을 닫지 않고 점검만 닫아 정산이 보이게 한다.
-                        onAllDone = { scope.launch { coordinator.dismissExitCheck(); if (coordinator.pendingSettlement.value == null) onFinish() } },
+                        onAllDone = {
+                            // 앱을 닫기로 했으면 먼저 표시해 둔다: 점검이 닫혀 덮개가 사라진 순간 라운지가 보이는 것으로 보고 인사하지 않게.
+                            if (coordinator.pendingSettlement.value == null) closing = true
+                            scope.launch { coordinator.dismissExitCheck(); if (closing) onFinish() }
+                        },
                     )
                 }
                 Forced.SETTLEMENT -> settlement?.let { s ->
@@ -446,7 +451,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                                 coordinator.consumeSettlement()
                                 // 정산은 NavHost 위 덮개라 그대로 두면 주행 전 화면이 남는다. 버튼 문구대로 라운지로 간다(✕도 같다).
                                 if (s.levelAfter > s.levelBefore) nav.navigate(levelUpRoute(s.levelBefore, s.levelAfter))
-                                else nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
+                                else toLoungeRoot(nav)
                             }
                         }
                     }
@@ -468,6 +473,12 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
 }
 
 fun careRoute(index: Int) = "onboard/care/$index"
+
+/** 스택에 라운지가 있으면 그 위를 걷어 내고, 없으면(정산 알림으로 01부터 다시 열린 경우 등) 스택을 비우고 라운지 하나만 둔다. 뒤로 가기가 01로 돌아가지 않게. */
+private fun toLoungeRoot(nav: NavHostController) {
+    if (nav.currentDestination?.route == Routes.LOUNGE) return // 이미 라운지(popBackStack은 걷어 낸 게 없으면 false라 다시 만들게 된다)
+    if (!nav.popBackStack(Routes.LOUNGE, inclusive = false)) nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } }
+}
 
 /**
  * 차량 정보 뒤 온보딩 단계에서 갈 곳(그대로면 null). 프로세스 복원으로 공유 ViewModel이 새로 생기면(차량 정보를 지나지 않음)

@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -101,6 +102,8 @@ fun weatherUi(w: WeatherDto): WeatherUi {
 
 /** 날씨를 기다리는 최대 시간(하루 첫 인사). */
 private const val WEATHER_WAIT_MS = 3_000L
+/** 하루 첫 인사가 아니면 마지막 인사 뒤 이만큼 안에는 다시 인사하지 않는다(주행 종료 → 정산 → 하차 점검으로 덮개가 연달아 닫힐 때 반복 방지). */
+private val GREET_GAP: Duration = Duration.ofSeconds(60)
 
 /** 하루 첫 인사의 미션 줄. 미션이 없으면 null. */
 fun missionLine(missions: List<MissionStatus>): String? {
@@ -184,11 +187,13 @@ class LoungeViewModel(
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private var watchingPark = false
+    private var lastGreetAt: Instant? = null
 
     /**
      * 라운지에 들어올 때마다 부른다. 자동 출석 감시는 한 번만 띄우고, 하루 첫 진입은 자기소개를 붙인다.
      * 기어 신호가 늦게 오는 콜드스타트도 있어 "정차 중"이 되는 순간마다 출석을 시도한다(checkIn은 멱등).
      * 다시 들어올 때도 한 번 시도한다: P를 유지한 채 날짜가 바뀌었거나 앞선 저장이 실패했으면 감시만으로는 다시 불리지 않는다.
+     * 출석 시도는 매번 하지만, 하루 첫 인사가 아니고 마지막 인사 뒤 [GREET_GAP]이 지나지 않았으면 인사(목소리·말풍선)는 건너뛴다.
      */
     fun onEnter() {
         if (!watchingPark) {
@@ -203,6 +208,9 @@ class LoungeViewModel(
             val u = ui.filterNotNull().first()
             val date = seoulDate(clock()).toString()
             val first = lastGreetDate.first() != date
+            val at = clock()
+            if (!first && lastGreetAt?.let { Duration.between(it, at) < GREET_GAP } == true) return@launch
+            lastGreetAt = at
             val base = (if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood)
             val greetLine = if (first) withTimeoutOrNull(WEATHER_WAIT_MS) { weatherLoad.await() }?.greetLine else null
             val missionLine = if (first) missionLine(u.missions) else null

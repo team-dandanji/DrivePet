@@ -98,6 +98,7 @@ class LoungeViewModelTest {
         val v = vm(checkIn = { if (fail) error("boom") else true })
         v.onEnter()
         fail = true
+        now = now.plusSeconds(61)
         v.onEnter()
         assertEquals(2, speaker.said.size)
     }
@@ -114,6 +115,7 @@ class LoungeViewModelTest {
         assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
         assertEquals(listOf(true), speaker.voices) // 라운지 인사는 목소리로도 읽는다
         assertEquals("2026-11-10", greetDate)
+        now = now.plusSeconds(61)
         v.onEnter()
         assertEquals("오늘도 같이 달려요", speaker.said.last())
         now = Instant.parse("2026-11-11T03:00:00Z")
@@ -121,6 +123,23 @@ class LoungeViewModelTest {
         v.onEnter()
         assertEquals("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today.plusDays(1))}", speaker.said.last())
         assertNotNull(greetDate)
+    }
+
+    /** 덮개가 연달아 닫혀 onEnter가 몰려도 인사는 60초에 한 번. 출석 시도는 매번 한다. */
+    @Test fun `greeting is skipped within 60s but check-in still runs`() = runTest {
+        var calls = 0
+        val v = vm(checkIn = { calls++; true })
+        v.onEnter() // 하루 첫 인사
+        assertEquals(1, speaker.said.size)
+        val afterFirst = calls
+        now = now.plusSeconds(30)
+        v.onEnter()
+        assertEquals(1, speaker.said.size) // 60초 안: 인사 없음
+        assertEquals(afterFirst + 1, calls) // 출석 시도는 함
+        now = now.plusSeconds(31)
+        v.onEnter()
+        assertEquals(2, speaker.said.size) // 마지막 인사 뒤 61초: 다시 인사
+        assertEquals("오늘도 같이 달려요", speaker.said.last())
     }
 
     @Test fun `포만 20 이하여도 돌보기 버튼은 없다`() = runTest {
