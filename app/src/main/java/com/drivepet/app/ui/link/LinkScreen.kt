@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.BuildConfig
 import com.drivepet.app.R
@@ -74,7 +73,7 @@ fun LinkScreen(vm: LinkViewModel, login: Boolean, onBack: (() -> Unit)?, onLinke
                 }
                 // 시험용: 호스트 브라우저로 열어 가짜 로그인을 해 볼 수 있게 주소를 보여 준다. 릴리스에는 없다.
                 if (BuildConfig.DEMO_TOOLS) (ui as? LinkUi.Showing)?.let {
-                    Text(it.qrUrl, Modifier.width(540.dp), fontSize = 14.sp, color = DpColors.TextTertiary)
+                    Text(it.qrUrl, Modifier.width(540.dp), style = DpType.labelS, color = DpColors.TextTertiary)
                 }
             }
         }

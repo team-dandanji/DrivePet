@@ -36,7 +36,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.drivepet.app.R
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.components.Character
@@ -168,7 +167,7 @@ private fun NamePopup(vm: OnboardingViewModel, egg: String, onDismiss: () -> Uni
                     },
                 )
                 val help = if (saveFailed) "저장하지 못했어요. 다시 눌러 주세요" else if (error) vm.nicknameError() else null
-                if (help != null) Text(help, Modifier.padding(horizontal = 16.dp), fontSize = 26.sp, lineHeight = 34.sp, color = DpColors.RegulationRed)
+                if (help != null) Text(help, Modifier.padding(horizontal = 16.dp), style = DpType.bodyS.copy(fontWeight = FontWeight.Normal), color = DpColors.RegulationRed)
             }
         },
     ) {

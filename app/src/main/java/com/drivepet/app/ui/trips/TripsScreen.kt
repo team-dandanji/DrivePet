@@ -1,6 +1,5 @@
 package com.drivepet.app.ui.trips
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,10 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.AppContainer
 import com.drivepet.app.BuildConfig
@@ -41,9 +36,13 @@ import com.drivepet.app.domain.formatExp
 import com.drivepet.app.domain.TripLedger
 import com.drivepet.app.domain.tripPaidMilli
 import com.drivepet.app.ui.LocalDriving
+import com.drivepet.app.ui.components.DpCard
 import com.drivepet.app.ui.components.FilledButton
+import com.drivepet.app.ui.components.PopupButton
+import com.drivepet.app.ui.components.DpPopup
 import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
+import com.drivepet.app.ui.theme.DpType
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -94,15 +93,17 @@ fun TripsScreen(container: AppContainer) {
     val driving = LocalDriving.current
     LaunchedEffect(driving) { if (driving) chooser = false }
 
+    // 시나리오 팝업은 루트 Box의 마지막 자식이라 맨 위에 그려진다.
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("주행 기록", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
+            Text("주행 기록", style = DpType.headlineS)
             Box(Modifier.weight(1f))
             if (BuildConfig.DEMO_TOOLS) FilledButton("주행 리플레이", { chooser = true }, Modifier.width(300.dp))
         }
         if (rows.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("아직 주행 기록이 없어요", fontSize = 32.sp, color = DpColors.TextTertiary)
+                Text("아직 주행 기록이 없어요", style = DpType.titleS.copy(fontWeight = FontWeight.Normal), color = DpColors.TextTertiary)
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -112,44 +113,45 @@ fun TripsScreen(container: AppContainer) {
     }
 
     if (chooser && !driving) {
-        AlertDialog(
-            onDismissRequest = { chooser = false },
-            title = { Text("리플레이할 시나리오", fontSize = 30.sp) },
-            text = {
+        DpPopup(
+            title = "리플레이할 시나리오", body = null, onDismissRequest = { chooser = false },
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SCENARIOS.forEach { name ->
                         TextButton({ chooser = false; container.startScenario(name) }, Modifier.fillMaxWidth()) {
-                            Text(name, fontSize = 28.sp)
+                            Text(name, style = DpType.bodyM)
                         }
                     }
                 }
             },
-            confirmButton = { TextButton({ chooser = false }) { Text("닫기", fontSize = 26.sp) } },
-        )
+        ) { PopupButton("닫기", { chooser = false }, primary = true) }
+    }
     }
 }
 
 @Composable
 private fun Line(row: TripRow) {
     val narrow = isNarrowWindow()
-    val date: @Composable (Modifier) -> Unit = { m -> Text(row.date, m, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
+    val date: @Composable (Modifier) -> Unit = { m -> Text(row.date, m, style = DpType.bodyL.copy(fontWeight = FontWeight.Bold)) }
     val values: @Composable RowScope.() -> Unit = {
-        Text(row.distance, Modifier.weight(1.5f), fontSize = 30.sp)
+        Text(row.distance, Modifier.weight(1.5f), style = DpType.bodyL)
         val tone = if (row.interrupted) DpColors.Danger else DpColors.Text
-        Text(row.safety, Modifier.weight(1.5f), fontSize = 30.sp, color = tone, fontWeight = if (row.interrupted) FontWeight.Bold else FontWeight.Normal)
-        Text(row.exp ?: "", Modifier.weight(1.5f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(row.safety, Modifier.weight(1.5f), style = DpType.bodyL.copy(fontWeight = if (row.interrupted) FontWeight.Bold else FontWeight.Normal), color = tone)
+        Text(row.exp ?: "", Modifier.weight(1.5f), style = DpType.bodyL.copy(fontWeight = FontWeight.Bold))
     }
-    val box = Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(20.dp)).padding(horizontal = 32.dp, vertical = 24.dp)
+    val box = Modifier.padding(horizontal = 32.dp, vertical = 24.dp)
     // 좁은 창: 날짜 한 줄, 그 아래 거리·점수·EXP
-    if (narrow) {
-        Column(box, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            date(Modifier)
-            Row(verticalAlignment = Alignment.CenterVertically, content = values)
-        }
-    } else {
-        Row(box, verticalAlignment = Alignment.CenterVertically) {
-            date(Modifier.weight(2f))
-            values()
+    DpCard(Modifier.fillMaxWidth()) {
+        if (narrow) {
+            Column(box.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                date(Modifier)
+                Row(verticalAlignment = Alignment.CenterVertically, content = values)
+            }
+        } else {
+            Row(box.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                date(Modifier.weight(2f))
+                values()
+            }
         }
     }
 }

@@ -1,8 +1,5 @@
 package com.drivepet.app.ui.onboarding
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -26,16 +21,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.domain.FuelType
+import com.drivepet.app.ui.components.DpChoice
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 import com.drivepet.vehicle.model.valueOrNull
@@ -72,7 +64,7 @@ fun ScanScreen(vm: OnboardingViewModel, onBack: () -> Unit, onNext: () -> Unit) 
                     Text(FUEL_TITLE.getValue(vm.fuelType), Modifier.padding(top = 4.dp), style = DpType.titleL, color = DpColors.Text)
                     if (narrow) Spacer(Modifier.height(40.dp)) else Spacer(Modifier.weight(1f))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        for ((type, label) in FUELS) Choice(label, vm.fuelType == type, { vm.fuelType = type }, Modifier.weight(1f))
+                        for ((type, label) in FUELS) DpChoice(label, vm.fuelType == type, { vm.fuelType = type }, Modifier.weight(1f))
                     }
                 }
             }
@@ -92,10 +84,10 @@ fun ScanScreen(vm: OnboardingViewModel, onBack: () -> Unit, onNext: () -> Unit) 
                         InfoRow("배터리 용량") {
                             OutlinedTextField(
                                 vm.batteryText, { vm.batteryText = it }, Modifier.fillMaxWidth(), singleLine = true,
-                                textStyle = TextStyle(fontSize = 28.sp, color = DpColors.Text), isError = error != null,
-                                placeholder = { Text("선택 입력", fontSize = 26.sp, color = DpColors.TextQuaternary) },
-                                suffix = { Text("kWh", fontSize = 26.sp) },
-                                supportingText = error?.let { { Text(it, fontSize = 20.sp) } },
+                                textStyle = DpType.bodyM.copy(color = DpColors.Text), isError = error != null,
+                                placeholder = { Text("선택 입력", style = DpType.bodyS.copy(fontWeight = FontWeight.Normal), color = DpColors.TextQuaternary) },
+                                suffix = { Text("kWh", style = DpType.bodyS.copy(fontWeight = FontWeight.Normal)) },
+                                supportingText = error?.let { { Text(it, style = DpType.labelS) } },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             )
                         }
@@ -127,21 +119,3 @@ private fun InfoRow(label: String, value: @Composable () -> Unit) {
 }
 
 internal val FUELS = listOf(FuelType.EV to "EV", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")
-
-@Composable
-internal fun Choice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier.height(72.dp).background(if (selected) DpColors.Filled else Color.White, shape)
-            .then(if (selected) Modifier else Modifier.border(BorderStroke(2.dp, DpColors.TrackInactive), shape))
-            .selectable(selected, onClick = onClick, role = Role.RadioButton),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else DpColors.Text, maxLines = 1, softWrap = false)
-    }
-}
-
-@Composable
-internal fun OnboardCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier.background(DpColors.Card, RoundedCornerShape(20.dp))) { content() }
-}

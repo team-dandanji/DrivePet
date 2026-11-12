@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -127,5 +129,25 @@ fun StepDots(total: Int, current: Int) {
                 }
             }
         }
+    }
+}
+
+/** 탭·입력 화면 안 흰 유리 카드: Card 바탕, radius 20. */
+@Composable
+fun DpCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Box(modifier.background(DpColors.Card, RoundedCornerShape(20.dp))) { content() }
+}
+
+/** 둘 중 하나·여러 개 중 하나 고르는 칸(높이 72, radius 16). 고른 칸은 차콜 바탕에 흰 글자, 아니면 흰 바탕에 연한 테두리. */
+@Composable
+fun DpChoice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier.height(72.dp).background(if (selected) DpColors.Filled else Color.White, shape)
+            .then(if (selected) Modifier else Modifier.border(BorderStroke(2.dp, DpColors.TrackInactive), shape))
+            .selectable(selected, onClick = onClick, role = Role.RadioButton),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = DpType.bodyS, color = if (selected) Color.White else DpColors.Text, maxLines = 1, softWrap = false)
     }
 }
