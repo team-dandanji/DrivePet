@@ -17,6 +17,7 @@ import com.drivepet.app.data.sync.SyncWorker
 import com.drivepet.app.drive.BubbleSpeaker
 import com.drivepet.app.drive.DriveCoordinator
 import com.drivepet.app.drive.Speaker
+import com.drivepet.app.drive.TtsSpeaker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +36,7 @@ class AppContainer(context: Context) {
     val sync = SyncEngine(remote::api, syncStore, auth)
     val account = AccountService(remote::api, auth, syncStore, ::wipeLocal) { sync.run() }
     val weather = WeatherRepo(remote::api, LocationSource(app)::latLng)
-    val speaker: Speaker = BubbleSpeaker(scope)
+    val speaker: Speaker = TtsSpeaker(app, BubbleSpeaker(scope))
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)
 
     fun kickSync() = SyncWorker.enqueue(app)
