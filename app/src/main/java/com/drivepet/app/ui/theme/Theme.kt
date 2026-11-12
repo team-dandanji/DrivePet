@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import com.drivepet.app.R
 
-/** Pleos_UI Hi-fi(Figma LVJcQ8Cjio1BUABnSWzC6h)에서 읽은 값. Figma px = dp/sp. */
+/** 피그마 Pleos_UI에서 읽은 값. Figma px = dp/sp. */
 object DpColors {
     val SkyTop = Color(0xFF89DEFF)
     val SoftTop = Color(0xFFD0F2FF)
@@ -41,7 +41,7 @@ object DpColors {
     /** 보조 버튼 바탕(drivepet/button/secondary/bg). */
     val Secondary = Color(0x0D131417)
 
-    // HIFI 토큰(Task 1에서 추가). 값은 라운지 앱 창 419:50656의 변수.
+    // 값은 라운지 앱 창(피그마 419:50656)의 변수.
     val SurfaceLow = Color(0xFFF7F8FA)
     val TextSecondary = Color(0xD6131417)
     val TextQuaternary = Color(0x52131417)
@@ -66,7 +66,7 @@ object DpColors {
     /** 선택된 카드 바탕(drivepet/palette/sky_50). */
     val Sky50 = Color(0xFFE7F8FF)
 
-    // 온보딩(Task 9) 토큰.
+    // 온보딩 토큰.
     /** 선택된 약관 체크 칸(drivepet/control/on_pressed). */
     val ControlOnPressed = Color(0xFF325AB2)
     /** QR 남은 시간 빨강(informative_negative). */
@@ -105,7 +105,7 @@ private val TYPOGRAPHY = Typography().run {
     )
 }
 
-/** 크기/줄 간격은 피그마 토큰(spec 2절). 굵기는 가장 흔한 쓰임이고, 다르면 화면에서 `.copy(fontWeight = ...)`. */
+/** 크기/줄 간격은 피그마 토큰. 굵기는 가장 흔한 쓰임이고, 다르면 화면에서 `.copy(fontWeight = ...)`. */
 object DpType {
     private fun t(size: Int, line: Int, weight: FontWeight) =
         TextStyle(fontFamily = AstaSans, fontSize = size.sp, lineHeight = line.sp, fontWeight = weight, lineBreak = KOREAN_LINE_BREAK)

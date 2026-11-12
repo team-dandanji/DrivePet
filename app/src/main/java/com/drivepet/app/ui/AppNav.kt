@@ -255,7 +255,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
                     ) {
                         composable(Routes.WELCOME) {
-                            // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 03(카카오 연결)을 거쳐 04로 간다.
+                            // 앱 실행 화면 -> 라운지. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 카카오 연결을 거쳐 온보딩으로 간다.
                             WelcomeScreen(
                                 viewModel(factory = WelcomeViewModel.factory(container)),
                                 onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } }, // 저장이 끝난 뒤 불린다. 헤더 「프로필 수정」으로 들어온 01 아래의 라운지까지 비운다
@@ -267,7 +267,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             IntroScreen(onCreate = { nav.navigate(Routes.ONBOARD_TERMS) }, onLogin = { nav.navigate(linkRoute("welcome")) })
                         }
                         composable(Routes.ONBOARD_TERMS) { entry ->
-                            // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(01의 다시 설정은 약관을 거치지 않는다).
+                            // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(앱 실행 화면의 다시 설정은 약관을 거치지 않는다).
                             val termsVm: OnboardingViewModel = viewModel(entry, factory = OnboardingViewModel.factory(container))
                             TermsScreen(termsVm, onBack = { nav.popBackStack() }) {
                                 container.scope.launch { termsVm.saveTerms() } // 선택 약관(위치)은 이 항목의 ViewModel에만 있어 여기서 저장한다
@@ -379,7 +379,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                                 onStart = {
                                     container.navi.startGuidance(stop.place).also { ok ->
                                         if (ok) {
-                                            // 방문 후 기록 팝업(Task 5)이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
+                                            // 방문 후 기록 팝업이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
                                             profile?.profileId?.let { pid -> container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name, pid)) } }
                                             toLounge()
                                         }
@@ -439,7 +439,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                     )
                 }
                 Forced.SETTLEMENT -> settlement?.let { s ->
-                    // 덮개: 아래 화면을 완전히 가리고 터치를 삼킨다(정산은 창 화면이라 Task 8에서 바뀐다).
+                    // 덮개: 아래 화면을 완전히 가리고 터치를 삼킨다.
                     Box(Modifier.fillMaxSize().skyBackground().pointerInput(Unit) { detectTapGestures() }) {
                         val profileId = profile?.profileId
                         // (정산 전, 정산 후) 총 EXP. 전 = 이 기록만 뺀 원장, 후 = 전체 원장(둘 다 시작 EXP 포함).

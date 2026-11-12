@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 
-/** 앱 이름 표기(피그마 시안은 Drivepet이지만 공식 이름은 Carpet). */
+/** 앱 이름 표기(피그마에는 Drivepet으로 적혀 있지만 공식 이름은 Carpet). */
 private const val APP_NAME = "Carpet"
 
 /** 헤더 공통: 높이 80 줄, 위 40 / 아래 24 여백, 아래 1 구분선(피그마 page_navigation 토큰). */

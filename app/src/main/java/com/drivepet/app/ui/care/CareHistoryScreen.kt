@@ -49,7 +49,7 @@ import java.time.LocalDate
 import java.util.Locale
 
 /**
- * 05(EV 3종) · 20(ICE·HEV 4종) 소모품 이력. 온보딩과 10의 "관리 이력 수정"이 같이 쓴다.
+ * 소모품 이력(EV 3종, ICE·HEV 4종). 온보딩과 내 차 정비소의 "관리 이력 수정"이 같이 쓴다.
  * [onInspection]이 있으면(수정 모드) 정기검사 예정일 칸을 보인다. 위의 연료 탭은 지금 차 쪽만 켜진 표시다(연료는 04에서 정함).
  */
 @Composable

@@ -16,7 +16,7 @@ import java.time.OffsetDateTime
 class SyncMappingTest {
     private val profile = ProfileEntity("p-1", "acc", "출퇴근 차량", "EV", "STARTER_1", "드리", true, 77.4, 1_000L)
 
-    // 1부 6-3 예시(측정 0개 트립으로 바꿈: safetyScore·safetyBreakdown null)
+    // API 명세 예시(측정 0개 트립으로 바꿈: safetyScore·safetyBreakdown null)
     private val tripJson = """{"startedAt":"2026-11-10T08:30:00+09:00","endedAt":"2026-11-10T08:31:20+09:00",""" +
         """"startOdometerMm":12034000000,"endOdometerMm":12046000000,"distanceStatus":"VALID",""" +
         """"settlement":{"distanceMm":12000000,"baseDrivingExp":"24.000","bonusExp":"35.000","safetyScore":null,""" +

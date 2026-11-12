@@ -45,7 +45,7 @@ import java.util.Locale
 
 private val DOTTED = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
-/** 10(EV 3종) · 21(ICE·HEV 4종) 내 차 정비소. 교체하면 [onReplaced]로 11 관리 기록에 간다. */
+/** 내 차 정비소(EV 3종, ICE·HEV 4종). 교체하면 [onReplaced]로 관리 기록에 간다. */
 @Composable
 fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
@@ -74,7 +74,7 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
                 fuelTag(); total(); Box(Modifier.weight(1f)); edit(Modifier.width(320.dp))
             }
         }
-        // EV 3열, ICE·HEV 2×2(와이어프레임 10·21)
+        // EV 3열, ICE·HEV 2×2
         u.rows.chunked(if (narrow) 1 else if (u.rows.size == 3) 3 else 2).forEach { row ->
             // 한 줄의 카드 높이를 맞추고 버튼을 카드 바닥에 둔다(내용이 짧은 카드의 버튼이 위로 뜨지 않게)
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -145,7 +145,7 @@ private fun dday(days: Int) = when {
     else -> "D+${-days}"
 }
 
-/** 10의 "관리 이력 수정": 05 화면을 수정 모드로(검사일 칸 포함). 저장하면 [onDone]. */
+/** 내 차 정비소의 "관리 이력 수정": 소모품 이력 화면을 수정 모드로(검사일 칸 포함). 저장하면 [onDone]. */
 @Composable
 fun GarageEditScreen(vm: GarageViewModel, onDone: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()

@@ -5,7 +5,7 @@ import java.math.RoundingMode
 import java.time.LocalDate
 import kotlin.random.Random
 
-/** 일일 미션(설계 5-4, 3부에서 "하차 점검 모두 정상"을 "안전점수 90점 이상"으로 바꿈). id는 서버 MISSION_CLAIM의 missionId. */
+/** 일일 미션. id는 서버 MISSION_CLAIM의 missionId. */
 enum class MissionKind(val id: String, val title: String) {
     NO_SHARP_STEER_5KM("daily-no-sharp-steer-5km", "급조향 없이 5km 달리기"),
     SMOOTH_ACCEL("daily-smooth-accel", "급가속, 급제동 없이 달리기"),

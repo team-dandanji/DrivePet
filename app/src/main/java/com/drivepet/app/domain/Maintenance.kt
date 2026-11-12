@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.roundToInt
 
-/** 소모품 기본 항목(API MaintenanceItemSetting 설명의 기본 항목, 와이어프레임 05·10·20·21). 관리 주기는 실제 부품 수명이 아니다. */
+/** 소모품 기본 항목(API MaintenanceItemSetting 설명의 기본 항목). 관리 주기는 실제 부품 수명이 아니다. */
 enum class CareItem(val title: String, val intervalKm: Int, val doneLabel: String) {
     ENGINE_OIL("엔진오일 및 필터", 10_000, "방금 교체했어요"),
     TIRE("타이어 위치교환 및 마모 점검", 10_000, "위치교환·점검 완료"),

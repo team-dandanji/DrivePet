@@ -57,7 +57,7 @@ data class CareDoneUi(
     val nextDueKm: Int?, val baseOdometerKm: Int?, val sinceKm: Int?, val beforeMilli: Long, val afterMilli: Long,
 )
 
-/** 10·21 내 차 정비소, 11 관리 기록, 관리 이력 수정이 함께 쓴다. 정비 설정은 기기 안에만 두고 동기화하지 않는다. */
+/** 내 차 정비소, 관리 기록, 관리 이력 수정이 함께 쓴다. 정비 설정은 기기 안에만 두고 동기화하지 않는다. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class GarageViewModel(
     private val store: RecordStore,

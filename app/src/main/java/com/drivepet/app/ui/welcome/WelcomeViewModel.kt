@@ -29,7 +29,7 @@ data class KakaoLink(val nickname: String?)
 /** 계정이 있으면 연결됨(R11: 닉네임은 없을 수 있음). */
 fun kakaoLink(s: AuthState): KakaoLink? = s.accountId?.let { KakaoLink(s.nickname) }
 
-/** 01 카카오 줄 문구. 연결 여부는 계정으로 정한다(닉네임 아님). */
+/** 앱 실행 화면의 카카오 줄 문구. 연결 여부는 계정으로 정한다(닉네임 아님). */
 fun kakaoLabel(k: KakaoLink?): String = when {
     k == null -> "카카오 계정 연결하기"
     k.nickname != null -> "카카오 ${k.nickname}님으로 연결됨 · 계정 바꾸기"
@@ -38,7 +38,7 @@ fun kakaoLabel(k: KakaoLink?): String = when {
 
 data class ProfileCard(val profileId: String, val petNickname: String, val vehicleName: String, val fuelLabel: String, val level: Int)
 
-/** 01 · 저장된 프로필 불러오기. kakao가 null이면 카카오 계정 미연결. */
+/** 저장된 프로필 불러오기. kakao가 null이면 카카오 계정 미연결. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WelcomeViewModel(
     store: RecordStore,

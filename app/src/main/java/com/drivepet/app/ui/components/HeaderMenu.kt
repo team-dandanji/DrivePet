@@ -25,7 +25,7 @@ import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 
 /**
- * 헤더 메뉴(피그마에 시안 없음): 헤더 아래 모서리에 붙는 흰 카드 드롭다운. 팝업 토큰을 쓴다(흰 카드, r20, 테두리 2).
+ * 헤더 메뉴(피그마에 없음): 헤더 아래 모서리에 붙는 흰 카드 드롭다운. 팝업 토큰을 쓴다(흰 카드, r20, 테두리 2).
  * 화면 루트 Box의 자식으로 두고, 빈 곳을 누르거나 뒤로 가기를 하면 [onDismiss]. [alignment]는 TopStart(앱 이름) 또는 TopEnd(⋯).
  */
 @Composable

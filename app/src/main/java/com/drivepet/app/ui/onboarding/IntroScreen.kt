@@ -48,7 +48,7 @@ fun IntroScreen(onCreate: () -> Unit, onLogin: () -> Unit) {
                     Logo()
                     Text(TAGLINE, style = DpType.displayL.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.Text)
                 }
-                // 그래픽 자리: 오른쪽 위 1040×900. 버튼이 아래쪽에 겹친다(시안 그대로).
+                // 그래픽 자리: 오른쪽 위 1040×900. 버튼이 아래쪽에 겹친다(피그마 그대로).
                 Box(Modifier.align(Alignment.TopEnd).padding(top = 71.dp).size(1040.dp, 900.dp), contentAlignment = Alignment.Center) {
                     Character("STARTER_1", 1, Mood.NORMAL, Modifier.padding(bottom = 200.dp), size = 400.dp)
                 }
