@@ -54,6 +54,8 @@ import com.drivepet.app.ui.care.GarageScreen
 import com.drivepet.app.ui.care.GarageViewModel
 import com.drivepet.app.ui.care.RouteDoneScreen
 import com.drivepet.app.ui.components.DpPopup
+import com.drivepet.app.ui.components.LocalPopupHost
+import com.drivepet.app.ui.components.PopupHost
 import com.drivepet.app.ui.components.PopupButton
 import com.drivepet.app.ui.exit.ExitCheckPopup
 import com.drivepet.app.ui.exit.exitPopupNeeded
@@ -231,167 +233,175 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     val focus = LocalFocusManager.current
     LaunchedEffect(driving) { if (driving) focus.clearFocus() }
 
+    // 화면 안 팝업(정비 기록·탈퇴 확인·경로 삭제 등)은 여기서 그려 탭 헤더까지 dim으로 덮는다. 주행·하차 점검 팝업은 아래에서 바로 그린다.
+    val popupHost = remember { PopupHost() }
+    val hiddenSemantics = if (hidden) Modifier.clearAndSetSemantics {} else Modifier
+
     CompositionLocalProvider(LocalDriving provides driving) {
         Box(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().then(if (hidden) Modifier.clearAndSetSemantics {} else Modifier)) {
-                TAB_ROUTES[route]?.let { selected ->
-                    TabHeader(
-                        selected,
-                        onSelect = { tab -> nav.navigate(tab.name.lowercase()) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
-                        onAppMenu = { menu = HeaderMenuKind.APP }, onMoreMenu = { menu = HeaderMenuKind.MORE },
-                    )
-                }
-                NavHost(
-                    nav, startDestination = start, modifier = Modifier.weight(1f),
-                    enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
-                ) {
-                    composable(Routes.WELCOME) {
-                        // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 03(카카오 연결)을 거쳐 04로 간다.
-                        WelcomeScreen(
-                            viewModel(factory = WelcomeViewModel.factory(container)),
-                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } }, // 저장이 끝난 뒤 불린다. 헤더 「프로필 수정」으로 들어온 01 아래의 라운지까지 비운다
-                            onSetup = { nav.navigate(linkRoute("scan")) },
-                            onAccount = { nav.navigate(linkRoute("welcome")) },
+            CompositionLocalProvider(LocalPopupHost provides popupHost) {
+                Column(Modifier.fillMaxSize().then(hiddenSemantics)) {
+                    TAB_ROUTES[route]?.let { selected ->
+                        TabHeader(
+                            selected,
+                            onSelect = { tab -> nav.navigate(tab.name.lowercase()) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
+                            onAppMenu = { menu = HeaderMenuKind.APP }, onMoreMenu = { menu = HeaderMenuKind.MORE },
                         )
                     }
-                    composable(Routes.ONBOARD_INTRO) {
-                        IntroScreen(onCreate = { nav.navigate(Routes.ONBOARD_TERMS) }, onLogin = { nav.navigate(linkRoute("welcome")) })
-                    }
-                    composable(Routes.ONBOARD_TERMS) { entry ->
-                        // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(01의 다시 설정은 약관을 거치지 않는다).
-                        val termsVm: OnboardingViewModel = viewModel(entry, factory = OnboardingViewModel.factory(container))
-                        TermsScreen(termsVm, onBack = { nav.popBackStack() }) {
-                            container.scope.launch { termsVm.saveTerms() } // 선택 약관(위치)은 이 항목의 ViewModel에만 있어 여기서 저장한다
-                            nav.navigate(linkRoute("scan"))
-                        }
-                    }
-                    composable(Routes.LINK, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "scan" })) { entry ->
-                        val next = entry.arguments?.getString("next") ?: "scan"
-                        LinkScreen(
-                            viewModel(factory = LinkViewModel.factory(container)), login = next == "welcome",
-                            onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
-                            onLinked = { linked ->
-                                container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
-                                if (afterLink(next, linked.restored, anyProfile == true) == Routes.WELCOME) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
-                                else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // QR은 스택에 남기지 않는다
-                            },
-                        )
-                    }
-                    // 차량 정보 → 소모품 질문 → 주행거리 → 메이트가 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
-                    composable(Routes.ONBOARD_SCAN) { entry ->
-                        ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
-                            nav.navigate(careRoute(0))
-                        }
-                    }
-                    composable(Routes.ONBOARD_CARE, arguments = listOf(navArgument("index") { type = NavType.IntType })) { entry ->
-                        val vm = onboardingVm(nav, entry, container)
-                        val i = entry.arguments?.getInt("index") ?: 0
-                        CareQuestionScreen(vm, i, onBack = { nav.popBackStack() }) {
-                            // 마지막 질문 뒤에는 주행거리. 0.4초 사이에 화면이 바뀌었으면 넘기지 않는다.
-                            if (nav.currentBackStackEntry == entry) nav.navigate(if (i + 1 < vm.careQuestions.size) careRoute(i + 1) else Routes.ONBOARD_MILEAGE)
-                        }
-                    }
-                    composable(Routes.ONBOARD_MILEAGE) { entry ->
-                        MileageScreen(onboardingVm(nav, entry, container), onBack = { nav.popBackStack() }) { nav.navigate(Routes.ONBOARD_MATE) }
-                    }
-                    composable(Routes.ONBOARD_MATE) { entry ->
-                        MateScreen(
-                            onboardingVm(nav, entry, container),
-                            onBack = { nav.popBackStack() },
-                            // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
-                            // 저장한 프로필이 활성으로 반영된 뒤 옮긴다. 먼저 옮기면 그 사이 WELCOME 판정이 라운지를 01로 되돌린다.
-                            onDone = {
-                                scope.launch {
-                                    val id = container.settings.activeProfileId.first()
-                                    withTimeoutOrNull(1_000) { coordinator.activeProfile.first { it?.profileId == id } }
-                                    nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } }
-                                }
-                            },
-                        )
-                    }
-                    composable(Routes.LOUNGE) {
-                        // 정비 기록 팝업은 라운지 위에 같은 창 안으로 겹친다(LoungeScreen은 건드리지 않는다).
-                        Box(Modifier.fillMaxSize()) {
-                            LoungeScreen(
-                                viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
-                                onCare = { nav.navigate(Routes.CARE_COURSE) },
-                            ) { nav.navigate(Routes.DEV) }
-                            CareRecordPopup(container, visible = forced == Forced.NONE) { id -> nav.navigate("garage/done/$id") }
-                        }
-                    }
-                    composable(Routes.GARAGE) {
-                        GarageScreen(
-                            viewModel(factory = GarageViewModel.factory(container)),
-                            onEdit = { nav.navigate(Routes.GARAGE_EDIT) },
-                            onReplaced = { id -> nav.navigate("garage/done/$id") },
-                        )
-                    }
-                    composable(Routes.GARAGE_EDIT) {
-                        GarageEditScreen(viewModel(factory = GarageViewModel.factory(container))) { nav.popBackStack() }
-                    }
-                    composable(Routes.CARE_DONE, arguments = listOf(navArgument("recordId") { type = NavType.StringType })) { entry ->
-                        CareDoneScreen(
-                            viewModel(factory = GarageViewModel.factory(container)), entry.arguments?.getString("recordId").orEmpty(),
-                            pet.first, pet.second,
-                            // 라운지 팝업에서 왔으면 스택에 차 정비소가 없으므로 탭 이동처럼 간다.
-                            onGarage = { nav.navigate(Routes.GARAGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
-                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
-                        )
-                    }
-                    composable(Routes.TRIPS) { TripsScreen(container) }
-                    composable(Routes.CARE_COURSE) { entry ->
-                        // 정비 항목은 들어올 때 한 번 정한다. ViewModel은 이 항목에 두고 경로 등록 완료 화면이 같이 쓴다.
-                        val target by produceState<CareItem?>(null, profile?.profileId) { value = CareCourseViewModel.targetFor(container, profile?.profileId) }
-                        target?.let { t ->
-                            CareCourseScreen(
-                                viewModel(entry, factory = CareCourseViewModel.factory(container, t)),
-                                onBack = { nav.popBackStack() }, onRegister = { nav.navigate(Routes.CARE_ROUTE_DONE) },
+                    NavHost(
+                        nav, startDestination = start, modifier = Modifier.weight(1f),
+                        enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None },
+                    ) {
+                        composable(Routes.WELCOME) {
+                            // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 03(카카오 연결)을 거쳐 04로 간다.
+                            WelcomeScreen(
+                                viewModel(factory = WelcomeViewModel.factory(container)),
+                                onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } }, // 저장이 끝난 뒤 불린다. 헤더 「프로필 수정」으로 들어온 01 아래의 라운지까지 비운다
+                                onSetup = { nav.navigate(linkRoute("scan")) },
+                                onAccount = { nav.navigate(linkRoute("welcome")) },
                             )
                         }
-                    }
-                    composable(Routes.CARE_ROUTE_DONE) {
-                        val courseEntry = remember(it) { nav.getBackStackEntry(Routes.CARE_COURSE) }
-                        // 앞 화면이 만든 것을 그대로 받는다(팩토리는 프로세스 복원 때만 쓰인다)
-                        val vm: CareCourseViewModel = viewModel(courseEntry, factory = CareCourseViewModel.factory(container, CareItem.TIRE))
-                        val ready = vm.ui.collectAsStateWithLifecycle().value as? CourseUi.Ready
-                        val stop = ready?.stops?.getOrNull(ready.selected)
-                        if (ready == null || stop == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
-                        val toLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } }
-                        RouteDoneScreen(
-                            stop.place.name, pet.first, pet.second, onBack = { nav.popBackStack() }, onLounge = toLounge,
-                            onStart = {
-                                container.navi.startGuidance(stop.place).also { ok ->
-                                    if (ok) {
-                                        // 방문 후 기록 팝업(Task 5)이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
-                                        profile?.profileId?.let { pid -> container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name, pid)) } }
-                                        toLounge()
-                                    }
-                                }
-                            },
-                        )
-                    }
-                    composable(
-                        "${Routes.LEVEL_UP}/{before}/{after}",
-                        arguments = listOf(navArgument("before") { type = NavType.IntType }, navArgument("after") { type = NavType.IntType }),
-                    ) { entry ->
-                        val args = entry.arguments
-                        LevelUpScreen(pet.first, args?.getInt("before") ?: 1, args?.getInt("after") ?: 1, visible = forced == Forced.NONE) {
-                            // 설계: "좋아요" → 라운지. 어디서 왔든(DEV·주행기록 등) 라운지로 돌아간다
-                            nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
+                        composable(Routes.ONBOARD_INTRO) {
+                            IntroScreen(onCreate = { nav.navigate(Routes.ONBOARD_TERMS) }, onLogin = { nav.navigate(linkRoute("welcome")) })
                         }
+                        composable(Routes.ONBOARD_TERMS) { entry ->
+                            // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(01의 다시 설정은 약관을 거치지 않는다).
+                            val termsVm: OnboardingViewModel = viewModel(entry, factory = OnboardingViewModel.factory(container))
+                            TermsScreen(termsVm, onBack = { nav.popBackStack() }) {
+                                container.scope.launch { termsVm.saveTerms() } // 선택 약관(위치)은 이 항목의 ViewModel에만 있어 여기서 저장한다
+                                nav.navigate(linkRoute("scan"))
+                            }
+                        }
+                        composable(Routes.LINK, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "scan" })) { entry ->
+                            val next = entry.arguments?.getString("next") ?: "scan"
+                            LinkScreen(
+                                viewModel(factory = LinkViewModel.factory(container)), login = next == "welcome",
+                                onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
+                                onLinked = { linked ->
+                                    container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
+                                    if (afterLink(next, linked.restored, anyProfile == true) == Routes.WELCOME) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
+                                    else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // QR은 스택에 남기지 않는다
+                                },
+                            )
+                        }
+                        // 차량 정보 → 소모품 질문 → 주행거리 → 메이트가 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
+                        composable(Routes.ONBOARD_SCAN) { entry ->
+                            ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
+                                nav.navigate(careRoute(0))
+                            }
+                        }
+                        composable(Routes.ONBOARD_CARE, arguments = listOf(navArgument("index") { type = NavType.IntType })) { entry ->
+                            val vm = onboardingVm(nav, entry, container)
+                            val i = entry.arguments?.getInt("index") ?: 0
+                            CareQuestionScreen(vm, i, onBack = { nav.popBackStack() }) {
+                                // 마지막 질문 뒤에는 주행거리. 0.4초 사이에 화면이 바뀌었으면 넘기지 않는다.
+                                if (nav.currentBackStackEntry == entry) nav.navigate(if (i + 1 < vm.careQuestions.size) careRoute(i + 1) else Routes.ONBOARD_MILEAGE)
+                            }
+                        }
+                        composable(Routes.ONBOARD_MILEAGE) { entry ->
+                            MileageScreen(onboardingVm(nav, entry, container), onBack = { nav.popBackStack() }) { nav.navigate(Routes.ONBOARD_MATE) }
+                        }
+                        composable(Routes.ONBOARD_MATE) { entry ->
+                            MateScreen(
+                                onboardingVm(nav, entry, container),
+                                onBack = { nav.popBackStack() },
+                                // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
+                                // 저장한 프로필이 활성으로 반영된 뒤 옮긴다. 먼저 옮기면 그 사이 WELCOME 판정이 라운지를 01로 되돌린다.
+                                onDone = {
+                                    scope.launch {
+                                        val id = container.settings.activeProfileId.first()
+                                        withTimeoutOrNull(1_000) { coordinator.activeProfile.first { it?.profileId == id } }
+                                        nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } }
+                                    }
+                                },
+                            )
+                        }
+                        composable(Routes.LOUNGE) {
+                            // 정비 기록 팝업은 라운지 위에 같은 창 안으로 겹친다(LoungeScreen은 건드리지 않는다).
+                            Box(Modifier.fillMaxSize()) {
+                                LoungeScreen(
+                                    viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
+                                    onCare = { nav.navigate(Routes.CARE_COURSE) },
+                                ) { nav.navigate(Routes.DEV) }
+                                CareRecordPopup(container, visible = forced == Forced.NONE) { id -> nav.navigate("garage/done/$id") }
+                            }
+                        }
+                        composable(Routes.GARAGE) {
+                            GarageScreen(
+                                viewModel(factory = GarageViewModel.factory(container)),
+                                onEdit = { nav.navigate(Routes.GARAGE_EDIT) },
+                                onReplaced = { id -> nav.navigate("garage/done/$id") },
+                            )
+                        }
+                        composable(Routes.GARAGE_EDIT) {
+                            GarageEditScreen(viewModel(factory = GarageViewModel.factory(container))) { nav.popBackStack() }
+                        }
+                        composable(Routes.CARE_DONE, arguments = listOf(navArgument("recordId") { type = NavType.StringType })) { entry ->
+                            CareDoneScreen(
+                                viewModel(factory = GarageViewModel.factory(container)), entry.arguments?.getString("recordId").orEmpty(),
+                                pet.first, pet.second,
+                                // 라운지 팝업에서 왔으면 스택에 차 정비소가 없으므로 탭 이동처럼 간다.
+                                onGarage = { nav.navigate(Routes.GARAGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
+                                onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
+                            )
+                        }
+                        composable(Routes.TRIPS) { TripsScreen(container) }
+                        composable(Routes.CARE_COURSE) { entry ->
+                            // 정비 항목은 들어올 때 한 번 정한다. ViewModel은 이 항목에 두고 경로 등록 완료 화면이 같이 쓴다.
+                            val target by produceState<CareItem?>(null, profile?.profileId) { value = CareCourseViewModel.targetFor(container, profile?.profileId) }
+                            target?.let { t ->
+                                CareCourseScreen(
+                                    viewModel(entry, factory = CareCourseViewModel.factory(container, t)),
+                                    onBack = { nav.popBackStack() }, onRegister = { nav.navigate(Routes.CARE_ROUTE_DONE) },
+                                )
+                            }
+                        }
+                        composable(Routes.CARE_ROUTE_DONE) {
+                            val courseEntry = remember(it) { nav.getBackStackEntry(Routes.CARE_COURSE) }
+                            // 앞 화면이 만든 것을 그대로 받는다(팩토리는 프로세스 복원 때만 쓰인다)
+                            val vm: CareCourseViewModel = viewModel(courseEntry, factory = CareCourseViewModel.factory(container, CareItem.TIRE))
+                            val ready = vm.ui.collectAsStateWithLifecycle().value as? CourseUi.Ready
+                            val stop = ready?.stops?.getOrNull(ready.selected)
+                            if (ready == null || stop == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
+                            val toLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } }
+                            RouteDoneScreen(
+                                stop.place.name, pet.first, pet.second, onBack = { nav.popBackStack() }, onLounge = toLounge,
+                                onStart = {
+                                    container.navi.startGuidance(stop.place).also { ok ->
+                                        if (ok) {
+                                            // 방문 후 기록 팝업(Task 5)이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
+                                            profile?.profileId?.let { pid -> container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name, pid)) } }
+                                            toLounge()
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                        composable(
+                            "${Routes.LEVEL_UP}/{before}/{after}",
+                            arguments = listOf(navArgument("before") { type = NavType.IntType }, navArgument("after") { type = NavType.IntType }),
+                        ) { entry ->
+                            val args = entry.arguments
+                            LevelUpScreen(pet.first, args?.getInt("before") ?: 1, args?.getInt("after") ?: 1, visible = forced == Forced.NONE) {
+                                // 설계: "좋아요" → 라운지. 어디서 왔든(DEV·주행기록 등) 라운지로 돌아간다
+                                nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
+                            }
+                        }
+                        // 릴리스 빌드(DEMO_TOOLS 꺼짐)에는 경로 자체가 없다.
+                        if (BuildConfig.DEMO_TOOLS) composable(Routes.DEV) { DevScreen(container) { nav.popBackStack() } }
                     }
-                    // 릴리스 빌드(DEMO_TOOLS 꺼짐)에는 경로 자체가 없다.
-                    if (BuildConfig.DEMO_TOOLS) composable(Routes.DEV) { DevScreen(container) { nav.popBackStack() } }
+                }
+                // 헤더 메뉴: 탭 화면에서만. 팝업·덮개(주행 포함)가 뜨면 닫는다.
+                if (!overlay && TAB_ROUTES[route] != null) when (menu) {
+                    HeaderMenuKind.APP -> HeaderMenu(Alignment.TopStart, { menu = null }) {
+                        MenuItem("프로필 수정", { menu = null; nav.navigate(Routes.WELCOME) })
+                    }
+                    HeaderMenuKind.MORE -> AccountMenu(container, onLink = { menu = null; nav.navigate(linkRoute("welcome")) }, onDismiss = { menu = null })
+                    null -> {}
                 }
             }
-            // 헤더 메뉴: 탭 화면에서만. 팝업·덮개(주행 포함)가 뜨면 닫는다.
-            if (!overlay && TAB_ROUTES[route] != null) when (menu) {
-                HeaderMenuKind.APP -> HeaderMenu(Alignment.TopStart, { menu = null }) {
-                    MenuItem("프로필 수정", { menu = null; nav.navigate(Routes.WELCOME) })
-                }
-                HeaderMenuKind.MORE -> AccountMenu(container, onLink = { menu = null; nav.navigate(linkRoute("welcome")) }, onDismiss = { menu = null })
-                null -> {}
-            }
+            // 헤더 메뉴 위, 강제 팝업·덮개 아래
+            if (!popupHost.isEmpty) Box(Modifier.fillMaxSize().then(hiddenSemantics)) { popupHost.Content() }
             if (overlay) BackHandler {}
             when (forced) {
                 Forced.DRIVING -> {

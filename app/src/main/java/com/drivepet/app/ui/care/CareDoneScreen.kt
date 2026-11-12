@@ -37,6 +37,7 @@ import com.drivepet.app.R
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.domain.formatExp
+import com.drivepet.app.domain.gaugeExpText
 import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
@@ -166,7 +167,7 @@ private fun ExpGauge(beforeMilli: Long, afterMilli: Long) {
             drawStopIndicator = {}, modifier = Modifier.fillMaxWidth().height(8.dp),
         )
         Text(
-            g.needMilli?.let { "${formatExp(g.inLevelMilli)} / ${formatExp(it)} EXP" } ?: "MAX",
+            g.needMilli?.let { gaugeExpText(g.inLevelMilli, it) } ?: "MAX",
             style = DpType.labelM, color = DpColors.TextSecondary,
         )
     }

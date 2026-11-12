@@ -134,6 +134,10 @@ fun tripPaidMilli(trips: List<TripLedger>): List<Long> {
 
 fun formatExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale(1, RoundingMode.HALF_UP).toPlainString()
 
+/** 레벨 막대 아래 「200 / 500 EXP」(피그마 「000 / 000 EXP」, 419:50656). 정수면 「.0」을 떼고, 소수가 있으면 한 자리까지 남긴다. */
+fun gaugeExpText(inLevelMilli: Long, needMilli: Long): String =
+    "${formatExp(inLevelMilli).removeSuffix(".0")} / ${formatExp(needMilli).removeSuffix(".0")} EXP"
+
 fun apiExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale(3).toPlainString()
 
 fun seoulDate(at: Instant): LocalDate = at.atZone(SEOUL).toLocalDate()

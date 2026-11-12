@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,6 +33,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,9 +43,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.BuildConfig
 import com.drivepet.app.R
 import com.drivepet.app.domain.MissionStatus
-import com.drivepet.app.domain.formatExp
+import com.drivepet.app.domain.gaugeExpText
 import com.drivepet.app.drive.Speaker
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.characterSize
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
 import com.drivepet.app.ui.components.SpeechBubble
@@ -66,7 +71,8 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
         Text(u.nickname, style = DpType.headlineL, color = DpColors.Text)
         VehicleLine(u.vehicleLine, weather)
     }
-    val bubbleRow: @Composable () -> Unit = { Box(Modifier.fillMaxWidth().height(64.dp), contentAlignment = Alignment.Center) { SpeechBubble(bubble) } }
+    // 말풍선 높이 80(dp/speech: 위아래 20 + 줄 40). 말풍선이 없어도 자리를 지켜 아래 줄이 움직이지 않는다.
+    val bubbleRow: @Composable () -> Unit = { Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { SpeechBubble(bubble) } }
     val statusRow: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             DpTag(if (u.parked) "주차중" else "주행중", TagStyle.Glass)
@@ -88,7 +94,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 header()
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                LoungePet(u, devPress, Modifier)
                 bubbleRow()
                 stats()
                 WarningPanel(u, onCare, Modifier.fillMaxWidth(), fill = false)
@@ -99,7 +105,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
             LoungeLayout.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
                     header()
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                    LoungePet(u, devPress, Modifier.weight(1f))
                     bubbleRow()
                     statusRow()
                 }
@@ -113,18 +119,56 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
             LoungeLayout.DEFAULT -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
                     header()
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
+                    LoungePet(u, devPress, Modifier.weight(1f))
                     bubbleRow()
                     statusRow()
                     ExpCard(u)
                 }
-                Column(Modifier.width(592.dp).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                    Text("펫 컨디션", style = DpType.titleM.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.TextSecondary)
-                    stats()
-                    WarningPanel(u, onCare, Modifier.fillMaxWidth(), fill = false)
+                // 특이사항 카드는 열 바닥까지 늘리고 CTA를 맨 아래에 둔다(419:50680, 592×574 justify-between). 창이 낮으면 늘리지 않고 스크롤한다.
+                BoxWithConstraints(Modifier.width(592.dp).fillMaxHeight()) {
+                    // 경고가 없으면 늘리지 않는다(빈 카드가 열을 채우지 않게)
+                    val viewport = if (u.warnings.isEmpty()) 0.dp else maxHeight
+                    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+                        FillRest(viewport, 24.dp, top = {
+                            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                                Text("펫 컨디션", style = DpType.titleM.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.TextSecondary)
+                                stats()
+                            }
+                        }) { WarningPanel(u, onCare, Modifier.fillMaxWidth()) }
+                    }
                 }
             }
         }
+    }
+}
+
+/** 라운지 펫 크기 배율: 피그마 2단계 병아리 키 382(419:50704) / 기본 300. */
+private const val LOUNGE_PET_SCALE = 1.27f
+
+/** 라운지 펫(419:50702). 칸 아래에 붙이고 말풍선과 40 띄운다. 칸 높이가 정해져 있으면(넓은 창) 그 안에 들어가게 줄인다. */
+@Composable
+private fun LoungePet(u: LoungeUi, devPress: Modifier, modifier: Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth().padding(bottom = 40.dp), contentAlignment = Alignment.BottomCenter) {
+        val want = characterSize(u.stage) * LOUNGE_PET_SCALE
+        // Character 높이 = size × 1.1
+        val size = if (constraints.hasBoundedHeight) minOf(want, maxHeight / 1.1f) else want
+        Character(u.starter, u.stage, u.mood, devPress, size)
+    }
+}
+
+/**
+ * [top]을 먼저 재고, [rest]를 남은 높이([viewport] − top − [gap])까지 늘린다. 남은 높이가 [rest]의 제 높이보다 작으면 제 높이로 두고
+ * 바깥 스크롤에 맡긴다(창이 낮아도 겹치거나 잘리지 않는다). [rest]는 받은 높이를 채워야 한다(WarningPanel fill).
+ */
+@Composable
+private fun FillRest(viewport: Dp, gap: Dp, top: @Composable () -> Unit, rest: @Composable () -> Unit) {
+    Layout({ top(); rest() }) { ms, c ->
+        val w = c.maxWidth
+        val t = ms[0].measure(Constraints(maxWidth = w))
+        val g = gap.roundToPx()
+        val h = maxOf(ms[1].minIntrinsicHeight(w), viewport.roundToPx() - t.height - g)
+        val r = ms[1].measure(Constraints.fixed(w, h))
+        layout(w, t.height + g + h) { t.place(0, 0); r.place(0, t.height + g) }
     }
 }
 
@@ -153,8 +197,8 @@ private fun ExpCard(u: LoungeUi, stacked: Boolean = false) {
         Column(m, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("LV. ${u.gauge.level}", style = DpType.headlineS, color = DpColors.Text)
             Text(
-                u.gauge.needMilli?.let { "${formatExp(u.gauge.inLevelMilli)} / ${formatExp(it)} EXP" } ?: "MAX",
-                style = DpType.labelM, color = DpColors.TextSecondary,
+                u.gauge.needMilli?.let { gaugeExpText(u.gauge.inLevelMilli, it) } ?: "MAX",
+                style = DpType.labelM, color = DpColors.TextSecondary, maxLines = 1, softWrap = false,
             )
             // 진행 막대: 높이 8, r4(drivepet/progress)
             Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(DpColors.TrackInactive)) {

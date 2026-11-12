@@ -48,8 +48,10 @@ import com.drivepet.app.domain.Mood
 import com.drivepet.app.domain.SafetyLine
 import com.drivepet.app.domain.Settlement
 import com.drivepet.app.domain.formatExp
+import com.drivepet.app.domain.gaugeExpText
 import com.drivepet.app.drive.RecorderOutput
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.characterSize
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpTag
 import com.drivepet.app.ui.components.TagStyle
@@ -127,9 +129,12 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
     val measured = s.safetyScore != null && s.safetyStatus == MeasurementStatus.MEASURED
 
     val left: @Composable (Modifier) -> Unit = { m ->
-        Column(m, Arrangement.spacedBy(16.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
+        // 419:51084: 위에서부터 칩 → 그래픽 칸 618(펫 그룹 가운데) → 막대, 간격 16
+        Column(m, Arrangement.spacedBy(16.dp), Alignment.CenterHorizontally) {
             ExpChip(paidMilli)
-            Character(starter, stage, Mood.HAPPY)
+            Box(Modifier.height(618.dp), contentAlignment = Alignment.Center) {
+                Character(starter, stage, Mood.HAPPY, size = characterSize(stage) * SETTLEMENT_PET_SCALE)
+            }
             CumulativeGauge(beforeMilli, afterMilli, narrow)
         }
     }
@@ -175,7 +180,8 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
                 val bodyH = maxHeight
                 Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     left(Modifier.weight(1f).heightIn(min = bodyH))
-                    Column(Modifier.weight(1f).heightIn(min = bodyH), Arrangement.SpaceBetween) { title(); info() }
+                    // 제목 아래 52에 점수 블록(419:51111 y=180, 제목 128)
+                    Column(Modifier.weight(1f).heightIn(min = bodyH), Arrangement.spacedBy(52.dp)) { title(); info() }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 40.dp), Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
@@ -185,6 +191,9 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
         }
     }
 }
+
+/** 정산 펫 크기 배율: 피그마 2단계 병아리 키 454(419:51089) / 기본 300. */
+private const val SETTLEMENT_PET_SCALE = 1.51f
 
 /** 펫 위 「+ 00 EXP」(RewardSoft): 400ms 동안 아래에서 떠오르며 나타난다(한 번). */
 @Composable
@@ -285,6 +294,6 @@ private fun CumulativeGauge(beforeMilli: Long, afterMilli: Long, narrow: Boolean
         Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(DpColors.TrackInactive)) {
             Box(Modifier.fillMaxWidth(fill.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(DpColors.Filled))
         }
-        Text(need?.let { "${formatExp((fill * it).toLong())} / ${formatExp(it)} EXP" } ?: "MAX", style = DpType.labelM, color = DpColors.TextSecondary)
+        Text(need?.let { gaugeExpText((fill * it).toLong(), it) } ?: "MAX", style = DpType.labelM, color = DpColors.TextSecondary)
     }
 }

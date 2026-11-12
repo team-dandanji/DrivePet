@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -34,7 +33,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.drivepet.app.BuildConfig
 import com.drivepet.app.R
 import com.drivepet.app.ui.onboarding.OnboardStep
 import com.drivepet.app.ui.onboarding.StepCta
@@ -67,20 +65,19 @@ fun LinkScreen(vm: LinkViewModel, login: Boolean, onBack: (() -> Unit)?, onLinke
         dots = 2 to 1, showPrev = onBack != null, cta = StepCta(if (login) "로그인 완료" else "다음", linked != null, go),
     ) { narrow ->
         val qr: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.size(540.dp).background(Color.White, RoundedCornerShape(12.dp)), Alignment.Center) {
-                    if (ui is LinkUi.Showing) QrImage((ui as LinkUi.Showing).qrUrl, QR_SIZE)
-                }
-                // 시험용: 호스트 브라우저로 열어 가짜 로그인을 해 볼 수 있게 주소를 보여 준다. 릴리스에는 없다.
-                if (BuildConfig.DEMO_TOOLS) (ui as? LinkUi.Showing)?.let {
-                    Text(it.qrUrl, Modifier.width(540.dp), style = DpType.labelS, color = DpColors.TextTertiary)
-                }
+            Box(Modifier.size(540.dp).background(Color.White, RoundedCornerShape(12.dp)), Alignment.Center) {
+                if (ui is LinkUi.Showing) QrImage((ui as LinkUi.Showing).qrUrl, QR_SIZE)
             }
         }
         val side: @Composable () -> Unit = {
-            Column(Modifier.widthIn(max = 509.dp)) {
-                Text("카카오톡 앱  > 더보기 > 우측 상단의\n버튼을 눌러 QR코드를 스캔하세요", style = DpType.titleM.copy(fontWeight = FontWeight.Normal), color = DpColors.Text)
-                Spacer(Modifier.height(if (narrow) 48.dp else 136.dp))
+            Column {
+                // 피그마 글상자 509(403:36069)는 두 줄. 기기 글꼴이 조금 넓어 509면 첫 줄이 넘쳐 세 줄이 되므로 560까지 허용한다.
+                Text(
+                    "카카오톡 앱  > 더보기 > 우측 상단의\n버튼을 눌러 QR코드를 스캔하세요", Modifier.widthIn(max = 560.dp),
+                    style = DpType.titleM.copy(fontWeight = FontWeight.Normal), color = DpColors.Text,
+                )
+                // 안내 글상자(100) 아래 180에 인증 상태(403:36070 y=280). 두 줄 글자 높이는 88이라 12를 더한다.
+                Spacer(Modifier.height(if (narrow) 48.dp else 192.dp))
                 Column(Modifier.widthIn(max = 413.dp), verticalArrangement = Arrangement.spacedBy(44.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(statusLine(ui), style = DpType.titleL.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.TextTertiary)

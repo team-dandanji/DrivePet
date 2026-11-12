@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,8 +76,9 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
         }
         // EV 3열, ICE·HEV 2×2(와이어프레임 10·21)
         u.rows.chunked(if (narrow) 1 else if (u.rows.size == 3) 3 else 2).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                row.forEach { r -> CareCard(r, careScore(u.fuel), { scope.launch { vm.replace(r.item.itemId)?.let(onReplaced) } }, Modifier.weight(1f)) }
+            // 한 줄의 카드 높이를 맞추고 버튼을 카드 바닥에 둔다(내용이 짧은 카드의 버튼이 위로 뜨지 않게)
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                row.forEach { r -> CareCard(r, careScore(u.fuel), { scope.launch { vm.replace(r.item.itemId)?.let(onReplaced) } }, Modifier.weight(1f).fillMaxHeight()) }
             }
         }
         DpCard(Modifier.fillMaxWidth()) {
@@ -98,7 +102,7 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
 private fun CareCard(r: CareRow, score: Double, onDone: () -> Unit, modifier: Modifier) {
     val life = r.life
     DpCard(modifier) {
-        Column(Modifier.padding(28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.fillMaxHeight().padding(28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // 제목은 정보라 잘리면 안 된다: 카드 폭을 다 쓰고 두 줄까지 늘어나며, 배점 칩은 그 아래에 둔다.
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(r.care.title, style = DpType.bodyL.copy(fontWeight = FontWeight.ExtraBold), maxLines = 2)
@@ -128,6 +132,7 @@ private fun CareCard(r: CareRow, score: Double, onDone: () -> Unit, modifier: Mo
                     style = DpType.bodyS,
                 )
             }
+            Spacer(Modifier.weight(1f))
             DpCta(r.care.doneLabel, onDone, Modifier.fillMaxWidth())
         }
     }

@@ -24,8 +24,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -57,12 +63,28 @@ data class PopupSpec(
     val maxWidth: Dp = 1000.dp,
 )
 
+/**
+ * 화면 안쪽 팝업을 앱 창 전체(탭 헤더 포함) 위에 그리는 자리. AppNav 루트가 [LocalPopupHost]로 주고, 헤더·NavHost 위에 [Content]를 그린다.
+ * 화면은 NavHost 안(헤더 아래 칸)에 있어 그 자리에서 그리면 dim이 헤더를 못 덮기 때문이다.
+ * 팝업 내용은 루트에서 그려지므로 그 안에서 viewModel()·rememberSaveable처럼 화면 항목에 묶인 것을 새로 부르지 않는다(바깥에서 만들어 넘긴다).
+ */
+class PopupHost {
+    internal val slots = mutableStateListOf<State<@Composable () -> Unit>>()
+    val isEmpty: Boolean get() = slots.isEmpty()
+
+    @Composable
+    fun Content() { slots.forEach { key(it) { it.value() } } }
+}
+
+/** null이면(호스트 밖: 주행·하차 점검 팝업처럼 이미 루트에 있는 것) 그 자리에서 바로 그린다. */
+val LocalPopupHost = staticCompositionLocalOf<PopupHost?> { null }
+
 /** [DpPopup]가 안쪽 [PopupButton]에 규격을 알려 준다. */
 private val LocalPopupSpec = compositionLocalOf { PopupSpec() }
 
 /**
  * 같은 창 안의 팝업(별도 Window 없음): dim 20% + 가운데 흰 카드(419:53613).
- * 화면 루트 Box의 마지막 자식으로 둬야 맨 위에 그려진다.
+ * [LocalPopupHost]가 있으면 거기로 올려 앱 창 전체를 덮고, 없으면 그 자리(화면 루트 Box의 마지막 자식)에 그린다.
  * dim 탭과 뒤로 가기는 [onDismissRequest]로 간다. 버튼이 둘이면 오른쪽이 주 동작이다.
  */
 @Composable
@@ -73,6 +95,29 @@ fun DpPopup(
     content: @Composable ColumnScope.() -> Unit = {},
     icon: (@Composable () -> Unit)? = null,
     spec: PopupSpec = PopupSpec(),
+    buttons: @Composable RowScope.() -> Unit,
+) {
+    val host = LocalPopupHost.current
+    if (host == null) {
+        PopupLayer(title, body, onDismissRequest, content, icon, spec, buttons)
+        return
+    }
+    // 호출 쪽이 다시 그려질 때마다 최신 내용으로 바꿔 둔다. 화면을 떠나면 호스트에서 뺀다.
+    val latest = rememberUpdatedState<@Composable () -> Unit> { PopupLayer(title, body, onDismissRequest, content, icon, spec, buttons) }
+    DisposableEffect(host) {
+        host.slots.add(latest)
+        onDispose { host.slots.remove(latest) }
+    }
+}
+
+@Composable
+private fun PopupLayer(
+    title: String,
+    body: String?,
+    onDismissRequest: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+    icon: (@Composable () -> Unit)?,
+    spec: PopupSpec,
     buttons: @Composable RowScope.() -> Unit,
 ) {
     BackHandler(onBack = onDismissRequest)

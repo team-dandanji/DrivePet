@@ -56,6 +56,7 @@ import com.drivepet.app.domain.shortName
 import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.components.DpCta
 import com.drivepet.app.ui.components.DpPopup
+import com.drivepet.app.ui.components.PopupSpec
 import com.drivepet.app.ui.components.DpTag
 import com.drivepet.app.ui.components.PopupButton
 import com.drivepet.app.ui.components.TagStyle
@@ -140,7 +141,8 @@ fun CareCourseScreen(vm: CareCourseViewModel, onBack: () -> Unit, onRegister: ()
                 }
                 if (sheet) StopSheet(u, narrow, onPick = { vm.select(it); sheet = false }, onDismiss = { sheet = false })
                 if (confirm) {
-                    DpPopup("경로를 삭제하시겠습니까?", stop.place.name, onDismissRequest = { confirm = false }) {
+                    // 경로 삭제 팝업은 폭 720(419:56859)
+                    DpPopup("경로를 삭제하시겠습니까?", stop.place.name, onDismissRequest = { confirm = false }, spec = PopupSpec(maxWidth = 720.dp)) {
                         PopupButton("괜찮아요", { confirm = false }, primary = false)
                         PopupButton("삭제할게요", { vm.remove(u.selected); confirm = false }, primary = true)
                     }

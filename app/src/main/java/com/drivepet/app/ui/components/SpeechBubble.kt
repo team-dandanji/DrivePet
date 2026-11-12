@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.drive.Bubble
 import com.drivepet.app.ui.theme.DpColors
@@ -21,6 +22,9 @@ fun SpeechBubble(bubble: Bubble?, modifier: Modifier = Modifier) {
         bubble.text,
         style = DpType.titleS,
         color = Color.White,
+        // dp/speech는 한 줄(최대 15자)이고 넘치면 말줄임
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier.clip(RoundedCornerShape(20.dp)).background(DpColors.Sky500).padding(horizontal = 28.dp, vertical = 20.dp),
     )
 }
