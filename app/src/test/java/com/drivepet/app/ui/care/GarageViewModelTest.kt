@@ -3,6 +3,7 @@ package com.drivepet.app.ui.care
 import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.growthTotalMilli
+import com.drivepet.app.domain.REPLACEMENT_MILLI
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
@@ -69,5 +70,15 @@ class GarageViewModelTest {
         assertTrue(store.records("p1").first().single().payloadJson.contains("\"odometerMm\":null"))
         assertNull(v.ui.value!!.rows.first { it.care.name == "WIPER" }.life.lifePct)
         assertNull(v.done(id).first()!!.lifePct)
+    }
+
+    @Test fun doneExposesBeforeAndAfterExpAndNextDueKm() = runTest {
+        val v = vm()
+        val tire = v.ui.value!!.rows.first { it.care.name == "TIRE" }.item.itemId
+        val d = v.done(v.replace(tire)!!).first()!!
+        assertEquals(10_000, d.nextDueKm)
+        assertEquals(24_800, d.baseOdometerKm)
+        assertEquals(0, d.sinceKm)
+        assertEquals(REPLACEMENT_MILLI, d.afterMilli - d.beforeMilli)
     }
 }

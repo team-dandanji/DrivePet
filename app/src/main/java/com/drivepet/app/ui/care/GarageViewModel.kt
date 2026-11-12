@@ -13,6 +13,7 @@ import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.data.db.VehicleCareEntity
 import com.drivepet.app.data.defaultCareItems
+import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.data.odometerMm
 import com.drivepet.app.domain.CareBaseline
 import com.drivepet.app.domain.CareItem
@@ -47,8 +48,14 @@ data class GarageUi(
     val tpmsOn: Boolean,
 )
 
-/** 11 관리 기록 화면에 보일 것. paid = 이 기록이 그 항목·그날 첫 교체라 +50을 받았는지. */
-data class CareDoneUi(val title: String, val date: LocalDate, val odometerKm: Int?, val lifePct: Int?, val paid: Boolean, val tpmsOn: Boolean)
+/**
+ * D6 정비 기록 완료 화면에 보일 것. paid = 이 기록이 그 항목·그날 첫 교체라 +50을 받았는지.
+ * nextDueKm = 다음 점검까지 남은 km, baseOdometerKm = 기준 누적거리, sinceKm = 관리 후 누적거리, before/afterMilli = 이 기록 전·후 총 EXP.
+ */
+data class CareDoneUi(
+    val title: String, val date: LocalDate, val odometerKm: Int?, val lifePct: Int?, val paid: Boolean, val tpmsOn: Boolean,
+    val nextDueKm: Int?, val baseOdometerKm: Int?, val sinceKm: Int?, val beforeMilli: Long, val afterMilli: Long,
+)
 
 /** 10·21 내 차 정비소, 11 관리 기록, 관리 이력 수정이 함께 쓴다. 정비 설정은 기기 안에만 두고 동기화하지 않는다. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -99,7 +106,9 @@ class GarageViewModel(
         return id
     }
 
-    fun done(recordId: String): Flow<CareDoneUi?> = combine(ui, profile.filterNotNull().flatMapLatest { store.records(it.profileId) }) { u, records ->
+    fun done(recordId: String): Flow<CareDoneUi?> = combine(
+        ui, profile.filterNotNull().flatMapLatest { p -> combine(store.records(p.profileId), store.seed(p.profileId)) { r, seed -> r to seed } },
+    ) { u, (records, seed) ->
         val r = records.firstOrNull { it.recordId == recordId } ?: return@combine null
         val row = u?.rows?.firstOrNull { it.item.itemId == r.itemId }
         // 원장(totalExpMilli)은 (itemId, localDate)마다 한 번만 준다: 그날 그 항목의 가장 이른 기록이 받은 것으로 본다.
@@ -113,6 +122,12 @@ class GarageViewModel(
             lifePct = if (mm == null) null else row?.life?.lifePct,
             paid = first?.recordId == recordId,
             tpmsOn = u?.tpmsOn == true,
+            // 누적거리를 못 읽고 남긴 기록이면 남은 거리·기준은 미산출로 둔다(lifePct와 같은 규칙).
+            nextDueKm = if (mm == null) null else row?.life?.remainingKm,
+            baseOdometerKm = if (mm == null) null else row?.life?.baseOdometerMm?.let { (it / 1_000_000).toInt() },
+            sinceKm = if (mm == null) null else row?.life?.sinceKm,
+            beforeMilli = growthTotalMilli(records.filter { it.recordId != recordId }, seed),
+            afterMilli = growthTotalMilli(records, seed),
         )
     }
 

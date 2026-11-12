@@ -41,6 +41,7 @@ import com.drivepet.app.domain.CareItem
 import com.drivepet.app.ui.care.CareCourseScreen
 import com.drivepet.app.ui.care.CareCourseViewModel
 import com.drivepet.app.ui.care.CareDoneScreen
+import com.drivepet.app.ui.care.CareRecordPopup
 import com.drivepet.app.ui.care.CourseUi
 import com.drivepet.app.ui.care.CareHistoryScreen
 import com.drivepet.app.ui.care.GarageEditScreen
@@ -261,10 +262,14 @@ fun AppNav(container: AppContainer) {
                         )
                     }
                     composable(Routes.LOUNGE) {
-                        LoungeScreen(
-                            viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
-                            onCare = { nav.navigate(Routes.CARE_COURSE) }, // 병원·밥 모두 펫 돌보기로(밥은 Task 6에서 빠진다)
-                        ) { nav.navigate(Routes.DEV) }
+                        // 정비 기록 팝업은 라운지 위에 같은 창 안으로 겹친다(LoungeScreen은 건드리지 않는다).
+                        Box(Modifier.fillMaxSize()) {
+                            LoungeScreen(
+                                viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
+                                onCare = { nav.navigate(Routes.CARE_COURSE) }, // 병원·밥 모두 펫 돌보기로(밥은 Task 6에서 빠진다)
+                            ) { nav.navigate(Routes.DEV) }
+                            CareRecordPopup(container) { id -> nav.navigate("garage/done/$id") }
+                        }
                     }
                     composable(Routes.GARAGE) {
                         GarageScreen(
@@ -280,7 +285,9 @@ fun AppNav(container: AppContainer) {
                     composable(Routes.CARE_DONE, arguments = listOf(navArgument("recordId") { type = NavType.StringType })) { entry ->
                         CareDoneScreen(
                             viewModel(factory = GarageViewModel.factory(container)), entry.arguments?.getString("recordId").orEmpty(),
-                            onGarage = { nav.popBackStack(Routes.GARAGE, inclusive = false) },
+                            pet.first, pet.second,
+                            // 라운지 팝업에서 왔으면 스택에 차 정비소가 없으므로 탭 이동처럼 간다.
+                            onGarage = { nav.navigate(Routes.GARAGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
                             onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
                         )
                     }
