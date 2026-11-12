@@ -67,7 +67,7 @@ class CareCourseViewModel(
         _ui.value = CourseUi.Loading
         viewModelScope.launch {
             _ui.value = try {
-                val (lat, lng) = location() ?: error("위치 없음")
+                val (lat, lng) = location() ?: error("위치 없음") // Failed(주변 정비소를 찾지 못했어요 + 다시 찾기)
                 // 내비 질문은 하나씩만 보낼 수 있어 차례로 묻는다.
                 val stops = places.nearby(lat, lng).sortedBy { it.distanceM }.take(MAX_STOPS).map { Stop(it, minutesTo(it)) }
                 if (stops.isEmpty()) CourseUi.Empty else CourseUi.Ready(stops, 0, target)
@@ -86,7 +86,7 @@ class CareCourseViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = CareCourseViewModel(
                 c.places,
-                { c.navi.currentLocation() ?: withContext(Dispatchers.IO) { c.location.latLng() } }, // 내비 위치가 없으면 마지막 위치(없으면 서울시청)
+                { c.navi.currentLocation() ?: withContext(Dispatchers.IO) { c.location.latLngOrNull() } }, // 내비 위치가 없으면 마지막 위치, 그것도 없으면 null(서울시청으로 대신하지 않는다)
                 c.navi::eta,
                 target,
             ) as T

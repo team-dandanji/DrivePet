@@ -1,6 +1,7 @@
 package com.drivepet.app.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LocationSourceTest {
@@ -8,6 +9,11 @@ class LocationSourceTest {
 
     @Test fun outsideKoreaFallsBackToSeoul() {
         assertEquals(seoul, pickOrSeoul(37.42, -122.08))
+    }
+
+    @Test fun pickInKoreaIsNullOutsideKorea() {
+        assertNull(pickInKorea(37.42, -122.08))
+        assertEquals(37.5665 to 126.978, pickInKorea(37.5665, 126.978))
     }
 
     @Test fun insideKoreaIsKept() {

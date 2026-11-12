@@ -25,8 +25,9 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/** 정비소로 안내를 시작한 뒤 실제로 주행했고(armed), 정차해서 라운지로 돌아왔을 때만 묻는다. */
-fun shouldAskCareRecord(pending: PendingCare?, parked: Boolean, onLounge: Boolean): Boolean = pending?.armed == true && parked && onLounge
+/** 정비소로 안내를 시작한 뒤 실제로 주행했고(armed), 정차해서 라운지로 돌아왔을 때만, 안내를 시작한 그 프로필에게만 묻는다. */
+fun shouldAskCareRecord(pending: PendingCare?, activeProfileId: String?, parked: Boolean, onLounge: Boolean): Boolean =
+    pending?.armed == true && pending.profileId == activeProfileId && parked && onLounge
 
 /** pending의 CareItem이 이 프로필의 정비 항목 행에 있으면 그 itemId, 없으면 null(이 차에서 기록할 수 없는 항목). */
 fun careRowIdFor(item: CareItem, rows: List<CareRow>): String? = rows.firstOrNull { it.care == item }?.item?.itemId
@@ -34,11 +35,13 @@ fun careRowIdFor(item: CareItem, rows: List<CareRow>): String? = rows.firstOrNul
 /**
  * 정비 기록 팝업(D5 419:53613). 라운지 화면 위에 같은 창 안에서 뜬다(라운지 루트 Box의 마지막 자식으로 둔다).
  * 라운지가 RESUMED이고 정차 중일 때만 보인다. 주행이 시작되면 사라지고, pending은 그대로 남는다.
+ * [visible]이 false(하차 점검 등 다른 팝업이 떠 있음)이면 겹치지 않게 숨긴다.
  * [네]는 교체 기록을 남기고 pending을 지운 뒤 [onRecorded]로 새 recordId를 넘긴다.
  */
 @Composable
-fun CareRecordPopup(container: AppContainer, onRecorded: (String) -> Unit) {
+fun CareRecordPopup(container: AppContainer, visible: Boolean = true, onRecorded: (String) -> Unit) {
     val pending by remember { container.settings.pendingCare }.collectAsStateWithLifecycle(null)
+    val activeId by remember { container.settings.activeProfileId }.collectAsStateWithLifecycle(null)
     val state by VehicleModule.repository.state.collectAsStateWithLifecycle()
     val resumed = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value.isAtLeast(Lifecycle.State.RESUMED)
     // 뒤로 가기·바깥 탭은 pending을 지우지 않고 이번 화면에서만 숨긴다(다시 라운지에 들어오면 다시 묻는다).
@@ -49,7 +52,7 @@ fun CareRecordPopup(container: AppContainer, onRecorded: (String) -> Unit) {
 
     val p = pending ?: return
     val item = runCatching { CareItem.valueOf(p.itemId) }.getOrNull() ?: return
-    if (hidden || LocalDriving.current || !shouldAskCareRecord(p, state.isParked, resumed)) return
+    if (!visible || hidden || LocalDriving.current || !shouldAskCareRecord(p, activeId, state.isParked, resumed)) return
 
     // 이 프로필에 없는 항목(예: EV의 엔진오일)은 기록하지 않고 알린 뒤 pending을 지운다.
     val rows by vm.ui.collectAsStateWithLifecycle()

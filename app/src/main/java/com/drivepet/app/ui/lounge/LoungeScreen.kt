@@ -238,7 +238,7 @@ private fun WarningPanel(u: LoungeUi, onCare: () -> Unit, modifier: Modifier, fi
 @Composable
 private fun WarningItem(w: WarningCard) {
     Surface(
-        Modifier.fillMaxWidth().shadow(24.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x14000000), spotColor = Color(0x14000000)),
+        Modifier.fillMaxWidth().shadow(24.dp, RoundedCornerShape(16.dp), ambientColor = DpColors.Shadow, spotColor = DpColors.Shadow),
         shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(2.dp, DpColors.Divider),
     ) {
         Column(Modifier.padding(horizontal = 24.dp, vertical = 26.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.drivepet.app.domain.CareBaseline
 import com.drivepet.app.domain.CareItem
 import com.drivepet.app.domain.FuelType
+import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.domain.ServicedPeriod
 import com.drivepet.app.domain.careItemsFor
 import com.drivepet.app.domain.careScore
@@ -63,6 +65,9 @@ fun CareHistoryScreen(
     onInspection: ((LocalDate?) -> Unit)? = null,
 ) {
     var editing by remember { mutableStateOf<CareItem?>(null) }
+    // 직접 입력 팝업은 별도 창이라 주행 팝업 위에 그려진다. 주행이 시작되면 닫는다.
+    val driving = LocalDriving.current
+    LaunchedEffect(driving) { if (driving) editing = null }
     val items = careItemsFor(fuel)
     val score = careScore(fuel)
     // 입력·설정 화면은 Soft 배경. 직접 입력 팝업은 루트 Box의 마지막 자식이라 맨 위에 그려진다.
@@ -99,7 +104,7 @@ fun CareHistoryScreen(
             DpCta(primaryLabel, onPrimary, Modifier.width(520.dp))
         }
     }
-    editing?.let { item ->
+    editing?.takeIf { !driving }?.let { item ->
         DirectInputDialog(item, baselines[item], onDismiss = { editing = null }) { date, mm -> onDirect(item, date, mm); editing = null }
     }
     }

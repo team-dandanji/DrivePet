@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.R
 import com.drivepet.app.domain.Mood
+import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.components.Character
 import com.drivepet.app.ui.components.DpPopup
 import com.drivepet.app.ui.components.DpTag
@@ -73,6 +75,9 @@ private val NAME_POPUP = PopupSpec(
 @Composable
 fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) {
     var naming by remember { mutableStateOf(false) }
+    // 대화상자는 별도 창이라 주행 팝업 위에 그려진다. 주행이 시작되면 닫는다.
+    val driving = LocalDriving.current
+    LaunchedEffect(driving) { if (driving) naming = false }
     val index = STARTERS.indexOfFirst { it.type == vm.starter }.coerceAtLeast(0)
     val shift = { d: Int -> vm.starter = STARTERS[(index + d + STARTERS.size) % STARTERS.size].type }
 
@@ -102,7 +107,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
             if (narrow) Column(verticalArrangement = Arrangement.spacedBy(40.dp)) { egg(Modifier.fillMaxWidth()); list(Modifier.fillMaxWidth()) }
             else Row(horizontalArrangement = Arrangement.spacedBy(82.dp)) { egg(Modifier.width(922.dp)); list(Modifier.weight(1f)) }
         }
-        if (naming) NamePopup(vm, STARTERS[index].egg, onDismiss = { naming = false }, onDone = onDone)
+        if (naming && !driving) NamePopup(vm, STARTERS[index].egg, onDismiss = { naming = false }, onDone = onDone)
     }
 }
 

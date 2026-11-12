@@ -25,7 +25,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -42,7 +41,6 @@ class LoungeViewModelTest {
 
     private val store = FakeRecordStore()
     private val state = MutableStateFlow(VehicleState(gear = Signal.Ok(Gear.P, 0L)))
-    private val belt = MutableStateFlow(false)
     private val speaker = FakeSpeaker()
     private var greetDate: String? = null
     private var now = Instant.parse("2026-11-10T03:00:00Z") // 서울 12시
@@ -61,7 +59,7 @@ class LoungeViewModelTest {
     private fun ml(d: LocalDate) = "오늘 미션: ${dailyMissions("p1", d).first().title}"
 
     private fun vm(checkIn: suspend () -> Boolean = { true }, loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
-        store, state, MutableStateFlow("p1"), belt, speaker, checkIn,
+        store, state, MutableStateFlow("p1"), speaker, checkIn,
         kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now }, loadWeather,
     )
 
@@ -77,7 +75,6 @@ class LoungeViewModelTest {
         store.syncWarnings("p1", listOf("TPMS"), today.minusDays(2))
         val ui = vm().ui.value!!
         assertEquals(Mood.SICK_2, ui.mood)
-        assertEquals(CareAction.HOSPITAL, ui.careAction)
         assertEquals(listOf("TPMS"), ui.warnings)
     }
 
@@ -118,7 +115,6 @@ class LoungeViewModelTest {
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), energyPct = Signal.Ok(18, 0L))
         val ui = vm().ui.value!!
         assertEquals(Mood.HUNGRY, ui.mood)
-        assertNull(ui.careAction)
     }
 
     private val clear12 = WeatherDto(12.0, "CLEAR", null, emptyList(), null, false)

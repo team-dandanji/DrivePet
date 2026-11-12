@@ -58,8 +58,11 @@ class Navi(context: Context) {
             send("SearchPlace") { helper.requestNavigationScreen(NavigationScreenRequest.SearchPlace(place.name)) }
     }
 
-    /** 내비 화면을 앞으로. */
-    fun bringToFront(): Boolean = connected() && send("Foreground") { helper.requestNavigationScreen(NavigationScreenRequest.Foreground) }
+    /** 내비 화면을 앞으로. 연결이 아직이면 3초까지 기다린다. 안 되면 로그만 남기고 false. */
+    suspend fun bringToFront(): Boolean {
+        if (withTimeoutOrNull(ANSWER_MS) { ready.await() } != true) { Log.w(TAG, "Foreground: 내비 연결이 아직 안 됐다"); return false }
+        return send("Foreground") { helper.requestNavigationScreen(NavigationScreenRequest.Foreground) }
+    }
 
     fun release() { runCatching { helper.release() } }
 

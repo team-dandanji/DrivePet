@@ -106,10 +106,8 @@ object Routes {
     const val TRIPS = "trips"
     const val CARE_COURSE = "care/course"
     const val CARE_ROUTE_DONE = "care/route-done"
-    const val DRIVING = "driving"
     const val SETTLEMENT = "settlement"
     const val LEVEL_UP = "levelup"
-    const val EXIT_CHECK = "exit"
     const val DEV = "dev"
 }
 
@@ -188,6 +186,8 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     val ready = loaded && anyProfile != null
 
     val scope = rememberCoroutineScope()
+    // 내비 연결은 콜백으로 늦게 완성되므로 미리 맺는다(주행 팝업의 [네비게이션으로 돌아가기]가 첫 탭에 먹도록).
+    LaunchedEffect(Unit) { container.navi }
     val pet by remember { petLook(container) }.collectAsStateWithLifecycle(Pair("STARTER_1", 1))
 
     val driving = isDriving(state)
@@ -249,7 +249,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         // 01 -> 07. 온보딩 대기열을 비우고 라운지로 들어간다. 시작·다시 설정은 03(카카오 연결)을 거쳐 04로 간다.
                         WelcomeScreen(
                             viewModel(factory = WelcomeViewModel.factory(container)),
-                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.WELCOME) { inclusive = true } } }, // 저장이 끝난 뒤 불린다
+                            onLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(nav.graph.id) { inclusive = true } } }, // 저장이 끝난 뒤 불린다. 헤더 「프로필 수정」으로 들어온 01 아래의 라운지까지 비운다
                             onSetup = { nav.navigate(linkRoute("scan")) },
                             onAccount = { nav.navigate(linkRoute("welcome")) },
                         )
@@ -314,7 +314,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                                 viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
                                 onCare = { nav.navigate(Routes.CARE_COURSE) },
                             ) { nav.navigate(Routes.DEV) }
-                            CareRecordPopup(container) { id -> nav.navigate("garage/done/$id") }
+                            CareRecordPopup(container, visible = forced == Forced.NONE) { id -> nav.navigate("garage/done/$id") }
                         }
                     }
                     composable(Routes.GARAGE) {
@@ -361,7 +361,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                                 container.navi.startGuidance(stop.place).also { ok ->
                                     if (ok) {
                                         // 방문 후 기록 팝업(Task 5)이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
-                                        container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name)) }
+                                        profile?.profileId?.let { pid -> container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name, pid)) } }
                                         toLounge()
                                     }
                                 }
@@ -397,14 +397,15 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                     // 프로필 읽기가 끝나기 전에는 프로필이 있는 것으로 보고 경로만 따른다.
                     val (title, body) = restrictedCopy(route, hasProfile = !ready || profile != null)
                     DpPopup(title, body, onDismissRequest = {}) {
-                        PopupButton("네비게이션으로 돌아가기", { container.navi.bringToFront() }, primary = true)
+                        PopupButton("네비게이션으로 돌아가기", { scope.launch { container.navi.bringToFront() } }, primary = true)
                     }
                 }
                 Forced.EXIT_CHECK -> if (exitShown) exitCheck?.let { check ->
                     ExitCheckPopup(
                         check,
                         onStay = { scope.launch { coordinator.dismissExitCheck() } },
-                        onAllDone = { scope.launch { coordinator.dismissExitCheck(); onFinish() } },
+                        // 대기 중인 정산이 있으면 앱을 닫지 않고 점검만 닫아 정산이 보이게 한다.
+                        onAllDone = { scope.launch { coordinator.dismissExitCheck(); if (coordinator.pendingSettlement.value == null) onFinish() } },
                     )
                 }
                 Forced.SETTLEMENT -> settlement?.let { s ->

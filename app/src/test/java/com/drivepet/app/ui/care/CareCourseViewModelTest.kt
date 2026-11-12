@@ -19,7 +19,8 @@ import org.junit.Test
 /** places만 응답하는 가짜. 나머지 호출은 QrApi에 맡긴다(쓰지 않음). */
 private class PlacesApi(var result: () -> List<PlaceDto>) : DrivePetApi by QrApi() {
     var lastLat = 0.0
-    override suspend fun places(lat: Double, lng: Double): Envelope<List<PlaceDto>> { lastLat = lat; return Envelope(result()) }
+    var calls = 0
+    override suspend fun places(lat: Double, lng: Double): Envelope<List<PlaceDto>> { calls++; lastLat = lat; return Envelope(result()) }
 }
 
 private fun place(id: String, m: Int) = PlaceDto(id, "정비소 $id", "주소 $id", 37.4, 127.1, m)
@@ -29,8 +30,8 @@ class CareCourseViewModelTest {
     @Before fun setUp() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm(api: PlacesApi, eta: (PlaceDto) -> Int? = { null }) =
-        CareCourseViewModel(PlacesRepo { api }, { 37.44 to 127.13 }, { eta(it) }, CareItem.TIRE)
+    private fun vm(api: PlacesApi, eta: (PlaceDto) -> Int? = { null }, location: () -> Pair<Double, Double>? = { 37.44 to 127.13 }) =
+        CareCourseViewModel(PlacesRepo { api }, { location() }, { eta(it) }, CareItem.TIRE)
 
     @Test fun `shows three stops sorted by distance with minutes`() {
         val api = PlacesApi { listOf(place("c", 4800), place("a", 2100), place("b", 3400)) }
@@ -44,7 +45,7 @@ class CareCourseViewModelTest {
 
     @Test fun `uses navi eta when present`() {
         val api = PlacesApi { listOf(place("a", 9000)) }
-        val ui = vm(api) { 420 }.ui.value as CourseUi.Ready
+        val ui = vm(api, eta = { 420 }).ui.value as CourseUi.Ready
         assertEquals(7, ui.stops.single().minutes)
     }
 
@@ -57,6 +58,17 @@ class CareCourseViewModelTest {
         val vm = vm(api)
         assertEquals(CourseUi.Failed, vm.ui.value)
         api.result = { listOf(place("a", 2100)) }
+        vm.retry()
+        assertEquals(1, (vm.ui.value as CourseUi.Ready).stops.size)
+    }
+
+    @Test fun `no location is Failed without asking the server, retry recovers`() {
+        val api = PlacesApi { listOf(place("a", 2100)) }
+        var loc: Pair<Double, Double>? = null
+        val vm = vm(api, location = { loc })
+        assertEquals(CourseUi.Failed, vm.ui.value)
+        assertEquals(0, api.calls)
+        loc = 37.44 to 127.13
         vm.retry()
         assertEquals(1, (vm.ui.value as CourseUi.Ready).stops.size)
     }

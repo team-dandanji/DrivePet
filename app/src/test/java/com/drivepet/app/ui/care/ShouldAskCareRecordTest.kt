@@ -13,14 +13,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ShouldAskCareRecordTest {
-    private val armed = PendingCare("TIRE", "한국타이어 강남점", armed = true)
+    private val armed = PendingCare("TIRE", "한국타이어 강남점", "p1", armed = true)
     private val unarmed = armed.copy(armed = false)
 
-    @Test fun asksWhenArmedParkedOnLounge() = assertTrue(shouldAskCareRecord(armed, parked = true, onLounge = true))
-    @Test fun notBeforeDriving() = assertFalse(shouldAskCareRecord(unarmed, parked = true, onLounge = true))
-    @Test fun notWhileDriving() = assertFalse(shouldAskCareRecord(armed, parked = false, onLounge = true))
-    @Test fun notWithoutPending() = assertFalse(shouldAskCareRecord(null, parked = true, onLounge = true))
-    @Test fun notOffLounge() = assertFalse(shouldAskCareRecord(armed, parked = true, onLounge = false))
+    @Test fun asksWhenArmedParkedOnLounge() = assertTrue(shouldAskCareRecord(armed, "p1", parked = true, onLounge = true))
+    @Test fun notBeforeDriving() = assertFalse(shouldAskCareRecord(unarmed, "p1", parked = true, onLounge = true))
+    @Test fun notWhileDriving() = assertFalse(shouldAskCareRecord(armed, "p1", parked = false, onLounge = true))
+    @Test fun notWithoutPending() = assertFalse(shouldAskCareRecord(null, "p1", parked = true, onLounge = true))
+    @Test fun notForOtherProfile() = assertFalse(shouldAskCareRecord(armed, "p2", parked = true, onLounge = true))
+    @Test fun notWithoutActiveProfile() = assertFalse(shouldAskCareRecord(armed, null, parked = true, onLounge = true))
+    @Test fun notOffLounge() = assertFalse(shouldAskCareRecord(armed, "p1", parked = true, onLounge = false))
 
     @Test fun armsOnlyWhenDrivingWithUnarmedPending() {
         assertTrue(shouldArm(unarmed, driving = true))

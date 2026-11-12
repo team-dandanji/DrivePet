@@ -52,6 +52,7 @@ object DpColors {
     val Warning = Color(0xFFFF8A00)
     /** 팝업 뒤 어둡게(dim_dark_tertiary, 약 20%). */
     val Dim = Color(0x33131417)
+    val Shadow = Color(0x14000000) // 카드 그림자(8% 검정)
     val DividerPrimary = Color(0x0D131417)
     val DividerTertiary = Color(0x33131417)
     val ButtonBasic = Color(0x0D131417)

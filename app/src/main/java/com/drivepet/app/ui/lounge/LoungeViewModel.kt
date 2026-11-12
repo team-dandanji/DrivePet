@@ -55,8 +55,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-enum class CareAction { HOSPITAL }
-
 data class LoungeUi(
     val nickname: String,
     val vehicleLine: String,
@@ -69,7 +67,6 @@ data class LoungeUi(
     val parked: Boolean,
     val attendedToday: Boolean,
     val warnings: List<String>,
-    val careAction: CareAction?,
     val missions: List<MissionStatus> = emptyList(),
 )
 
@@ -125,7 +122,6 @@ class LoungeViewModel(
     private val store: RecordStore,
     private val state: StateFlow<VehicleState>,
     activeProfileId: Flow<String?>,
-    beltReadable: Flow<Boolean>,
     private val speaker: Speaker,
     private val checkIn: suspend () -> Boolean,
     private val lastGreetDate: Flow<String?>,
@@ -148,10 +144,10 @@ class LoungeViewModel(
     val ui: StateFlow<LoungeUi?> = profile
         .flatMapLatest { p ->
             if (p == null) return@flatMapLatest flowOf(null)
-            val beltAndCare = combine(beltReadable, store.maintenanceItems(p.profileId), store.vehicleCare(p.profileId)) { b, items, care -> Triple(b, items, care) }
+            val itemsAndCare = combine(store.maintenanceItems(p.profileId), store.vehicleCare(p.profileId)) { items, care -> items to care }
             combine(
-                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltAndCare,
-            ) { records, seen, seed, s, (_, items, care) ->
+                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, itemsAndCare,
+            ) { records, seen, seed, s, (items, care) ->
                 val today = seoulDate(clock())
                 val total = growthTotalMilli(records, seed)
                 val todayExp = totalExpMilli(records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.map { it.toLedger() })
@@ -182,7 +178,6 @@ class LoungeViewModel(
                     parked = s.isParked,
                     attendedToday = attended,
                     warnings = names,
-                    careAction = if (names.isNotEmpty()) CareAction.HOSPITAL else null,
                     missions = missions,
                 )
             }
@@ -226,7 +221,7 @@ class LoungeViewModel(
         fun factory(c: AppContainer) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = LoungeViewModel(
-                c.store, VehicleModule.repository.state, c.settings.activeProfileId, c.coordinator.beltReadable, c.speaker,
+                c.store, VehicleModule.repository.state, c.settings.activeProfileId, c.speaker,
                 c.coordinator::checkInOnLounge, c.settings.lastGreetDate, c.settings::setLastGreetDate, Instant::now, c.weather::load,
             ) as T
         }

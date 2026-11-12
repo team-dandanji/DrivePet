@@ -40,7 +40,7 @@ class AppContainer(context: Context) {
     val location = LocationSource(app)
     val weather = WeatherRepo(remote::api, location::latLng)
     val places = PlacesRepo(remote::api)
-    /** 내장 내비 연결. 처음 쓸 때(펫 돌보기) 맺고 앱이 살아 있는 동안 둔다. */
+    /** 내장 내비 연결. AppNav가 켜질 때 미리 맺고(주행 팝업 첫 탭이 바로 먹도록) 앱이 살아 있는 동안 둔다. */
     val navi by lazy { Navi(app) }
     val speaker: Speaker = TtsSpeaker(app, BubbleSpeaker(scope))
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)

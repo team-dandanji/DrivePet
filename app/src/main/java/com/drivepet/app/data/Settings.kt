@@ -19,8 +19,8 @@ fun normalizeServerUrl(input: String): String? {
     return if (t.endsWith("/")) t else "$t/"
 }
 
-/** 내비로 안내를 시작한 정비(itemId = CareItem 이름). 방문 후 기록 팝업이 쓴다. armed = 안내를 시작한 뒤 실제로 주행했는지(그 전에는 묻지 않는다). */
-data class PendingCare(val itemId: String, val placeName: String, val armed: Boolean = false)
+/** 내비로 안내를 시작한 정비(itemId = CareItem 이름, profileId = 안내를 시작한 활성 프로필; 다른 프로필에는 묻지 않는다). 방문 후 기록 팝업이 쓴다. armed = 안내를 시작한 뒤 실제로 주행했는지(그 전에는 묻지 않는다). */
+data class PendingCare(val itemId: String, val placeName: String, val profileId: String, val armed: Boolean = false)
 
 class Settings(context: Context) {
     private val store = context.applicationContext.settingsStore
@@ -30,6 +30,7 @@ class Settings(context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val pendingItemKey = stringPreferencesKey("pending_care_item")
     private val pendingPlaceKey = stringPreferencesKey("pending_care_place")
+    private val pendingProfileKey = stringPreferencesKey("pending_care_profile")
     private val pendingArmedKey = booleanPreferencesKey("pending_care_armed")
 
     // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 22·개발자 메뉴에서만 시작한다.
@@ -56,14 +57,14 @@ class Settings(context: Context) {
 
     val pendingCare: Flow<PendingCare?> = store.data.map { p ->
         val item = p[pendingItemKey] ?: return@map null
-        PendingCare(item, p[pendingPlaceKey].orEmpty(), p[pendingArmedKey] == true)
+        PendingCare(item, p[pendingPlaceKey].orEmpty(), p[pendingProfileKey].orEmpty(), p[pendingArmedKey] == true)
     }
 
     /** null이면 지운다. */
     suspend fun setPendingCare(c: PendingCare?) {
         store.edit {
-            if (c == null) { it.remove(pendingItemKey); it.remove(pendingPlaceKey); it.remove(pendingArmedKey) }
-            else { it[pendingItemKey] = c.itemId; it[pendingPlaceKey] = c.placeName; it[pendingArmedKey] = c.armed }
+            if (c == null) { it.remove(pendingItemKey); it.remove(pendingPlaceKey); it.remove(pendingProfileKey); it.remove(pendingArmedKey) }
+            else { it[pendingItemKey] = c.itemId; it[pendingPlaceKey] = c.placeName; it[pendingProfileKey] = c.profileId; it[pendingArmedKey] = c.armed }
         }
     }
 
