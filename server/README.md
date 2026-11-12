@@ -1,7 +1,7 @@
 # DrivePet 서버
 
 차량 앱의 **기기 인증 · 카카오 QR 로그인 · 기록 동기화 · 날씨 프록시**를 맡는 서버입니다. 점수·EXP는 계산하지 않습니다(앱이 기기 안에서 계산).
-계약: 팀 노션 「DrivePet API 명세서」 (API 9개).
+계약: 팀 노션 「DrivePet API 명세서」 (API 9개). 회원 탈퇴 `DELETE /api/v1/account`는 명세 이후 추가(아래 "보관·파기").
 
 Spring Boot 4.0 · Kotlin · JDK 21 · PostgreSQL 17 · Flyway · JWT(HS256)
 
@@ -45,6 +45,7 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
 | `DRIVEPET_JWT_SECRET` | JWT 서명 키, 32바이트 이상 무작위. `local-live`에서는 필수 |
 | `DRIVEPET_PUBLIC_BASE_URL` | 폰에서 접속되는 서버 주소(HTTPS 터널). 카카오 Redirect URI = 이 주소 + `/api/v1/auth/kakao/callback` |
 | `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | 카카오 개발자 앱 (Client Secret을 켠 경우만 두 번째 값) |
+| `KAKAO_ADMIN_KEY` | 카카오 Admin 키. 회원 탈퇴 때 카카오 쪽 앱 연결을 끊는 데만 씀. 비우면 DB만 파기 |
 | `DATA_GO_KR_SERVICE_KEY` | 공공데이터포털 일반 인증키(Decoding). 기상청 단기예보·특보, 에어코리아 대기오염·측정소정보 공통 |
 
 `local-live`는 키가 없으면 **시작하지 않습니다**(가짜로 자동 전환하지 않음).
@@ -66,7 +67,22 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
 
 - 날씨 요청의 위경도는 저장·로그하지 않고, 기상청 격자 단위로만 캐시합니다(10분, 서버 재시작 시 사라짐).
 - 토큰·인가 코드·`deviceSecret`·서비스키는 로그와 오류 메시지에 남기지 않습니다. 갱신 토큰과 `deviceSecret`은 해시만 저장합니다.
-- 서버가 저장하는 것: 카카오 고유 ID·닉네임, 기기 ID, 동기화된 프로필 상태와 기록(트립 누적거리 포함).
+- 서버가 저장하는 것: 카카오 고유 ID·닉네임, 기기 ID, 동기화된 프로필 상태와 기록(트립 누적거리 포함), 갱신 토큰·`deviceSecret` 해시.
+
+### 보관·파기
+
+- **보관 기간:** 회원 탈퇴 또는 서비스 종료 때까지. 그 전에는 지우지 않고, 그 뒤에는 바로 지웁니다. 별도 DB 백업은 두지 않습니다(만들었다면 아래 절차 때 함께 지움).
+- **회원 탈퇴(즉시 삭제):** 차량 앱 「차 정비소」 탭 → 카카오 계정 → 탈퇴. 서버 API는 `DELETE /api/v1/account`(연결된 기기의 토큰으로 호출, 미연결이면 403 `KAKAO_NOT_LINKED`).
+  - 한 트랜잭션으로 지우는 것: 카카오 고유 ID·닉네임(계정), 동기화된 프로필·기록·변경 로그·업로드 묶음 응답·미션 정의, 그 계정의 QR 세션과 갱신 토큰.
+  - 이 계정에 연결된 **모든 차량**이 미연결로 바뀌고 기존 토큰은 무효가 됩니다. 응답으로 요청한 차량용 미연결 토큰을 줍니다.
+  - 남는 것: 기기 등록(앱이 만든 무작위 기기 ID와 `deviceSecret` 해시). 계정과의 연결은 끊긴 상태로, 그 차량이 미연결로 계속 쓰는 데 필요합니다.
+  - 차량 앱은 탈퇴가 성공하면 앱 안의 펫·기록·설정도 지우고 처음 화면으로 돌아갑니다(서버 주소와 기기 등록은 남김).
+  - 카카오 쪽 앱 연결은 DB 파기가 끝난 뒤 `KAKAO_ADMIN_KEY`로 끊습니다(`POST /v1/user/unlink`). 키가 없거나 호출이 실패해도 DB 파기는 그대로이고 서버 로그에 경고만 남습니다(카카오 회원번호는 로그에 남기지 않음). 이때는 사용자가 카카오톡 「설정 → 카카오계정 → 연결된 서비스 관리」에서 직접 끊을 수 있습니다.
+- **서비스 종료(전체 파기):**
+  1. 사용자 데이터만 먼저 지우려면(서버 폴더에서): `docker compose exec -T db psql -U drivepet -d drivepet -v ON_ERROR_STOP=1 < ops/purge-all-user-data.sql`
+  2. 서버와 DB 볼륨을 지웁니다: `docker compose down -v` (클라우드 VM이면 `docker compose -f compose.yaml -f compose.deploy.yaml down -v`). `drivepet-db` 볼륨이 지워지면 DB 파일이 남지 않습니다.
+  3. 클라우드 VM이면 인스턴스를 종료(Terminate)하면서 부트 볼륨도 영구 삭제를 선택합니다. 서버의 `.env`(키·비밀값)도 이때 함께 사라집니다.
+  4. 카카오 개발자 콘솔에서 앱을 삭제하거나 비활성화합니다(카카오 쪽 사용자 연결 정보 정리).
 
 ## 아직 확인하지 못한 것
 
