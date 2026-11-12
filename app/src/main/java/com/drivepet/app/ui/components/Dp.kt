@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -25,17 +26,19 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 
-enum class TagStyle { Positive, Negative, Caution, Neutral, Glass, Done, Selected, Sky }
+enum class TagStyle { Positive, Negative, Caution, Neutral, Glass, Done, Selected, Sky, Reward, RewardSoft, Date }
 
 /**
  * 피그마 DpTag. 스타일마다 모양이 정해져 있다(노드: 440:64177 · 440:64130 · 404:41673 · 419:51516 · 419:50656).
  * M(24/28, 패딩 16×8, r12): Positive·Negative·Caution / Selected: 같은 글자, 패딩 12×8 / S(20/24, 패딩 8×6, r12): Neutral·Done /
  * Sky: 26/34 Bold, 패딩 12×8, 테두리 1 / L(36/44, 패딩 20×8, r36): Glass.
- * 정산 보상 칩(419:51078, sky_300 바탕 S 크기 +00EXP)은 Sky와 다른 모양이라 아직 스타일이 없다.
+ * 정산(419:51078): Reward = sky_300 바탕 20/24 Regular, 패딩 8×6, r12, 글자 Text(폭은 호출 쪽에서 104) /
+ * RewardSoft = sky_50 바탕 80% 불투명, 40/52 Bold sky_500, 패딩 20×12, r28 / Date = 연한 회색 바탕, 36/44 Bold TextTertiary, 패딩 20×8, r36.
  */
 @Composable
 fun DpTag(text: String, style: TagStyle, modifier: Modifier = Modifier) {
@@ -48,16 +51,22 @@ fun DpTag(text: String, style: TagStyle, modifier: Modifier = Modifier) {
         TagStyle.Done -> Color.White to DpColors.Text
         TagStyle.Selected -> DpColors.Filled to Color.White
         TagStyle.Sky -> DpColors.SoftTop to DpColors.TextTertiary
+        TagStyle.Reward -> DpColors.Chip to DpColors.Text
+        TagStyle.RewardSoft -> DpColors.Sky50 to DpColors.Sky500
+        TagStyle.Date -> DpColors.ButtonBasic to DpColors.TextTertiary
     }
     val type = when (style) {
-        TagStyle.Neutral, TagStyle.Done -> DpType.labelS
-        TagStyle.Glass -> DpType.titleM
+        TagStyle.Neutral, TagStyle.Done, TagStyle.Reward -> DpType.labelS
+        TagStyle.Glass, TagStyle.Date -> DpType.titleM
+        TagStyle.RewardSoft -> DpType.titleL
         TagStyle.Sky -> DpType.bodyS
         else -> DpType.labelM
     }
     val (padH, padV, radius) = when (style) {
-        TagStyle.Neutral, TagStyle.Done -> Triple(8, 6, 12)
+        TagStyle.Neutral, TagStyle.Done, TagStyle.Reward -> Triple(8, 6, 12)
         TagStyle.Glass -> Triple(20, 8, 36)
+        TagStyle.Date -> Triple(20, 8, 36)
+        TagStyle.RewardSoft -> Triple(20, 12, 28)
         TagStyle.Selected, TagStyle.Sky -> Triple(12, 8, 12)
         else -> Triple(16, 8, 12)
     }
@@ -66,7 +75,8 @@ fun DpTag(text: String, style: TagStyle, modifier: Modifier = Modifier) {
     val outlined = style == TagStyle.Done || style == TagStyle.Sky
     Text(
         text, style = type, color = fg, maxLines = 1,
-        modifier = modifier.clip(shape).background(bg).then(if (outlined) Modifier.border(1.dp, DpColors.DividerPrimary, shape) else Modifier)
+        textAlign = TextAlign.Center,
+        modifier = (if (style == TagStyle.RewardSoft) modifier.alpha(0.8f) else modifier).clip(shape).background(bg).then(if (outlined) Modifier.border(1.dp, DpColors.DividerPrimary, shape) else Modifier)
             .padding(horizontal = padH.dp, vertical = padV.dp),
     )
 }

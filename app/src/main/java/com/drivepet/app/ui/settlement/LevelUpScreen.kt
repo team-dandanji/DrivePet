@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,13 +17,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.components.Character
-import com.drivepet.app.ui.components.FilledButton
+import com.drivepet.app.ui.components.DpCta
+import com.drivepet.app.ui.components.DpTag
+import com.drivepet.app.ui.components.TagStyle
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
+import com.drivepet.app.ui.theme.DpType
 
 private const val EVOLVE_MS = 1500
 
@@ -36,8 +40,8 @@ fun LevelUpScreen(starter: String, before: Int, after: Int, visible: Boolean, on
     LaunchedEffect(p, visible) { if (visible) p.animateTo(1f, tween(EVOLVE_MS)) }
     val ratio = sizeOf(after) / sizeOf(before)
     Column(Modifier.fillMaxSize(), Arrangement.spacedBy(20.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
-        Text("레벨 업!", fontSize = 72.sp, lineHeight = 88.sp, fontWeight = FontWeight.ExtraBold)
-        Text("Lv.$before → Lv.$after", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = DpColors.TextTertiary)
+        Text("레벨 업!", style = DpType.headlineL, color = DpColors.Text)
+        DpTag("Lv.$before → Lv.$after", TagStyle.RewardSoft)
         Box(Modifier.width(400.dp), contentAlignment = Alignment.BottomCenter) {
             Character(
                 starter, before, Mood.HAPPY,
@@ -48,6 +52,6 @@ fun LevelUpScreen(starter: String, before: Int, after: Int, visible: Boolean, on
                 Modifier.graphicsLayer { alpha = p.value; val k = 1f / ratio + (1f - 1f / ratio) * p.value; scaleX = k; scaleY = k; transformOrigin = Bottom },
             )
         }
-        FilledButton("좋아요", onDone, Modifier.width(400.dp))
+        DpCta("좋아요", onDone, if (isNarrowWindow()) Modifier.fillMaxWidth().padding(horizontal = 40.dp) else Modifier.width(616.dp))
     }
 }
