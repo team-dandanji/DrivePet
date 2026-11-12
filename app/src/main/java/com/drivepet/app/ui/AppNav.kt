@@ -58,6 +58,7 @@ import com.drivepet.app.ui.components.LocalPopupHost
 import com.drivepet.app.ui.components.PopupHost
 import com.drivepet.app.ui.components.PopupButton
 import com.drivepet.app.ui.exit.ExitCheckPopup
+import com.drivepet.app.ui.exit.exitItemsResolvedNow
 import com.drivepet.app.ui.exit.exitPopupNeeded
 import com.drivepet.app.ui.garage.AccountMenu
 import com.drivepet.app.ui.lounge.LoungeScreen
@@ -286,32 +287,31 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         }
                         // 차량 정보 → 소모품 질문 → 주행거리 → 메이트가 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
                         composable(Routes.ONBOARD_SCAN) { entry ->
-                            ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
+                            val vm: OnboardingViewModel = viewModel(entry, factory = OnboardingViewModel.factory(container))
+                            ScanScreen(vm, onBack = { nav.popBackStack() }) {
+                                vm.scanDone = true
                                 nav.navigate(careRoute(0))
                             }
                         }
                         composable(Routes.ONBOARD_CARE, arguments = listOf(navArgument("index") { type = NavType.IntType })) { entry ->
                             val vm = onboardingVm(nav, entry, container)
                             val i = entry.arguments?.getInt("index") ?: 0
-                            // 프로세스 복원으로 질문 수가 줄면(입력값이 기본 EV로 돌아감) 빈 화면 대신 처음 질문, 입력이 비었으면 차량 정보로 돌린다.
-                            if (i !in vm.careQuestions.indices) {
-                                LaunchedEffect(Unit) {
-                                    if (vm.careBaselines.isEmpty()) nav.popBackStack(Routes.ONBOARD_SCAN, inclusive = false)
-                                    else nav.navigate(careRoute(0)) { popUpTo(Routes.ONBOARD_SCAN) }
-                                }
-                                return@composable
-                            }
+                            if (OnboardGuard(nav, onboardRedirect(vm.scanDone, i, vm.careQuestions.size))) return@composable
                             CareQuestionScreen(vm, i, onBack = { nav.popBackStack() }) {
                                 // 마지막 질문 뒤에는 주행거리. 0.4초 사이에 화면이 바뀌었으면 넘기지 않는다.
                                 if (nav.currentBackStackEntry == entry) nav.navigate(if (i + 1 < vm.careQuestions.size) careRoute(i + 1) else Routes.ONBOARD_MILEAGE)
                             }
                         }
                         composable(Routes.ONBOARD_MILEAGE) { entry ->
-                            MileageScreen(onboardingVm(nav, entry, container), onBack = { nav.popBackStack() }) { nav.navigate(Routes.ONBOARD_MATE) }
+                            val vm = onboardingVm(nav, entry, container)
+                            if (OnboardGuard(nav, onboardRedirect(vm.scanDone))) return@composable
+                            MileageScreen(vm, onBack = { nav.popBackStack() }) { nav.navigate(Routes.ONBOARD_MATE) }
                         }
                         composable(Routes.ONBOARD_MATE) { entry ->
+                            val vm = onboardingVm(nav, entry, container)
+                            if (OnboardGuard(nav, onboardRedirect(vm.scanDone))) return@composable
                             MateScreen(
-                                onboardingVm(nav, entry, container),
+                                vm,
                                 onBack = { nav.popBackStack() },
                                 // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
                                 // 저장한 프로필이 활성으로 반영된 뒤 옮긴다. 먼저 옮기면 그 사이 WELCOME 판정이 라운지를 01로 되돌린다.
@@ -328,7 +328,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             // 정비 기록 팝업은 라운지 위에 같은 창 안으로 겹친다(LoungeScreen은 건드리지 않는다).
                             Box(Modifier.fillMaxSize()) {
                                 LoungeScreen(
-                                    viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
+                                    viewModel(factory = LoungeViewModel.factory(container)), container.speaker, shown = !hidden,
                                     onCare = { nav.navigate(Routes.CARE_COURSE) },
                                 ) { nav.navigate(Routes.DEV) }
                                 CareRecordPopup(container, visible = forced == Forced.NONE) { id -> nav.navigate("garage/done/$id") }
@@ -423,7 +423,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                 }
                 Forced.EXIT_CHECK -> if (exitShown) exitCheck?.let { check ->
                     ExitCheckPopup(
-                        check,
+                        check, exitItemsResolvedNow(check, state),
                         onStay = { scope.launch { coordinator.dismissExitCheck() } },
                         // 대기 중인 정산이 있으면 앱을 닫지 않고 점검만 닫아 정산이 보이게 한다.
                         onAllDone = { scope.launch { coordinator.dismissExitCheck(); if (coordinator.pendingSettlement.value == null) onFinish() } },
@@ -444,7 +444,9 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         totals?.let { (before, after) ->
                             SettlementScreen(s, before, after, pet.first, pet.second) {
                                 coordinator.consumeSettlement()
+                                // 정산은 NavHost 위 덮개라 그대로 두면 주행 전 화면이 남는다. 버튼 문구대로 라운지로 간다(✕도 같다).
                                 if (s.levelAfter > s.levelBefore) nav.navigate(levelUpRoute(s.levelBefore, s.levelAfter))
+                                else nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
                             }
                         }
                     }
@@ -466,6 +468,27 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
 }
 
 fun careRoute(index: Int) = "onboard/care/$index"
+
+/**
+ * 차량 정보 뒤 온보딩 단계에서 갈 곳(그대로면 null). 프로세스 복원으로 공유 ViewModel이 새로 생기면(차량 정보를 지나지 않음)
+ * 기본 EV·빈 이력으로 완료되지 않게 차량 정보로 돌린다. 질문 번호가 질문 수를 벗어나면 첫 질문으로.
+ */
+fun onboardRedirect(scanDone: Boolean, careIndex: Int? = null, careCount: Int = 0): String? = when {
+    !scanDone -> Routes.ONBOARD_SCAN
+    careIndex != null && careIndex !in 0 until careCount -> careRoute(0)
+    else -> null
+}
+
+/** [target]이 있으면 그리로 옮기고 true(화면은 그리지 않는다). 차량 정보는 스택에 있으므로 그 위를 걷어 낸다. */
+@Composable
+private fun OnboardGuard(nav: NavHostController, target: String?): Boolean {
+    if (target == null) return false
+    LaunchedEffect(target) {
+        if (target == Routes.ONBOARD_SCAN) nav.popBackStack(Routes.ONBOARD_SCAN, inclusive = false)
+        else nav.navigate(target) { popUpTo(Routes.ONBOARD_SCAN) }
+    }
+    return true
+}
 
 /**
  * 카카오 연결 뒤 갈 곳. 복원됐거나 01에서 계정만 바꾸는 경우(기기에 프로필이 있음)는 01, 그 밖에는 차량 정보로 온보딩을 이어 간다.

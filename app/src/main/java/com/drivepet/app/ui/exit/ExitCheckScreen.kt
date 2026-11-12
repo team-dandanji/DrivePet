@@ -38,6 +38,8 @@ import com.drivepet.app.ui.components.PopupSpec
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 import com.drivepet.vehicle.model.ExitItem
+import com.drivepet.vehicle.model.VehicleState
+import com.drivepet.vehicle.model.valueOrNull
 import kotlinx.coroutines.delay
 
 private const val CHECK_ANIM_MS = 300
@@ -50,6 +52,14 @@ fun shownExitItems(check: ExitCheck): List<ExitItem> = SHOWN.filter { it in chec
 
 /** 보이는 항목 중 미조치가 하나라도 있을 때만 팝업이 뜬다. */
 fun exitPopupNeeded(check: ExitCheck): Boolean = shownExitItems(check).any { check.items[it] != true }
+
+/**
+ * 보이는 항목을 최신 신호로 다시 판정한다. 추적기의 값은 한 번 정상이면 계속 true라, 닫았다가 다시 연 창문을 놓친다.
+ * ✓ 표시와 자동 종료는 이 값을 쓴다.
+ */
+fun exitItemsResolvedNow(check: ExitCheck, s: VehicleState): Map<ExitItem, Boolean> = shownExitItems(check).associateWith {
+    if (it == ExitItem.CABIN_LIGHT_ON) s.cabinLight.valueOrNull() == false else s.driverWindow.valueOrNull() == 0
+}
 
 private fun title(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "실내등 켜짐" else "운전석 창문 열림"
 private fun hint(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "차량 조명 스위치로 꺼주세요" else "차량 창문 스위치로 닫아주세요"
@@ -68,11 +78,12 @@ private val ExitPopupSpec = PopupSpec(
 /**
  * 하차 전 점검 팝업(419:55335): 보던 화면 위에 뜬다. 항목이 정상이 되면 ✓가 300ms에 걸쳐 켜지고,
  * 보이는 항목이 모두 정상이면 잠시 뒤 [onAllDone]을 부른다(앱 종료로 이어진다). [onStay]는 [아직 안 내려요].
+ * [resolved]는 [exitItemsResolvedNow]로 최신 신호에서 다시 판정한 값. 닫기 대기 중 하나라도 미조치로 돌아가면 대기를 취소한다.
  */
 @Composable
-fun ExitCheckPopup(check: ExitCheck, onStay: () -> Unit, onAllDone: () -> Unit) {
+fun ExitCheckPopup(check: ExitCheck, resolved: Map<ExitItem, Boolean>, onStay: () -> Unit, onAllDone: () -> Unit) {
     val items = shownExitItems(check)
-    val allDone = items.all { check.items[it] == true }
+    val allDone = items.all { resolved[it] == true }
     val finish by rememberUpdatedState(onAllDone)
     LaunchedEffect(allDone) {
         if (allDone) { delay(ALL_DONE_HOLD_MS); finish() }
@@ -82,7 +93,7 @@ fun ExitCheckPopup(check: ExitCheck, onStay: () -> Unit, onAllDone: () -> Unit) 
         "하차 전, 창문과 조명을 확인해주세요", "모두 확인되면 자동으로 닫혀요", onDismissRequest = {},
         content = {
             Column(Modifier.fillMaxWidth().padding(bottom = 48.dp), Arrangement.spacedBy(40.dp)) {
-                items.forEach { ExitRow(it, check.items[it] == true) }
+                items.forEach { ExitRow(it, resolved[it] == true) }
             }
         },
         icon = { Image(painterResource(R.drawable.ic_alert_triangle), null, Modifier.size(60.dp)) },

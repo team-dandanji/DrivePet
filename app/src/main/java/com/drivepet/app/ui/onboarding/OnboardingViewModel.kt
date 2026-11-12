@@ -70,6 +70,8 @@ class OnboardingViewModel(
     val capabilities: StateFlow<List<Capability>> =
         state.map(::capabilitiesOf).stateIn(viewModelScope, SharingStarted.Eagerly, capabilitiesOf(state.value))
 
+    /** 차량 정보 단계를 지났는지. 프로세스 복원으로 새로 만들어지면 false라 뒤 단계가 차량 정보로 돌려보낸다(AppNav.onboardRedirect). */
+    var scanDone = false
     var fuelType by mutableStateOf(FuelType.EV)
     var batteryText by mutableStateOf("")
     var starter by mutableStateOf("STARTER_1") // STARTER_1..3, 기본은 노란 알

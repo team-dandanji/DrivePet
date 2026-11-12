@@ -75,6 +75,15 @@ class RouteForTest {
         assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
     }
 
+    /** 프로세스 복원으로 공유 ViewModel이 새로 생기면(차량 정보를 지나지 않음) 뒤 단계는 차량 정보로 돌린다. */
+    @Test fun onboardRedirectGuardsLaterSteps() {
+        assertEquals(Routes.ONBOARD_SCAN, onboardRedirect(scanDone = false)) // 주행거리·메이트
+        assertEquals(Routes.ONBOARD_SCAN, onboardRedirect(scanDone = false, careIndex = 0, careCount = 3))
+        assertEquals(null, onboardRedirect(scanDone = true))
+        assertEquals(null, onboardRedirect(scanDone = true, careIndex = 2, careCount = 3))
+        assertEquals(careRoute(0), onboardRedirect(scanDone = true, careIndex = 3, careCount = 3))
+    }
+
     @Test fun afterLinkContinuesOnboardingWithoutRecords() {
         assertEquals(Routes.ONBOARD_SCAN, afterLink("scan", restored = false, hasAnyProfile = false))
         assertEquals(Routes.WELCOME, afterLink("scan", restored = true, hasAnyProfile = false))

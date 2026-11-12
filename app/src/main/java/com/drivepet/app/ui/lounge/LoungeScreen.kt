@@ -39,7 +39,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import com.drivepet.app.BuildConfig
 import com.drivepet.app.R
 import com.drivepet.app.domain.MissionStatus
@@ -59,11 +62,13 @@ private const val HEADER_DP = 145
 
 /** 07 · 08 메인 라운지(HIFI 419:50656). 08(이상 감지)은 같은 화면에서 특이사항 카드·CTA가 채워진 상태다. 프로필이 없으면 아무것도 그리지 않는다. */
 @Composable
-fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDev: () -> Unit) {
+fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, shown: Boolean, onCare: () -> Unit, onDev: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val bubble by speaker.bubble.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
-    LaunchedEffect(vm) { vm.onEnter() }
+    // 라운지가 실제로 보이게 될 때마다(RESUMED 복귀, 주행·정산·하차 점검 덮개가 닫힘) 한 번씩 진입 처리. [shown] = 덮개가 없음.
+    val visible = shown && LocalLifecycleOwner.current.lifecycle.currentStateAsState().value.isAtLeast(Lifecycle.State.RESUMED)
+    LaunchedEffect(vm, visible) { if (visible) vm.onEnter() }
     val u = ui ?: return
 
     val devPress = if (BuildConfig.DEMO_TOOLS) Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onDev() }) } else Modifier
