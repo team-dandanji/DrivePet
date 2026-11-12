@@ -1,123 +1,106 @@
 package com.drivepet.app.ui.exit
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.drivepet.app.domain.Mood
+import com.drivepet.app.R
 import com.drivepet.app.drive.ExitCheck
-import com.drivepet.app.ui.components.Character
-import com.drivepet.app.ui.components.FilledButton
-import com.drivepet.app.ui.components.isNarrowWindow
-import com.drivepet.app.ui.components.scrollWhen
+import com.drivepet.app.ui.components.DpPopup
+import com.drivepet.app.ui.components.PopupButton
 import com.drivepet.app.ui.theme.DpColors
+import com.drivepet.app.ui.theme.DpType
 import com.drivepet.vehicle.model.ExitItem
 import kotlinx.coroutines.delay
 
-private const val DONE_DELAY_MS = 2_000L
-private const val DONE_AUTO_DISMISS_MS = 5_000L
+private const val CHECK_ANIM_MS = 300
+private const val ALL_DONE_HOLD_MS = 700L // ✓ 애니메이션을 보여 준 뒤 닫는다
 
-private fun pending(i: ExitItem) = when (i) {
-    ExitItem.WINDOW_OPEN -> "창문이 열려 있어요"
-    ExitItem.HEADLIGHT_ON -> "전조등이 켜져 있어요"
-    ExitItem.CABIN_LIGHT_ON -> "실내등이 켜져 있어요"
-    ExitItem.DOORS_UNLOCKED -> "문이 잠기지 않았어요"
-}
+/** 피그마(419:55335)가 보이는 항목과 순서. 전조등·문 잠금은 보이지 않는다. */
+private val SHOWN = listOf(ExitItem.CABIN_LIGHT_ON, ExitItem.WINDOW_OPEN)
 
-private fun resolved(i: ExitItem) = when (i) {
-    ExitItem.WINDOW_OPEN -> "창문 닫힘"
-    ExitItem.HEADLIGHT_ON -> "전조등 꺼짐"
-    ExitItem.CABIN_LIGHT_ON -> "실내등 꺼짐"
-    ExitItem.DOORS_UNLOCKED -> "문 잠김"
-}
+fun shownExitItems(check: ExitCheck): List<ExitItem> = SHOWN.filter { it in check.items }
 
-/** 잠금 상태를 읽을 수 없으면 DOORS_UNLOCKED는 사용자가 직접 확인할 일이라 16으로 넘어가는 것을 막지 않는다. */
-fun canFinish(check: ExitCheck): Boolean =
-    check.items.all { (item, done) -> done || (item == ExitItem.DOORS_UNLOCKED && check.lockUnknown) }
+/** 보이는 항목 중 미조치가 하나라도 있을 때만 팝업이 뜬다. */
+fun exitPopupNeeded(check: ExitCheck): Boolean = shownExitItems(check).any { check.items[it] != true }
 
-private fun lockUnverified(check: ExitCheck, item: ExitItem, done: Boolean) = item == ExitItem.DOORS_UNLOCKED && check.lockUnknown && !done
+private fun title(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "실내등 켜짐" else "운전석 창문 열림"
+private fun hint(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "차량 조명 스위치로 꺼주세요" else "차량 창문 스위치로 닫아주세요"
+private fun resolved(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "꺼짐" else "닫힘"
 
-/** 15 하차 점검 → 끝낼 수 있으면 2초 뒤 16(5초 뒤 자동 닫힘). 둘 다 정차 화면. */
+/**
+ * 하차 전 점검 팝업(419:55335): 보던 화면 위에 뜬다. 항목이 정상이 되면 ✓가 300ms에 걸쳐 켜지고,
+ * 보이는 항목이 모두 정상이면 잠시 뒤 [onAllDone]을 부른다(앱 종료로 이어진다). [onStay]는 [아직 안 내려요].
+ */
 @Composable
-fun ExitCheckScreen(check: ExitCheck, starter: String, stage: Int, onDismiss: () -> Unit) {
-    var done by remember { mutableStateOf(false) }
-    val finish = canFinish(check)
-    LaunchedEffect(finish) {
-        if (finish) { delay(DONE_DELAY_MS); done = true } else done = false
+fun ExitCheckPopup(check: ExitCheck, onStay: () -> Unit, onAllDone: () -> Unit) {
+    val items = shownExitItems(check)
+    val allDone = items.all { check.items[it] == true }
+    val finish by rememberUpdatedState(onAllDone)
+    LaunchedEffect(allDone) {
+        if (allDone) { delay(ALL_DONE_HOLD_MS); finish() }
     }
-    if (done) {
-        LaunchedEffect(Unit) { delay(DONE_AUTO_DISMISS_MS); onDismiss() }
-        ExitDone(check, starter, stage, onDismiss)
-    } else {
-        ExitWarning(check, onDismiss)
-    }
+    // 뒤로 가기·dim 탭은 소비한다. 닫는 것은 [아직 안 내려요]뿐.
+    DpPopup(
+        "하차 전, 창문과 조명을 확인해주세요", "모두 확인되면 자동으로 닫혀요", onDismissRequest = {},
+        content = {
+            Column(Modifier.fillMaxWidth().padding(top = 20.dp), Arrangement.spacedBy(40.dp)) {
+                items.forEach { ExitRow(it, check.items[it] == true) }
+            }
+        },
+        icon = { Image(painterResource(R.drawable.ic_alert_triangle), null, Modifier.size(60.dp)) },
+    ) { PopupButton("아직 안 내려요", onStay, primary = false) }
 }
 
 @Composable
-private fun ExitWarning(check: ExitCheck, onDismiss: () -> Unit) {
-    val narrow = isNarrowWindow()
-    Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(horizontal = if (narrow) 40.dp else 80.dp, vertical = 48.dp), Arrangement.spacedBy(20.dp)) {
-        Text("하차 전에 확인해주세요", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
-        Text("차량에서 조치하면 확인된 상태가 자동으로 갱신돼요.", fontSize = 30.sp, color = DpColors.TextTertiary)
-        check.items.forEach { (item, done) ->
-            if (lockUnverified(check, item, done)) CheckRow(null, false) else CheckRow(item, done)
-        }
-        // DOORS_UNLOCKED가 점검 항목이 아닐 때만 따로 알린다.
-        if (check.lockUnknown && ExitItem.DOORS_UNLOCKED !in check.items) CheckRow(null, false)
-        Text("앱이 확인한 항목만 표시해요. 확인되지 않은 차량 상태는 직접 점검해주세요.", fontSize = 26.sp, color = DpColors.TextTertiary)
-        if (!narrow) Column(Modifier.weight(1f)) {}
-        FilledButton("확인했어요", onDismiss, Modifier.width(480.dp).align(Alignment.End))
-    }
-}
-
-/** item이 null이면 "잠금 확인 불가" 행(중립, 오류 아님). 해결된 항목은 해결 문구에 "✓ 완료". */
-@Composable
-private fun CheckRow(item: ExitItem?, done: Boolean) {
+private fun ExitRow(item: ExitItem, done: Boolean) {
+    val boxColor by animateColorAsState(if (done) DpColors.ControlOn else DpColors.ButtonBasicPressed, tween(CHECK_ANIM_MS), label = "box")
+    val labelColor by animateColorAsState(if (done) DpColors.ControlOn else DpColors.TextQuaternary, tween(CHECK_ANIM_MS), label = "label")
+    val checkAlpha by animateFloatAsState(if (done) 1f else 0.64f, tween(CHECK_ANIM_MS), label = "check")
+    val shape = RoundedCornerShape(28.dp)
     Row(
-        Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(20.dp)).padding(horizontal = 32.dp, vertical = 28.dp),
-        Arrangement.SpaceBetween, Alignment.CenterVertically,
+        Modifier.fillMaxWidth()
+            .background(if (done) DpColors.Sky50 else Color.Transparent, shape)
+            .border(BorderStroke(2.dp, DpColors.Divider), shape)
+            .padding(horizontal = 40.dp, vertical = 28.dp),
+        Arrangement.SpaceBetween, Alignment.Top,
     ) {
-        Text(
-            when { item == null -> "잠금 확인 불가"; done -> resolved(item); else -> pending(item) }, fontSize = 36.sp, fontWeight = FontWeight.Bold,
-            color = if (item == null) DpColors.TextTertiary else DpColors.Text,
-        )
-        Text(
-            when { item == null -> "직접 확인"; done -> "✓ 완료"; else -> "미조치" }, fontSize = 30.sp, fontWeight = FontWeight.Bold,
-            color = when { item == null -> DpColors.TextTertiary; done -> DpColors.Positive; else -> DpColors.Danger },
-        )
-    }
-}
-
-@Composable
-private fun ExitDone(check: ExitCheck, starter: String, stage: Int, onDismiss: () -> Unit) {
-    Column(Modifier.fillMaxSize(), Arrangement.spacedBy(20.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
-        Character(starter, stage, Mood.NORMAL)
-        Text("점검 완료! 오늘도 수고했어요", Modifier.padding(horizontal = 40.dp), fontSize = 56.sp, lineHeight = 72.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
-        check.items.forEach { (item, done) ->
-            if (!lockUnverified(check, item, done)) Text("✓ ${resolved(item)}", fontSize = 30.sp, color = DpColors.TextTertiary)
+        Column(Modifier.weight(1f), Arrangement.spacedBy(8.dp)) {
+            Text(title(item), style = DpType.headlineS, color = DpColors.Text)
+            Text(hint(item), style = DpType.titleS.copy(fontWeight = FontWeight.Normal), color = DpColors.Text)
         }
-        if (check.lockUnknown && !check.items.getOrDefault(ExitItem.DOORS_UNLOCKED, false)) {
-            Text("잠금 상태는 직접 확인해주세요", fontSize = 26.sp, color = DpColors.TextTertiary)
+        Column(Modifier.width(80.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(80.dp), Alignment.Center) {
+                Box(Modifier.size(64.dp).background(boxColor, RoundedCornerShape(16.dp)), Alignment.Center) {
+                    Image(painterResource(R.drawable.ic_check), null, Modifier.size(60.dp).alpha(checkAlpha))
+                }
+            }
+            Text(resolved(item), style = DpType.bodyS, color = labelColor, textAlign = TextAlign.Center, maxLines = 1)
         }
-        FilledButton("닫기", onDismiss, Modifier.width(400.dp))
     }
 }

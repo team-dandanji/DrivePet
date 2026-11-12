@@ -62,6 +62,8 @@ object DpColors {
     val Sky500 = Color(0xFF609BB2)
     /** 경로·번호 원 파랑(drivepet/control/on). */
     val ControlOn = Color(0xFF4781FF)
+    /** 선택된 카드 바탕(drivepet/palette/sky_50). */
+    val Sky50 = Color(0xFFE7F8FF)
 }
 
 /** Sky: sky_top → surface_low(70% 지점), 이후 단색. 180° 세로. */

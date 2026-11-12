@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 ic_check(60), 흰색. 비선택은 화면에서 알파 0.64로 쓴다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="60dp" android:height="60dp" android:viewportWidth="60" android:viewportHeight="60">
+    <path
+        android:pathData="M50.966 17.159C51.8447 18.0377 51.8447 19.4623 50.966 20.341L27.216 44.091C26.3373 44.9697 24.9127 44.9697 24.034 44.091L10.909 30.966C10.0303 30.0873 10.0303 28.6627 10.909 27.784C11.7877 26.9053 13.2123 26.9053 14.091 27.784L25.625 39.318L47.784 17.159C48.6627 16.2803 50.0873 16.2803 50.966 17.159Z"
+        android:fillColor="#FFFFFFFF" android:fillType="evenOdd" />
+</vector>

@@ -44,6 +44,7 @@ fun DpPopup(
     body: String?,
     onDismissRequest: () -> Unit,
     content: @Composable ColumnScope.() -> Unit = {},
+    icon: (@Composable () -> Unit)? = null,
     buttons: @Composable RowScope.() -> Unit,
 ) {
     BackHandler(onBack = onDismissRequest)
@@ -58,12 +59,16 @@ fun DpPopup(
             shape = RoundedCornerShape(40.dp), color = Color.White, border = BorderStroke(2.dp, DpColors.DividerPrimary),
         ) {
             Column(Modifier.padding(40.dp), verticalArrangement = Arrangement.spacedBy(33.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                // 아이콘이 있으면 머리말이 왼쪽 정렬이다(하차 점검 419:55335).
+                val align = if (icon != null) Alignment.Start else Alignment.CenterHorizontally
+                val textAlign = if (icon != null) TextAlign.Start else TextAlign.Center
                 Column(
                     Modifier.fillMaxWidth().padding(start = 27.dp, end = 27.dp, bottom = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp), horizontalAlignment = align,
                 ) {
-                    Text(title, style = DpType.titleS.copy(lineHeight = 43.sp), color = DpColors.Text, textAlign = TextAlign.Center)
-                    if (body != null) Text(body, style = DpType.labelM.copy(lineHeight = 32.sp), color = DpColors.TextSecondary, textAlign = TextAlign.Center)
+                    icon?.invoke()
+                    Text(title, style = DpType.titleS.copy(lineHeight = 43.sp), color = DpColors.Text, textAlign = textAlign)
+                    if (body != null) Text(body, style = DpType.labelM.copy(lineHeight = 32.sp), color = DpColors.TextSecondary, textAlign = textAlign)
                 }
                 content()
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) { buttons() }

@@ -52,9 +52,10 @@ import com.drivepet.app.ui.care.GarageEditScreen
 import com.drivepet.app.ui.care.GarageScreen
 import com.drivepet.app.ui.care.GarageViewModel
 import com.drivepet.app.ui.care.RouteDoneScreen
-import com.drivepet.app.ui.drive.DrivingScreen
-import com.drivepet.app.ui.exit.ExitCheckScreen
-import com.drivepet.app.ui.drive.RestrictedEntryDialog
+import com.drivepet.app.ui.components.DpPopup
+import com.drivepet.app.ui.components.PopupButton
+import com.drivepet.app.ui.exit.ExitCheckPopup
+import com.drivepet.app.ui.exit.exitPopupNeeded
 import com.drivepet.app.ui.garage.AccountMenu
 import com.drivepet.app.ui.lounge.LoungeScreen
 import com.drivepet.app.ui.link.LinkScreen
@@ -114,10 +115,10 @@ private val TAB_ROUTES = Tab.entries.associateBy { it.name.lowercase() } // 라�
 /** 헤더 메뉴: 왼쪽 앱 이름(프로필 수정) · 오른쪽 ⋯(카카오 계정). */
 private enum class HeaderMenuKind { APP, MORE }
 
-/** 주행 중이면 true. 대화상자(별도 창)는 덮개 위에 그려지므로 스스로 닫는 데 쓴다. */
+/** 주행 중이면 true. 대화상자(별도 창)는 주행 팝업 위에 그려지므로 스스로 닫는 데 쓴다. */
 val LocalDriving = compositionLocalOf { false }
 
-/** 상태가 정하는 강제 화면. DRIVING·EXIT_CHECK·SETTLEMENT는 NavHost 위 덮개로, ONBOARDING·WELCOME은 NavHost 경로로 보여 준다. */
+/** 상태가 정하는 강제 화면. DRIVING·EXIT_CHECK는 보던 화면 위 팝업, SETTLEMENT는 NavHost 위 덮개, ONBOARDING·WELCOME은 NavHost 경로로 보여 준다. */
 enum class Forced { NONE, DRIVING, EXIT_CHECK, SETTLEMENT, ONBOARDING, WELCOME }
 
 /**
@@ -137,12 +138,26 @@ fun routeFor(
     else -> Forced.NONE
 }
 
+/** 온보딩 경로. 새 온보딩 화면은 여기에 넣는다(resetTarget·주행 제한 문구가 함께 쓴다). */
+val ONBOARDING_ROUTES: Set<String> = setOf(Routes.LINK, Routes.ONBOARD_SCAN, Routes.ONBOARD_CARE, Routes.ONBOARD_MATE)
+
+private const val PARK_FIRST_TITLE = "안전하게 주차한 뒤 시작해주세요"
+
+/** 주행 중 팝업 문구(제목, 본문). 온보딩·인트로·링크 화면에서는 주차 안내, 그 밖에는 사용 제한 안내. */
+fun restrictedCopy(route: String?): Pair<String, String> =
+    if (route != null && (route in ONBOARDING_ROUTES || route == Routes.WELCOME)) {
+        PARK_FIRST_TITLE to "계정 연결과 초기 설정은 주차 중에만 이용할 수 있어요\n주행 중에는 화면을 조작하지 마세요"
+    } else {
+        "주행 중에는 서비스 사용이 제한돼요" to "안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요"
+    }
+
 /**
- * 화면 전환은 상태가 정한다(사용자 탭이 아님). 주행·하차 점검·정산은 NavHost 위 덮개라 NavHost의 스택은 그대로이고,
- * 조건이 풀리면 이전 화면이 그대로 보인다. 덮개가 떠 있는 동안 뒤로 가기는 소비한다.
+ * 화면 전환은 상태가 정한다(사용자 탭이 아님). 주행 제한·하차 점검은 보던 화면 위 팝업, 정산은 NavHost 위 덮개라 NavHost의 스택은 그대로이고,
+ * 조건이 풀리면 이전 화면이 그대로 보인다. 팝업·덮개가 떠 있는 동안 뒤로 가기는 소비한다.
+ * [onFinish]: 하차 점검이 모두 끝나면 앱을 닫는다.
  */
 @Composable
-fun AppNav(container: AppContainer) {
+fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     val coordinator = container.coordinator
     val state by VehicleModule.repository.state.collectAsStateWithLifecycle()
     val profile by coordinator.activeProfile.collectAsStateWithLifecycle()
@@ -160,7 +175,6 @@ fun AppNav(container: AppContainer) {
     val ready = loaded && anyProfile != null
 
     val scope = rememberCoroutineScope()
-    val trip by VehicleModule.repository.trip.collectAsStateWithLifecycle()
     val pet by remember { petLook(container) }.collectAsStateWithLifecycle(Pair("STARTER_1", 1))
 
     val driving = isDriving(state)
@@ -169,14 +183,15 @@ fun AppNav(container: AppContainer) {
         doorOpenedParked = state.isParked && state.driverDoorOpen.valueOrNull() == true,
     )
 
-    // 02 모달: 앱이 처음 본 상태가 D/R(또는 주행 제한)일 때만, 정차하면 사라지고 다시 뜨지 않는다.
-    var launchedWhileDriving by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(state, driving) {
-        if (launchedWhileDriving == null && (state.gear.isOk || state.uxRestricted.isOk)) {
-            launchedWhileDriving = driving
-        } else if (launchedWhileDriving == true && !driving) {
-            launchedWhileDriving = false
-        }
+    // 하차 점검 팝업은 미조치 항목이 보일 때만 뜬다. 한 번 뜨면 모두 정상이 될 때까지(앱이 닫힐 때까지) 유지한다.
+    val exitNeeded = exitCheck?.let(::exitPopupNeeded) == true
+    var exitShown by remember { mutableStateOf(false) }
+    LaunchedEffect(exitCheck == null, exitNeeded) {
+        if (exitCheck == null) exitShown = false else if (exitNeeded) exitShown = true
+    }
+    // 보일 항목이 처음부터 없으면 점검 상태만 조용히 닫는다(앱은 닫지 않는다).
+    LaunchedEffect(forced, exitShown, exitNeeded) {
+        if (forced == Forced.EXIT_CHECK && !exitShown && !exitNeeded) coordinator.dismissExitCheck()
     }
 
     if (!ready && !driving) return
@@ -191,6 +206,8 @@ fun AppNav(container: AppContainer) {
     }
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     val overlay = forced != Forced.NONE && forced != Forced.ONBOARDING && forced != Forced.WELCOME
+    // 팝업·덮개 아래 화면은 접근성 트리에서도 숨긴다.
+    val hidden = forced == Forced.DRIVING || forced == Forced.SETTLEMENT || (forced == Forced.EXIT_CHECK && exitShown)
 
     var menu by remember { mutableStateOf<HeaderMenuKind?>(null) }
     LaunchedEffect(overlay) { if (overlay) menu = null }
@@ -203,8 +220,7 @@ fun AppNav(container: AppContainer) {
 
     CompositionLocalProvider(LocalDriving provides driving) {
         Box(Modifier.fillMaxSize()) {
-            // 덮개 아래 화면은 접근성 트리에서도 숨긴다.
-            Column(Modifier.fillMaxSize().then(if (overlay) Modifier.clearAndSetSemantics {} else Modifier)) {
+            Column(Modifier.fillMaxSize().then(if (hidden) Modifier.clearAndSetSemantics {} else Modifier)) {
                 TAB_ROUTES[route]?.let { selected ->
                     TabHeader(
                         selected,
@@ -342,7 +358,7 @@ fun AppNav(container: AppContainer) {
                     if (BuildConfig.DEMO_TOOLS) composable(Routes.DEV) { DevScreen(container) { nav.popBackStack() } }
                 }
             }
-            // 헤더 메뉴: 탭 화면에서만. 덮개(주행 포함)가 뜨면 닫는다.
+            // 헤더 메뉴: 탭 화면에서만. 팝업·덮개(주행 포함)가 뜨면 닫는다.
             if (!overlay && TAB_ROUTES[route] != null) when (menu) {
                 HeaderMenuKind.APP -> HeaderMenu(Alignment.TopStart, { menu = null }) {
                     MenuItem("프로필 수정", { menu = null; nav.navigate(Routes.WELCOME) })
@@ -350,35 +366,43 @@ fun AppNav(container: AppContainer) {
                 HeaderMenuKind.MORE -> AccountMenu(container, onLink = { menu = null; nav.navigate(linkRoute("welcome")) }, onDismiss = { menu = null })
                 null -> {}
             }
-            if (overlay) {
-                BackHandler {}
-                // 덮개: 아래 화면을 완전히 가리고 터치를 삼킨다. Routes.DRIVING/SETTLEMENT/EXIT_CHECK는 이 덮개의 자리(이후 Task가 실제 화면을 넣는다).
-                Box(Modifier.fillMaxSize().skyBackground().pointerInput(Unit) { detectTapGestures() }) {
-                    when (forced) {
-                        Forced.DRIVING -> {
-                            DrivingScreen(trip, pet.first, pet.second)
-                            if (launchedWhileDriving == true) RestrictedEntryDialog()
-                        }
-                        Forced.SETTLEMENT -> settlement?.let { s ->
-                            val profileId = profile?.profileId
-                            // (정산 전, 정산 후) 총 EXP. 전 = 이 기록만 뺀 원장, 후 = 전체 원장(둘 다 시작 EXP 포함).
-                            val totals by produceState<Pair<Long, Long>?>(null, s.recordId, profileId) {
-                                value = profileId?.let {
-                                    val records = container.store.records(it).first()
-                                    val seed = container.store.seed(it).first()
-                                    growthTotalMilli(records.filter { r -> r.recordId != s.recordId }, seed) to growthTotalMilli(records, seed)
-                                }
-                            }
-                            totals?.let { (before, after) ->
-                                SettlementScreen(s, before, after, pet.first, pet.second) {
-                                    coordinator.consumeSettlement()
-                                    if (s.levelAfter > s.levelBefore) nav.navigate(levelUpRoute(s.levelBefore, s.levelAfter))
-                                }
-                            }
-                        }
-                        else -> exitCheck?.let { ExitCheckScreen(it, pet.first, pet.second) { scope.launch { coordinator.dismissExitCheck() } } }
+            if (overlay) BackHandler {}
+            when (forced) {
+                Forced.DRIVING -> {
+                    // 팝업: dim이 터치를 삼키고 뒤로 가기는 소비한다. 닫히는 건 주행이 끝날 때뿐.
+                    val (title, body) = restrictedCopy(route)
+                    DpPopup(title, body, onDismissRequest = {}) {
+                        PopupButton("네비게이션으로 돌아가기", { container.navi.bringToFront() }, primary = true)
                     }
                 }
+                Forced.EXIT_CHECK -> if (exitShown) exitCheck?.let { check ->
+                    ExitCheckPopup(
+                        check,
+                        onStay = { scope.launch { coordinator.dismissExitCheck() } },
+                        onAllDone = { scope.launch { coordinator.dismissExitCheck(); onFinish() } },
+                    )
+                }
+                Forced.SETTLEMENT -> settlement?.let { s ->
+                    // 덮개: 아래 화면을 완전히 가리고 터치를 삼킨다(정산은 창 화면이라 Task 8에서 바뀐다).
+                    Box(Modifier.fillMaxSize().skyBackground().pointerInput(Unit) { detectTapGestures() }) {
+                        val profileId = profile?.profileId
+                        // (정산 전, 정산 후) 총 EXP. 전 = 이 기록만 뺀 원장, 후 = 전체 원장(둘 다 시작 EXP 포함).
+                        val totals by produceState<Pair<Long, Long>?>(null, s.recordId, profileId) {
+                            value = profileId?.let {
+                                val records = container.store.records(it).first()
+                                val seed = container.store.seed(it).first()
+                                growthTotalMilli(records.filter { r -> r.recordId != s.recordId }, seed) to growthTotalMilli(records, seed)
+                            }
+                        }
+                        totals?.let { (before, after) ->
+                            SettlementScreen(s, before, after, pet.first, pet.second) {
+                                coordinator.consumeSettlement()
+                                if (s.levelAfter > s.levelBefore) nav.navigate(levelUpRoute(s.levelBefore, s.levelAfter))
+                            }
+                        }
+                    }
+                }
+                else -> {}
             }
         }
     }
@@ -396,7 +420,7 @@ fun AppNav(container: AppContainer) {
 
 /** 강제 화면이 NavHost 경로일 때 스택을 비우고 갈 곳. 그대로 두면 null. */
 fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
-    val onboarding = cur == Routes.LINK || cur == Routes.ONBOARD_SCAN || cur == Routes.ONBOARD_CARE || cur == Routes.ONBOARD_MATE
+    val onboarding = cur in ONBOARDING_ROUTES
     return when {
         forced == Forced.ONBOARDING && !onboarding -> linkRoute("scan")
         forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME

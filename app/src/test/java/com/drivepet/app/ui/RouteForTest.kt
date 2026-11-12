@@ -70,4 +70,14 @@ class RouteForTest {
         assertEquals(null, resetTarget(Routes.ONBOARD_SCAN, Forced.ONBOARDING, noActive = true))
         assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
     }
+
+    @Test
+    fun restrictedCopy_onboardingVsRest() {
+        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.ONBOARD_SCAN).first)
+        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.LINK).first)
+        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.WELCOME).first)
+        assertEquals("주행 중에는 서비스 사용이 제한돼요", restrictedCopy(Routes.LOUNGE).first)
+        assertEquals("주행 중에는 서비스 사용이 제한돼요", restrictedCopy(null).first)
+        assertEquals("안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요", restrictedCopy(Routes.LOUNGE).second)
+    }
 }
