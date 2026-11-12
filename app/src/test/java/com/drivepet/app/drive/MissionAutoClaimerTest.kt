@@ -1,12 +1,17 @@
 package com.drivepet.app.drive
 
 import com.drivepet.app.data.FakeRecordStore
+import com.drivepet.app.data.SafetyLineJson
+import com.drivepet.app.data.SettlementJson
+import com.drivepet.app.data.TripPayload
 import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.domain.MissionKind
 import com.drivepet.app.domain.dailyMissions
 import com.drivepet.vehicle.VehicleModule.Mode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -46,6 +51,34 @@ class MissionAutoClaimerTest {
     @Test fun `undone mission not claimed`() = runTest {
         assertEquals(0, claimer.claimDone("p", null))
         assertTrue(store.records("p").first().isEmpty())
+    }
+
+    @Test fun `trip-claimed slot is not claimed again as smooth accel`() = runTest {
+        val d = (0L..60L).map { LocalDate.of(2026, 11, 1).plusDays(it) }.first { MissionKind.SMOOTH_ACCEL in dailyMissions("p", it) }
+        val t = d.atTime(12, 0).atZone(ZoneId.of("Asia/Seoul")).toInstant()
+        val c = MissionAutoClaimer(store, { t })
+        fun trip(id: String, accel: Boolean) = RecordEntity(
+            id, "p", null, "TRIP", t.toEpochMilli(), valid = true,
+            payloadJson = Json.encodeToString(
+                TripPayload(
+                    "s", "e", 0, 1_000_000, "VALID",
+                    SettlementJson(
+                        1_000_000, "1.000", "1.000", 80, "MEASURED",
+                        listOfNotNull(
+                            SafetyLineJson("STEERING", 10, 10, "MEASURED", 0.0),
+                            if (accel) SafetyLineJson("ACCEL_BRAKE", 36, 36, "MEASURED", null) else null,
+                        ),
+                        null, "UNMEASURED",
+                    ),
+                ),
+            ),
+        )
+        store.insertIfAbsent(trip("a", accel = false))
+        c.claimDone("p", null)
+        assertEquals(listOf("daily-no-sharp-steer-trip"), store.records("p").first().filter { it.kind == "MISSION_CLAIM" }.map { it.missionId })
+        store.insertIfAbsent(trip("b", accel = true))
+        assertEquals(0, c.claimDone("p", null))
+        assertFalse(store.records("p").first().any { it.missionId == "daily-smooth-accel" })
     }
 }
 

@@ -40,7 +40,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -192,10 +195,22 @@ class LoungeViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** 라운지에 들어올 때마다 부른다. 자동 출석을 먼저 시도하고(말풍선은 코디네이터가 띄운다), 하루 첫 진입은 자기소개를 붙인다. */
+    private var watchingPark = false
+
+    /**
+     * 라운지에 들어올 때마다 부른다. 자동 출석 감시는 한 번만 띄우고, 하루 첫 진입은 자기소개를 붙인다.
+     * 기어 신호가 늦게 오는 콜드스타트도 있어 "정차 중"이 되는 순간마다 출석을 시도한다(checkIn은 멱등).
+     */
     fun onEnter() {
+        if (!watchingPark) {
+            watchingPark = true
+            viewModelScope.launch {
+                combine(state.map { it.isParked }, profile.map { it?.profileId }) { parked, id -> parked && id != null }
+                    .distinctUntilChanged().filter { it }
+                    .collect { try { checkIn() } catch (e: CancellationException) { throw e } catch (e: Exception) { /* 출석 실패가 인사·화면을 막지 않게 */ } }
+            }
+        }
         viewModelScope.launch {
-            checkIn()
             val u = ui.filterNotNull().first()
             val date = seoulDate(clock()).toString()
             val first = lastGreetDate.first() != date

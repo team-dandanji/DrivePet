@@ -80,11 +80,23 @@ class LoungeViewModelTest {
         assertEquals(listOf("TPMS"), ui.warnings)
     }
 
-    @Test fun `onEnter checks in`() = runTest {
+    @Test fun `onEnter checks in when parked, also later when parked`() = runTest {
+        state.value = VehicleState(gear = Signal.Ok(Gear.D, 0L))
         var calls = 0
         val v = vm(checkIn = { calls++; true })
         v.onEnter()
+        assertEquals(0, calls)
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L))
         assertEquals(1, calls)
+        v.onEnter() // 감시는 한 번만 띄운다
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 2L))
+        assertEquals(1, calls)
+    }
+
+    @Test fun `checkIn failure does not kill greeting`() = runTest {
+        val v = vm(checkIn = { error("boom") })
+        v.onEnter()
+        assertEquals(1, speaker.said.size)
     }
 
     @Test fun `하루 첫 진입만 전체 인사`() = runTest {

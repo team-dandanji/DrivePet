@@ -56,7 +56,11 @@ fun missionStatus(kind: MissionKind, todayTrips: List<MissionTrip>, attendanceRe
     }
     val done = evidence.isNotEmpty()
     if (done) progress = ""
-    return MissionStatus(k, done, k.id in claimedIds, evidence, progress)
+    // 급가속 미션과 그 대체(차속 없는 날)는 같은 슬롯이라, 어느 쪽이든 받았으면 받은 것이다(중복 지급 방지).
+    val slot = if (kind == MissionKind.SMOOTH_ACCEL || kind == MissionKind.NO_SHARP_STEER_TRIP) {
+        setOf(MissionKind.SMOOTH_ACCEL.id, MissionKind.NO_SHARP_STEER_TRIP.id)
+    } else setOf(kind.id)
+    return MissionStatus(k, done, slot.any { it in claimedIds }, evidence, progress)
 }
 
 private fun km1(mm: Long) = BigDecimal(mm).movePointLeft(6).setScale(1, RoundingMode.HALF_UP).toPlainString()
