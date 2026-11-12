@@ -29,6 +29,7 @@ import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -47,10 +49,15 @@ private const val TAG = "DriveCoordinator"
 private const val CHANNEL_SETTLEMENT = "settlement"
 private const val NOTIFICATION_SETTLEMENT = 2001
 
+/** 라운지 진입만으로 출석시켜도 되는 때: 실차(REAL)에서 벨트를 못 읽고 정차 중. FAKE·REPLAY는 제외. */
+fun shouldAutoCheckIn(mode: VehicleModule.Mode?, beltReadable: Boolean, parked: Boolean): Boolean =
+    mode == VehicleModule.Mode.REAL && !beltReadable && parked
+
 /**
  * VehicleModule의 state·events·trip을 받아 기록·출석·하차 점검·말풍선·정산 알림으로 나눠 준다.
  * TripRecorder 등은 스레드 안전하지 않아 세 흐름을 하나의 [mutex] 아래에서만 처리한다.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class DriveCoordinator(
     private val context: Context,
     private val store: RecordStore,
@@ -63,6 +70,7 @@ class DriveCoordinator(
     private val reactionFilter = ReactionFilter(System::currentTimeMillis)
     private val attendance = AttendanceWatcher(store, Instant::now)
     private val exitTracker = ExitCheckTracker()
+    private val missionClaimer = MissionAutoClaimer(store, Instant::now)
     private val recorder = TripRecorder(store, ::healthNow, System::currentTimeMillis)
     private var lastSyncedWarnings: Pair<String, List<String>>? = null
 
@@ -99,6 +107,11 @@ class DriveCoordinator(
             repository.state.collect { next -> guarded { mutex.withLock { onState(prev, next) } }; prev = next }
         }
         scope.launch { repository.trip.collect { t -> guarded { mutex.withLock { activeProfile.value?.let { recorder.onTrip(it, t) } } } } }
+        // 기록이 바뀔 때마다 달성한 미션을 자동 지급. 지급이 기록을 다시 흘려도 recordId가 같아 두 번 생기지 않는다.
+        scope.launch {
+            activeProfile.filterNotNull().flatMapLatest { p -> store.records(p.profileId).map { p } }
+                .collect { p -> guarded { mutex.withLock { missionClaimer.claimDone(p.profileId, p.accountId) } } }
+        }
         scope.launch { repository.events.collect { e -> guarded { mutex.withLock { onEvent(e) } } } }
     }
 
@@ -120,9 +133,12 @@ class DriveCoordinator(
         mode?.let { start(it) }
     }
 
-    suspend fun manualCheckIn(): Boolean = mutex.withLock {
+    /** 벨트를 못 읽는 실차가 정차 중일 때 라운지에 들어오면 자동 출석. 이미 출석했으면 false. */
+    suspend fun checkInOnLounge(): Boolean = mutex.withLock {
         val p = activeProfile.value ?: return false
-        attendance.manualCheckIn(p.profileId, p.accountId, repository.state.value).also { if (it) speaker.say(ATTENDANCE_TEXT) }
+        val s = repository.state.value
+        if (!shouldAutoCheckIn(mode, beltReadable.value, s.isParked)) return false
+        attendance.manualCheckIn(p.profileId, p.accountId, s).also { if (it) speaker.say(ATTENDANCE_TEXT) }
     }
 
     private suspend fun onState(prev: VehicleState, next: VehicleState) {

@@ -4,9 +4,6 @@ import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
 import kotlinx.coroutines.flow.first
 import com.drivepet.app.domain.dailyMissions
-import com.drivepet.app.domain.MissionKind
-import com.drivepet.app.data.growthTotalMilli
-import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.drive.Bubble
 import com.drivepet.app.data.remote.WeatherDto
@@ -62,31 +59,8 @@ class LoungeViewModelTest {
     /** 아무것도 안 한 날의 미션 줄(첫 미션). */
     private fun ml(d: LocalDate) = "오늘 미션: ${dailyMissions("p1", d).first().title}"
 
-    @Test fun claimTwiceStoresOnce() = runTest {
-        now = Instant.parse("2026-11-11T03:00:00Z") // p1의 11/11 미션에는 출석이 있다
-        kotlinx.coroutines.runBlocking {
-            store.insertIfAbsent(RecordEntity("att1", "p1", null, "ATTENDANCE", now.toEpochMilli(), payloadJson = "{}", localDate = "2026-11-11"))
-        }
-        assertTrue(MissionKind.ATTENDANCE in dailyMissions("p1", LocalDate.parse("2026-11-11")))
-        val v = vm()
-        val att = v.ui.value!!.missions.first { it.kind == MissionKind.ATTENDANCE }
-        assertTrue(att.done)
-        v.claim(MissionKind.ATTENDANCE)
-        v.claim(MissionKind.ATTENDANCE)
-        assertEquals(1, store.records("p1").first().count { it.kind == "MISSION_CLAIM" })
-        assertTrue(v.ui.value!!.missions.first { it.kind == MissionKind.ATTENDANCE }.claimed)
-        assertEquals(10_000L + 30_000L, growthTotalMilli(store.records("p1").first(), 0))
-        assertEquals(Mood.HAPPY, v.ui.value!!.mood)
-    }
-
-    @Test fun claimIgnoredWhenNotDone() = runTest {
-        val v = vm()
-        v.ui.value!!.missions.forEach { v.claim(it.kind) }
-        assertEquals(0, store.records("p1").first().count { it.kind == "MISSION_CLAIM" })
-    }
-
-    private fun vm(loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
-        store, state, MutableStateFlow("p1"), belt, speaker, { true },
+    private fun vm(checkIn: suspend () -> Boolean = { true }, loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
+        store, state, MutableStateFlow("p1"), belt, speaker, checkIn,
         kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now }, loadWeather,
     )
 
@@ -106,26 +80,23 @@ class LoungeViewModelTest {
         assertEquals(listOf("TPMS"), ui.warnings)
     }
 
-    @Test fun `벨트 미측정이고 오늘 미출석이며 정차 중이면 체크인 버튼`() = runTest {
-        val v = vm()
-        assertTrue(v.ui.value!!.showCheckInButton)
-        belt.value = true
-        assertFalse(v.ui.value!!.showCheckInButton)
-        belt.value = false
-        state.value = VehicleState(gear = Signal.Ok(Gear.D, 0L))
-        assertFalse(v.ui.value!!.showCheckInButton)
+    @Test fun `onEnter checks in`() = runTest {
+        var calls = 0
+        val v = vm(checkIn = { calls++; true })
+        v.onEnter()
+        assertEquals(1, calls)
     }
 
     @Test fun `하루 첫 진입만 전체 인사`() = runTest {
         val v = vm()
-        v.greetIfFirstToday()
+        v.onEnter()
         assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
         assertEquals("2026-11-10", greetDate)
-        v.greetIfFirstToday()
+        v.onEnter()
         assertEquals("오늘도 같이 달려요", speaker.said.last())
         now = Instant.parse("2026-11-11T03:00:00Z")
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L)) // 차 상태가 갱신되면 화면 값(오늘 미션)도 새 날짜로 다시 계산된다
-        v.greetIfFirstToday()
+        v.onEnter()
         assertEquals("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today.plusDays(1))}", speaker.said.last())
         assertNotNull(greetDate)
     }
@@ -141,14 +112,14 @@ class LoungeViewModelTest {
 
     @Test fun `greetIncludesWeatherWhenReady`() = runTest {
         val v = vm { clear12 }
-        v.greetIfFirstToday()
+        v.onEnter()
         assertEquals("안녕, 나 모모! 오늘도 같이 달려요 오늘은 맑음, 12°C야. ${ml(today)}", speaker.said.single())
         assertEquals("맑음", v.weather.value!!.label)
     }
 
     @Test fun `greetWithoutWeatherAfterTimeout`() = runTest {
         val v = vm { awaitCancellation() }
-        v.greetIfFirstToday()
+        v.onEnter()
         runCurrent()
         assertTrue(speaker.said.isEmpty())
         advanceTimeBy(3_001)
@@ -159,7 +130,7 @@ class LoungeViewModelTest {
 
     @Test fun `weatherFailureHidesCard`() = runTest {
         val v = vm { null }
-        v.greetIfFirstToday()
+        v.onEnter()
         assertEquals(null, v.weather.value)
         assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
     }

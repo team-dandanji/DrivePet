@@ -16,12 +16,18 @@ class MissionTest {
         accelFull: Boolean? = null, signal: Double? = null,
     ) = MissionTrip(id, valid, km?.let { (it * 1_000_000).toLong() }, safety, steers, accelFull, signal)
 
-    @Test fun sameProfileAndDateGiveSameThreeMissions() {
+    @Test fun sameProfileAndDateGiveSameTwoMissions() {
         val a = dailyMissions("p1", day)
         assertEquals(a, dailyMissions("p1", day))
-        assertEquals(3, a.size)
-        assertEquals(3, a.toSet().size)
+        assertEquals(2, a.size)
+        assertEquals(2, a.toSet().size)
         assertFalse(MissionKind.NO_SHARP_STEER_TRIP in a)
+    }
+
+    @Test fun `daily missions are two`() {
+        assertEquals(2, dailyMissions("p1", day).size)
+        assertEquals("벨트 착용 확인", MissionKind.ATTENDANCE.title)
+        assertEquals("급가속, 급제동 없이 달리기", MissionKind.SMOOTH_ACCEL.title)
     }
 
     @Test fun missionsFollowSeoulDate() {

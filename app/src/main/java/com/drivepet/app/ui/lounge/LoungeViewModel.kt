@@ -4,14 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
-import com.drivepet.app.data.MissionClaimPayload
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.careRows
 import com.drivepet.app.data.lifePcts
 import com.drivepet.app.data.odometerMm
 import com.drivepet.app.data.db.ProfileEntity
-import com.drivepet.app.data.db.RecordEntity
-import com.drivepet.app.data.missionTrip
 import com.drivepet.app.data.recentTripSafety
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.data.remote.WeatherDto
@@ -19,13 +16,8 @@ import com.drivepet.app.data.toLedger
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.Gauge
 import com.drivepet.app.domain.Growth
-import com.drivepet.app.domain.MISSION_MILLI
-import com.drivepet.app.domain.MissionKind
 import com.drivepet.app.domain.MissionStatus
 import com.drivepet.app.domain.Mood
-import com.drivepet.app.domain.apiExp
-import com.drivepet.app.domain.dailyMissions
-import com.drivepet.app.domain.missionStatus
 import com.drivepet.app.domain.MoodInput
 import com.drivepet.app.domain.health
 import com.drivepet.app.domain.inspectionDaysLeft
@@ -35,6 +27,8 @@ import com.drivepet.app.domain.seoulDate
 import com.drivepet.app.domain.toWarningInput
 import com.drivepet.app.domain.totalExpMilli
 import com.drivepet.app.drive.Speaker
+import com.drivepet.app.drive.claimedMissionIds
+import com.drivepet.app.drive.todayMissions
 import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.VehicleState
 import com.drivepet.vehicle.model.valueOrNull
@@ -53,9 +47,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import java.util.UUID
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
@@ -74,7 +65,6 @@ data class LoungeUi(
     val satietyPct: Int?,
     val parked: Boolean,
     val attendedToday: Boolean,
-    val showCheckInButton: Boolean,
     val warnings: List<String>,
     val careAction: CareAction?,
     val missions: List<MissionStatus> = emptyList(),
@@ -161,15 +151,13 @@ class LoungeViewModel(
             val beltAndCare = combine(beltReadable, store.maintenanceItems(p.profileId), store.vehicleCare(p.profileId)) { b, items, care -> Triple(b, items, care) }
             combine(
                 store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltAndCare,
-            ) { records, seen, seed, s, (belt, items, care) ->
+            ) { records, seen, seed, s, (_, items, care) ->
                 val today = seoulDate(clock())
                 val total = growthTotalMilli(records, seed)
                 val todayExp = totalExpMilli(records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.map { it.toLedger() })
-                val attendance = records.firstOrNull { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
-                val attended = attendance != null
-                val claimedIds = records.filter { it.kind == "MISSION_CLAIM" && it.periodKey == today.toString() }.mapNotNull { it.missionId }.toSet()
-                val todayTrips = records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.mapNotNull { it.missionTrip() }
-                val missions = dailyMissions(p.profileId, today).map { missionStatus(it, todayTrips, attendance?.recordId, claimedIds) }
+                val attended = records.any { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
+                val claimedIds = claimedMissionIds(records, today)
+                val missions = todayMissions(p.profileId, records, today)
                 val level = Growth.level(total)
                 val names = seen.map { it.name }
                 val warningDays = seen.maxOfOrNull { ChronoUnit.DAYS.between(LocalDate.parse(it.firstSeenDate), today).toInt() }
@@ -193,7 +181,6 @@ class LoungeViewModel(
                     satietyPct = satietyPct,
                     parked = s.isParked,
                     attendedToday = attended,
-                    showCheckInButton = !belt && !attended && s.isParked,
                     warnings = names,
                     careAction = when {
                         names.isNotEmpty() -> CareAction.HOSPITAL
@@ -205,9 +192,10 @@ class LoungeViewModel(
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** 라운지에 들어올 때마다 부른다. 하루 첫 진입은 자기소개를 붙인다. */
-    fun greetIfFirstToday() {
+    /** 라운지에 들어올 때마다 부른다. 자동 출석을 먼저 시도하고(말풍선은 코디네이터가 띄운다), 하루 첫 진입은 자기소개를 붙인다. */
+    fun onEnter() {
         viewModelScope.launch {
+            checkIn()
             val u = ui.filterNotNull().first()
             val date = seoulDate(clock()).toString()
             val first = lastGreetDate.first() != date
@@ -218,32 +206,6 @@ class LoungeViewModel(
             if (first) setLastGreetDate(date)
         }
     }
-
-    /** 완료했고 아직 안 받은 미션만 +30. 같은 미션·같은 날은 recordId가 같아 두 번 눌러도 한 건이다. */
-    fun claim(kind: MissionKind) {
-        viewModelScope.launch {
-            val p = profile.value ?: return@launch
-            val m = ui.value?.missions?.firstOrNull { it.kind == kind } ?: return@launch
-            if (!m.done || m.claimed) return@launch
-            val date = seoulDate(clock()).toString()
-            store.insertIfAbsent(
-                RecordEntity(
-                    recordId = UUID.nameUUIDFromBytes("mission:${p.profileId}:${kind.id}:$date".toByteArray()).toString(),
-                    profileId = p.profileId,
-                    accountId = p.accountId,
-                    kind = "MISSION_CLAIM",
-                    occurredAt = clock().toEpochMilli(),
-                    payloadJson = Json.encodeToString(MissionClaimPayload(kind.id, date, apiExp(MISSION_MILLI), m.evidence)),
-                    missionId = kind.id,
-                    periodKey = date,
-                    rewardMilli = MISSION_MILLI,
-                ),
-            )
-        }
-    }
-
-    fun checkInNow() { viewModelScope.launch { checkIn() } } // 출석 말풍선은 코디네이터가 띄운다.
-
 
     private fun fuelLabel(fuelType: String) = when (runCatching { FuelType.valueOf(fuelType) }.getOrNull()) {
         FuelType.EV -> "전기차(EV)"
@@ -257,7 +219,7 @@ class LoungeViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T = LoungeViewModel(
                 c.store, VehicleModule.repository.state, c.settings.activeProfileId, c.coordinator.beltReadable, c.speaker,
-                c.coordinator::manualCheckIn, c.settings.lastGreetDate, c.settings::setLastGreetDate, Instant::now, c.weather::load,
+                c.coordinator::checkInOnLounge, c.settings.lastGreetDate, c.settings::setLastGreetDate, Instant::now, c.weather::load,
             ) as T
         }
     }

@@ -38,9 +38,9 @@ import com.drivepet.app.BuildConfig
 import com.drivepet.app.domain.formatExp
 import com.drivepet.app.drive.Speaker
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.DpTag
+import com.drivepet.app.ui.components.TagStyle
 import com.drivepet.app.domain.MissionStatus
-import com.drivepet.app.domain.MissionKind
-import androidx.compose.foundation.layout.PaddingValues
 import com.drivepet.app.ui.components.faceOf
 import com.drivepet.app.ui.components.SpeechBubble
 import com.drivepet.app.ui.theme.DpColors
@@ -53,7 +53,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
     val ui by vm.ui.collectAsStateWithLifecycle()
     val bubble by speaker.bubble.collectAsStateWithLifecycle()
     val weather by vm.weather.collectAsStateWithLifecycle()
-    LaunchedEffect(vm) { vm.greetIfFirstToday() }
+    LaunchedEffect(vm) { vm.onEnter() }
     val u = ui ?: return
 
     val devPress = if (BuildConfig.DEMO_TOOLS) Modifier.pointerInput(Unit) { detectTapGestures(onLongPress = { onDev() }) } else Modifier
@@ -66,12 +66,6 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (u.parked) Chip("주차중")
             Box(Modifier.weight(1f))
-            if (u.showCheckInButton) {
-                Button(
-                    vm::checkInNow, Modifier.height(72.dp), shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
-                ) { Text("출석하기", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
-            }
         }
     }
     val stats: @Composable () -> Unit = {
@@ -94,7 +88,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
                 stats()
                 WarningCard(u, onCare, Modifier.fillMaxWidth().height(if (u.careAction != null || u.warnings.isNotEmpty()) 420.dp else 200.dp))
                 statusRow()
-                ExpCard(u, vm::claim, stacked = true)
+                ExpCard(u, stacked = true)
             }
             // 18 Connect-W 낮고 넓은 창: 캐릭터 왼쪽, 게이지·특이사항·미션 오른쪽
             LoungeLayout.WIDE -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -107,7 +101,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
                 Column(Modifier.width(720.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     stats()
                     WarningCard(u, onCare, Modifier.weight(1f))
-                    ExpCard(u, vm::claim)
+                    ExpCard(u)
                 }
             }
             LoungeLayout.DEFAULT -> Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -116,7 +110,7 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: (CareAction) -> 
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Character(u.starter, u.stage, u.mood, devPress) }
                     bubbleRow()
                     statusRow()
-                    ExpCard(u, vm::claim)
+                    ExpCard(u)
                 }
                 Column(Modifier.width(592.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("펫 컨디션", fontSize = 36.sp, fontWeight = FontWeight.Bold)
@@ -155,7 +149,7 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 }
 
 @Composable
-private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit, stacked: Boolean = false) {
+private fun ExpCard(u: LoungeUi, stacked: Boolean = false) {
     val level: @Composable (Modifier) -> Unit = { m ->
         Column(m, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("LV. ${u.gauge.level}", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
@@ -172,7 +166,7 @@ private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit, stacked: Boolea
     val missions: @Composable (Modifier) -> Unit = { m ->
         Column(m, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Today's mission", fontSize = 24.sp, color = DpColors.TextTertiary)
-            u.missions.forEach { ms -> MissionRow(ms) { onClaim(ms.kind) } }
+            u.missions.forEach { ms -> MissionRow(ms) }
         }
     }
     Card(Modifier.fillMaxWidth()) {
@@ -184,19 +178,15 @@ private fun ExpCard(u: LoungeUi, onClaim: (MissionKind) -> Unit, stacked: Boolea
     }
 }
 
-/** 미션 한 줄: 제목(+진행), 오른쪽에 보상 칩 / 받기 / 받음. */
+/** 미션 한 줄: 제목(+진행), 오른쪽에 보상 칩 / 달성 완료. 보상은 달성하면 자동으로 들어간다. */
 @Composable
-private fun MissionRow(m: MissionStatus, onClaim: () -> Unit) {
+private fun MissionRow(m: MissionStatus) {
     // 칸이 좁으면 미션 이름을 단어 단위로 두 줄까지(글자 중간에서 자르지 않는다)
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(m.kind.title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 2)
         if (m.progress.isNotEmpty()) Text(m.progress, Modifier.padding(end = 12.dp), fontSize = 20.sp, color = DpColors.TextTertiary)
         when {
-            m.claimed -> Text("받음", fontSize = 22.sp, color = DpColors.TextTertiary)
-            m.done -> Button(
-                onClaim, Modifier.height(48.dp), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
-            ) { Text("받기 +30", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
+            m.done || m.claimed -> DpTag("달성 완료", TagStyle.Done)
             else -> Text(
                 "+30EXP", Modifier.background(DpColors.TrackInactive, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 2.dp),
                 fontSize = 20.sp, color = DpColors.Text,

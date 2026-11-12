@@ -8,12 +8,12 @@ import kotlin.random.Random
 /** 일일 미션(설계 5-4, 3부에서 "하차 점검 모두 정상"을 "안전점수 90점 이상"으로 바꿈). id는 서버 MISSION_CLAIM의 missionId. */
 enum class MissionKind(val id: String, val title: String) {
     NO_SHARP_STEER_5KM("daily-no-sharp-steer-5km", "급조향 없이 5km 달리기"),
-    SMOOTH_ACCEL("daily-smooth-accel", "급가속·급제동 없이 달리기"),
+    SMOOTH_ACCEL("daily-smooth-accel", "급가속, 급제동 없이 달리기"),
     /** 차속을 못 받은 날 SMOOTH_ACCEL 대신. 풀에는 없다. */
     NO_SHARP_STEER_TRIP("daily-no-sharp-steer-trip", "급조향 없이 달리기"),
     TURN_SIGNAL("daily-turn-signal", "방향지시등 매너 지키기"),
     SAFETY_90("daily-safety-90", "안전점수 90점 이상으로 달리기"),
-    ATTENDANCE("daily-attendance", "오늘 출석하기"),
+    ATTENDANCE("daily-attendance", "벨트 착용 확인"),
 }
 
 private val POOL = listOf(MissionKind.NO_SHARP_STEER_5KM, MissionKind.SMOOTH_ACCEL, MissionKind.TURN_SIGNAL, MissionKind.SAFETY_90, MissionKind.ATTENDANCE)
@@ -32,9 +32,9 @@ data class MissionTrip(
 
 data class MissionStatus(val kind: MissionKind, val done: Boolean, val claimed: Boolean, val evidence: List<String>, val progress: String)
 
-/** 서울 날짜마다 풀에서 3개. 시드가 profileId+날짜라 어느 기기에서도 같다. */
+/** 서울 날짜마다 풀에서 2개. 시드가 profileId+날짜라 어느 기기에서도 같다. */
 fun dailyMissions(profileId: String, date: LocalDate): List<MissionKind> =
-    POOL.shuffled(Random("$profileId:$date".hashCode())).take(3)
+    POOL.shuffled(Random("$profileId:$date".hashCode())).take(2)
 
 fun missionStatus(kind: MissionKind, todayTrips: List<MissionTrip>, attendanceRecordId: String?, claimedIds: Set<String>): MissionStatus {
     val k = if (kind == MissionKind.SMOOTH_ACCEL && todayTrips.isNotEmpty() && todayTrips.all { it.accelBrakeFull == null }) {
