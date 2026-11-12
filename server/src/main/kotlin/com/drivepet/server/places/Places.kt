@@ -1,5 +1,6 @@
 package com.drivepet.server.places
 
+import com.drivepet.server.auth.DevicePrincipal
 import com.drivepet.server.common.ApiException
 import com.drivepet.server.common.ApiResponse
 import com.drivepet.server.common.ErrorCode
@@ -10,6 +11,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
 import org.springframework.http.client.SimpleClientHttpRequestFactory
+import org.springframework.security.core.annotation.AuthenticationPrincipal
+import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
@@ -17,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.client.RestClient
 import org.springframework.web.util.UriComponentsBuilder
 import tools.jackson.databind.json.JsonMapper
+import java.time.Clock
+import java.util.UUID
 
 data class PlaceDto(val id: String, val name: String, val address: String, val lat: Double, val lng: Double, val distanceM: Int)
 
@@ -84,14 +89,43 @@ class PlacesConfig {
     }
 }
 
+/**
+ * 카카오 로컬 호출량 제한(1분 고정 창): 기기당 [PER_DEVICE]회, 서버 전체 [GLOBAL]회. 기기 토큰은 공개 /devices로 받을 수 있어 인증만으로는 공유 할당량을 지키지 못한다.
+ * shortcut: 서버 한 대의 메모리 카운터라 여러 대로 늘리면 각자 따로 센다 — 그때 Redis 등 공용 저장소로 옮긴다.
+ */
+@Component
+class PlacesRateLimiter(private val clock: Clock) {
+    private var window = -1L
+    private var total = 0
+    private val perDevice = HashMap<UUID, Int>() // 창이 바뀔 때 비우고, 거절된 기기는 넣지 않아 최대 GLOBAL개
+
+    @Synchronized
+    fun tryAcquire(deviceId: UUID): Boolean {
+        val w = clock.millis() / WINDOW_MS
+        if (w != window) { window = w; total = 0; perDevice.clear() }
+        val n = perDevice[deviceId] ?: 0
+        if (n >= PER_DEVICE || total >= GLOBAL) return false
+        perDevice[deviceId] = n + 1
+        total++
+        return true
+    }
+
+    companion object {
+        const val WINDOW_MS = 60_000L
+        const val PER_DEVICE = 10
+        const val GLOBAL = 300
+    }
+}
+
 @RestController
 @RequestMapping("/api/v1")
-class PlacesController(private val client: PlacesClient) {
+class PlacesController(private val client: PlacesClient, private val limiter: PlacesRateLimiter) {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @GetMapping("/places")
-    fun places(@RequestParam lat: Double, @RequestParam lng: Double): ApiResponse<List<PlaceDto>> {
+    fun places(@AuthenticationPrincipal p: DevicePrincipal, @RequestParam lat: Double, @RequestParam lng: Double): ApiResponse<List<PlaceDto>> {
         if (lat !in -90.0..90.0 || lng !in -180.0..180.0 || lat.isNaN() || lng.isNaN()) throw ApiException.validation("위치 값이 올바르지 않습니다")
+        if (!limiter.tryAcquire(p.deviceId)) throw ApiException(HttpStatus.TOO_MANY_REQUESTS, ErrorCode.RATE_LIMITED, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요")
         val shops = try {
             client.nearbyRepairShops(lat, lng)
         } catch (e: ExternalPlacesException) {

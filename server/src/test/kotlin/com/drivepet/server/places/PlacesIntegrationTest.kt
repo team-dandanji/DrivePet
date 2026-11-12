@@ -5,6 +5,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -48,6 +49,18 @@ class PlacesIntegrationTest : IntegrationTest() {
     @Test
     fun `토큰이 없으면 401`() {
         assertEquals(401, get(seoul).status)
+    }
+
+    @Test
+    fun `한 기기가 1분에 11번째 요청하면 429, 다른 기기는 그대로, 1분 뒤 다시 허용`() {
+        clock.advance(Duration.ofMillis(PlacesRateLimiter.WINDOW_MS - clock.millis() % PlacesRateLimiter.WINDOW_MS)) // 창 시작으로 맞춰 경계에 걸리지 않게
+        repeat(PlacesRateLimiter.PER_DEVICE) { assertEquals(200, get(seoul, token).status) }
+        val r = get(seoul, token)
+        assertEquals(429, r.status, r.raw)
+        assertEquals("RATE_LIMITED", r.errorCode)
+        assertEquals(200, get(seoul, register().access).status)
+        clock.advance(Duration.ofMillis(PlacesRateLimiter.WINDOW_MS))
+        assertEquals(200, get(seoul, token).status)
     }
 
     @Test
