@@ -17,6 +17,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
@@ -36,7 +37,9 @@ import com.drivepet.app.drive.isDriving
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
-import com.drivepet.app.ui.components.TopTabs
+import com.drivepet.app.ui.components.HeaderMenu
+import com.drivepet.app.ui.components.MenuItem
+import com.drivepet.app.ui.components.TabHeader
 import com.drivepet.app.data.PendingCare
 import com.drivepet.app.domain.CareItem
 import com.drivepet.app.ui.care.CareCourseScreen
@@ -52,7 +55,7 @@ import com.drivepet.app.ui.care.RouteDoneScreen
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
-import com.drivepet.app.ui.garage.AccountCard
+import com.drivepet.app.ui.garage.AccountMenu
 import com.drivepet.app.ui.lounge.LoungeScreen
 import com.drivepet.app.ui.link.LinkScreen
 import com.drivepet.app.ui.link.LinkViewModel
@@ -107,6 +110,9 @@ fun linkRoute(next: String) = "onboard/link?next=$next"
 fun levelUpRoute(before: Int, after: Int) = "${Routes.LEVEL_UP}/$before/$after"
 
 private val TAB_ROUTES = Tab.entries.associateBy { it.name.lowercase() } // 라우트 문자열 == Tab 이름 소문자
+
+/** 헤더 메뉴: 왼쪽 앱 이름(프로필 수정) · 오른쪽 ⋯(카카오 계정). */
+private enum class HeaderMenuKind { APP, MORE }
 
 /** 주행 중이면 true. 대화상자(별도 창)는 덮개 위에 그려지므로 스스로 닫는 데 쓴다. */
 val LocalDriving = compositionLocalOf { false }
@@ -186,6 +192,9 @@ fun AppNav(container: AppContainer) {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     val overlay = forced != Forced.NONE && forced != Forced.ONBOARDING && forced != Forced.WELCOME
 
+    var menu by remember { mutableStateOf<HeaderMenuKind?>(null) }
+    LaunchedEffect(overlay) { if (overlay) menu = null }
+
     // 입력창(IME)도 별도 창이라 주행이 시작되면 포커스를 풀어 닫는다.
     val focus = LocalFocusManager.current
     LaunchedEffect(driving) { if (driving) focus.clearFocus() }
@@ -195,9 +204,11 @@ fun AppNav(container: AppContainer) {
             // 덮개 아래 화면은 접근성 트리에서도 숨긴다.
             Column(Modifier.fillMaxSize().then(if (overlay) Modifier.clearAndSetSemantics {} else Modifier)) {
                 TAB_ROUTES[route]?.let { selected ->
-                    TopTabs(selected, onSelect = { tab ->
-                        nav.navigate(tab.name.lowercase()) { popUpTo(Routes.LOUNGE); launchSingleTop = true }
-                    })
+                    TabHeader(
+                        selected,
+                        onSelect = { tab -> nav.navigate(tab.name.lowercase()) { popUpTo(Routes.LOUNGE); launchSingleTop = true } },
+                        onAppMenu = { menu = HeaderMenuKind.APP }, onMoreMenu = { menu = HeaderMenuKind.MORE },
+                    )
                 }
                 NavHost(
                     nav, startDestination = start, modifier = Modifier.weight(1f),
@@ -259,7 +270,7 @@ fun AppNav(container: AppContainer) {
                         Box(Modifier.fillMaxSize()) {
                             LoungeScreen(
                                 viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
-                                onCare = { nav.navigate(Routes.CARE_COURSE) }, // 병원·밥 모두 펫 돌보기로(밥은 Task 6에서 빠진다)
+                                onCare = { nav.navigate(Routes.CARE_COURSE) },
                             ) { nav.navigate(Routes.DEV) }
                             CareRecordPopup(container) { id -> nav.navigate("garage/done/$id") }
                         }
@@ -269,7 +280,6 @@ fun AppNav(container: AppContainer) {
                             viewModel(factory = GarageViewModel.factory(container)),
                             onEdit = { nav.navigate(Routes.GARAGE_EDIT) },
                             onReplaced = { id -> nav.navigate("garage/done/$id") },
-                            account = { AccountCard(container) { nav.navigate(linkRoute("welcome")) } },
                         )
                     }
                     composable(Routes.GARAGE_EDIT) {
@@ -329,6 +339,14 @@ fun AppNav(container: AppContainer) {
                     // 릴리스 빌드(DEMO_TOOLS 꺼짐)에는 경로 자체가 없다.
                     if (BuildConfig.DEMO_TOOLS) composable(Routes.DEV) { DevScreen(container) { nav.popBackStack() } }
                 }
+            }
+            // 헤더 메뉴: 탭 화면에서만. 덮개(주행 포함)가 뜨면 닫는다.
+            if (!overlay && TAB_ROUTES[route] != null) when (menu) {
+                HeaderMenuKind.APP -> HeaderMenu(Alignment.TopStart, { menu = null }) {
+                    MenuItem("프로필 수정", { menu = null; nav.navigate(Routes.WELCOME) })
+                }
+                HeaderMenuKind.MORE -> AccountMenu(container, onLink = { menu = null; nav.navigate(linkRoute("welcome")) }, onDismiss = { menu = null })
+                null -> {}
             }
             if (overlay) {
                 BackHandler {}

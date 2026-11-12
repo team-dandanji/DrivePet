@@ -26,7 +26,7 @@ import com.drivepet.app.ui.theme.DpColors
 
 /**
  * 캐릭터 그림(피그마 APP Graphic `134:15508`). 시안에 없는 단계는 "이미지 없음".
- * 크기는 stage마다 1: 240, 2: 300, 3: 360dp(14 레벨업 연출이 이 비율을 쓴다). 표정 그림이 없어 [mood]는 그림에 쓰지 않는다(이름 옆 얼굴 문자·말풍선으로 보인다).
+ * 크기는 stage마다 1: 240, 2: 300, 3: 360dp(14 레벨업 연출이 이 비율을 쓴다). 표정 그림이 없어 [mood]는 그림에 쓰지 않는다(기분은 말풍선으로 보인다).
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -51,15 +51,6 @@ private fun artOf(starter: String, stage: Int): Int? = when (starter) {
     "STARTER_2" -> when (stage) { 1 -> R.drawable.pet_starter2_stage1; 2 -> R.drawable.pet_starter2_stage2; else -> null }
     "STARTER_3" -> when (stage) { 1 -> R.drawable.pet_starter3_stage1; 2 -> R.drawable.pet_starter3_stage2; else -> R.drawable.pet_starter3_stage3 }
     else -> null
-}
-
-/** 표정 그림이 없어 기분은 이름 옆 얼굴 문자로 보인다(Hi-fi 라운지 "KKYU ·ω·"). */
-fun faceOf(mood: Mood) = when (mood) {
-    Mood.NORMAL -> "·ω·"
-    Mood.HAPPY -> "^ω^"
-    Mood.HUNGRY -> "´ω`"
-    Mood.WORRIED -> "•﹏•"
-    Mood.SICK_1, Mood.SICK_2, Mood.SICK_3 -> "×﹏×"
 }
 
 /** 그림이 없는 캐릭터 자리표시. */

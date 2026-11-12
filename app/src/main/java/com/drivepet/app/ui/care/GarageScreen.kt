@@ -43,9 +43,9 @@ import java.util.Locale
 
 private val DOTTED = DateTimeFormatter.ofPattern("yyyy.MM.dd")
 
-/** 10(EV 3종) · 21(ICE·HEV 4종) 내 차 정비소. 교체하면 [onReplaced]로 11 관리 기록에 간다. [account]는 맨 아래 카카오 계정 카드. */
+/** 10(EV 3종) · 21(ICE·HEV 4종) 내 차 정비소. 교체하면 [onReplaced]로 11 관리 기록에 간다. */
 @Composable
-fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -> Unit, account: @Composable () -> Unit = {}) {
+fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val u = ui ?: return
     val scope = rememberCoroutineScope()
@@ -94,7 +94,6 @@ fun GarageScreen(vm: GarageViewModel, onEdit: () -> Unit, onReplaced: (String) -
                 Row(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) { inspection(Modifier.weight(1f)); note() }
             }
         }
-        account()
     }
 }
 

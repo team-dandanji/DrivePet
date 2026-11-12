@@ -25,6 +25,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -113,11 +114,11 @@ class LoungeViewModelTest {
         assertNotNull(greetDate)
     }
 
-    @Test fun `포만 20 이하면 FEED`() = runTest {
+    @Test fun `포만 20 이하여도 돌보기 버튼은 없다`() = runTest {
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), energyPct = Signal.Ok(18, 0L))
         val ui = vm().ui.value!!
         assertEquals(Mood.HUNGRY, ui.mood)
-        assertEquals(CareAction.FEED, ui.careAction)
+        assertNull(ui.careAction)
     }
 
     private val clear12 = WeatherDto(12.0, "CLEAR", null, emptyList(), null, false)

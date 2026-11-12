@@ -55,7 +55,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-enum class CareAction(val label: String) { HOSPITAL("병원 가기"), FEED("밥 주러 가기") }
+enum class CareAction { HOSPITAL }
 
 data class LoungeUi(
     val nickname: String,
@@ -104,9 +104,6 @@ fun weatherUi(w: WeatherDto): WeatherUi {
 
 /** 날씨를 기다리는 최대 시간(하루 첫 인사). */
 private const val WEATHER_WAIT_MS = 3_000L
-
-/** 포만·건강 모두 이 값 이하면 "부족". */
-const val LOW_PCT = 20
 
 /** 하루 첫 인사의 미션 줄. 미션이 없으면 null. */
 fun missionLine(missions: List<MissionStatus>): String? {
@@ -185,11 +182,7 @@ class LoungeViewModel(
                     parked = s.isParked,
                     attendedToday = attended,
                     warnings = names,
-                    careAction = when {
-                        names.isNotEmpty() -> CareAction.HOSPITAL
-                        satietyPct != null && satietyPct <= LOW_PCT -> CareAction.FEED
-                        else -> null
-                    },
+                    careAction = if (names.isNotEmpty()) CareAction.HOSPITAL else null,
                     missions = missions,
                 )
             }
