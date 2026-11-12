@@ -13,6 +13,9 @@ import android.util.Log
 import com.drivepet.app.MainActivity
 import com.drivepet.app.data.RecordStore
 import com.drivepet.app.data.Settings
+import com.drivepet.app.data.careRows
+import com.drivepet.app.data.lifePcts
+import com.drivepet.app.data.odometerMm
 import com.drivepet.app.data.recentTripSafety
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.HealthResult
@@ -178,9 +181,9 @@ class DriveCoordinator(
 
     private suspend fun healthNow(profileId: String): HealthResult {
         val warnings = repository.state.value.warnings.toWarningInput()
-        val recentSafety = store.records(profileId).first().recentTripSafety()
-        // 소모품은 2부에서 추가.
-        return health(warnings, emptyList(), recentSafety)
+        val records = store.records(profileId).first()
+        val lifePcts = careRows(store.maintenanceItems(profileId).first(), records, repository.state.value.odometerMm()).lifePcts()
+        return health(warnings, lifePcts, records.recentTripSafety())
     }
 
     private inline fun guarded(block: () -> Unit) {

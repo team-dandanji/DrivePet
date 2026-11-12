@@ -17,7 +17,7 @@ import com.drivepet.app.ui.theme.DpColors
 @Composable
 fun FilledButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Button(
-        onClick, modifier.height(96.dp), shape = RoundedCornerShape(16.dp),
+        onClick, modifier.height(100.dp), shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = DpColors.Filled, contentColor = Color.White),
     ) { Text(text, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
 }

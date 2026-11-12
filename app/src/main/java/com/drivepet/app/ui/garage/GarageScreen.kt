@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -34,11 +33,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
- * 차 정비소 탭. 정비 기능은 아직 없고 카카오 계정 카드(연결·해제·탈퇴)만 있다.
+ * 차 정비소 탭 맨 아래의 카카오 계정 카드(연결·해제·탈퇴).
  * 탈퇴하면 서버 데이터와 앱 안의 기록이 지워지고, 프로필이 없어져 앱이 처음 화면(03)으로 돌아간다.
  */
 @Composable
-fun GarageScreen(container: AppContainer, onLink: () -> Unit) {
+fun AccountCard(container: AppContainer, onLink: () -> Unit) {
     val auth by container.auth.state.collectAsStateWithLifecycle(null)
     val linked = auth?.accountId != null
     var confirmDelete by remember { mutableStateOf(false) }
@@ -56,33 +55,30 @@ fun GarageScreen(container: AppContainer, onLink: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(40.dp), Arrangement.spacedBy(24.dp)) {
-        OnboardCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("카카오 계정", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    if (linked) "${auth?.nickname ?: "카카오 사용자"} 님과 연결돼 있어요. 펫과 주행 기록을 서버에 백업해요."
-                    else "연결되지 않았어요. 기록은 이 차에만 저장돼요.",
-                    fontSize = 26.sp, lineHeight = 38.sp, color = DpColors.TextTertiary,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (linked) {
-                        OutlinedButton(
-                            { run("연결을 해제하지 못했어요. 인터넷 연결을 확인해 주세요") { container.account.unlink() } },
-                            Modifier.height(96.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(2.dp, DpColors.TrackInactive),
-                        ) { Text("연결 해제", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
-                        TextButton({ confirmDelete = true }, Modifier.height(96.dp), enabled = !busy) {
-                            Text("탈퇴", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Danger)
-                        }
-                    } else {
-                        FilledButton("카카오 연결하기", onLink)
+    OnboardCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text("카카오 계정", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                if (linked) "${auth?.nickname ?: "카카오 사용자"} 님과 연결돼 있어요. 펫과 주행 기록을 서버에 백업해요."
+                else "연결되지 않았어요. 기록은 이 차에만 저장돼요.",
+                fontSize = 26.sp, lineHeight = 38.sp, color = DpColors.TextTertiary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (linked) {
+                    OutlinedButton(
+                        { run("연결을 해제하지 못했어요. 인터넷 연결을 확인해 주세요") { container.account.unlink() } },
+                        Modifier.height(96.dp), enabled = !busy, shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(2.dp, DpColors.TrackInactive),
+                    ) { Text("연결 해제", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
+                    TextButton({ confirmDelete = true }, Modifier.height(96.dp), enabled = !busy) {
+                        Text("탈퇴", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Danger)
                     }
+                } else {
+                    FilledButton("카카오 연결하기", onLink)
                 }
-                error?.let { Text(it, fontSize = 24.sp, color = DpColors.Danger) }
             }
+            error?.let { Text(it, fontSize = 24.sp, color = DpColors.Danger) }
         }
-        Text("차 정비 기능은 준비 중이에요", fontSize = 24.sp, color = DpColors.TextTertiary)
     }
 
     if (confirmDelete && !driving) {

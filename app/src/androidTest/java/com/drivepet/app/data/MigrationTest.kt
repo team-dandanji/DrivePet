@@ -49,7 +49,7 @@ class MigrationTest {
     }
 
     private fun open() = Room.databaseBuilder(context, AppDatabase::class.java, name)
-        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
+        .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4).build()
 
     @Test fun migrates1To2KeepingData() = runTest {
         createRaw(1, v1Ddl) { raw ->
@@ -92,6 +92,30 @@ class MigrationTest {
             db.openHelper.readableDatabase.query("SELECT name FROM sqlite_master WHERE name = 'index_record_profileId'").use {
                 assertTrue(it.moveToFirst())
             }
+        } finally { db.close() }
+    }
+
+    @Test fun migrate3To4KeepsData() = runTest {
+        val v3Ddl = v1Ddl.map { if (it.contains("`profile`")) it.replace(", PRIMARY KEY(`profileId`))", ", `stateRevision` INTEGER, `deletedAt` INTEGER, PRIMARY KEY(`profileId`))") else it }
+            .map { if (it.contains("TABLE IF NOT EXISTS `record`")) it.replace(", PRIMARY KEY(`recordId`))", ", `syncState` TEXT, PRIMARY KEY(`recordId`))") else it } +
+            "CREATE TABLE IF NOT EXISTS `interrupted_trip` (`profileId` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `summaryJson` TEXT NOT NULL, `distanceKm` REAL, `interruptedAt` INTEGER NOT NULL, PRIMARY KEY(`profileId`, `startedAt`))" +
+            "CREATE INDEX IF NOT EXISTS `index_record_profileId` ON `record` (`profileId`)" +
+            "CREATE TABLE IF NOT EXISTS `sync_cursor` (`accountId` TEXT NOT NULL, `cursor` TEXT NOT NULL, PRIMARY KEY(`accountId`))"
+        createRaw(3, v3Ddl) { raw ->
+            raw.execSQL("INSERT INTO profile VALUES ('p', 'acc', '아이오닉5', 'EV', 'STARTER_1', '모모', 1, 72.6, 7, 12, NULL)")
+            raw.execSQL("INSERT INTO record (recordId, profileId, accountId, kind, occurredAt, ruleVersion, payloadJson, startMm, endMm, valid, bonusMilli, syncState) VALUES ('t', 'p', 'acc', 'TRIP', 9, 'growth-v1', '{}', 0, 12000000, 1, 15000, 'SYNCED')")
+        }
+
+        val db = open()
+        try {
+            val store = RoomRecordStore(db)
+            val p = store.profiles().first().single()
+            assertEquals(12L, p.stateRevision)
+            val r = store.records("p").first().single()
+            assertEquals("SYNCED", r.syncState)
+            assertEquals(12_000_000L, r.endMm)
+            assertTrue(store.maintenanceItems("p").first().isEmpty())
+            assertNull(store.vehicleCare("p").first())
         } finally { db.close() }
     }
 }

@@ -11,6 +11,7 @@ import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.onboarding.FUELS
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -73,13 +74,16 @@ class WelcomeViewModel(
     fun enter(then: () -> Unit) {
         viewModelScope.launch {
             val id = current.value?.profileId ?: return@launch
-            if (activeId.first() != id) setActive(id)
+            if (activeId.first() != id && !trySetActive(id)) return@launch
             then()
         }
     }
 
     /** [profileId]를 활성으로 저장한 뒤 [then]을 부른다. */
-    fun choose(profileId: String, then: () -> Unit) { viewModelScope.launch { setActive(profileId); then() } }
+    fun choose(profileId: String, then: () -> Unit) { viewModelScope.launch { if (trySetActive(profileId)) then() } }
+
+    // 저장이 실패하면(디스크 오류 등) 화면을 옮기지 않고 그대로 둔다. 예외가 viewModelScope 밖으로 새어 앱이 죽지 않게.
+    private suspend fun trySetActive(id: String): Boolean = try { setActive(id); true } catch (e: CancellationException) { throw e } catch (e: Exception) { false }
 
     private fun fuelLabel(fuelType: String) = FUELS.firstOrNull { it.first.name == fuelType }?.second ?: fuelType
 

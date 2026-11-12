@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,7 @@ import com.drivepet.app.domain.TripLedger
 import com.drivepet.app.domain.tripPaidMilli
 import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.components.FilledButton
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import java.time.Instant
 import java.time.ZoneId
@@ -129,14 +131,25 @@ fun TripsScreen(container: AppContainer) {
 
 @Composable
 private fun Line(row: TripRow) {
-    Row(
-        Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(20.dp)).padding(horizontal = 32.dp, vertical = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(row.date, Modifier.weight(2f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    val narrow = isNarrowWindow()
+    val date: @Composable (Modifier) -> Unit = { m -> Text(row.date, m, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
+    val values: @Composable RowScope.() -> Unit = {
         Text(row.distance, Modifier.weight(1.5f), fontSize = 30.sp)
         val tone = if (row.interrupted) DpColors.Danger else DpColors.Text
         Text(row.safety, Modifier.weight(1.5f), fontSize = 30.sp, color = tone, fontWeight = if (row.interrupted) FontWeight.Bold else FontWeight.Normal)
         Text(row.exp ?: "", Modifier.weight(1.5f), fontSize = 30.sp, fontWeight = FontWeight.Bold)
+    }
+    val box = Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.85f), RoundedCornerShape(20.dp)).padding(horizontal = 32.dp, vertical = 24.dp)
+    // 좁은 창: 날짜 한 줄, 그 아래 거리·점수·EXP
+    if (narrow) {
+        Column(box, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            date(Modifier)
+            Row(verticalAlignment = Alignment.CenterVertically, content = values)
+        }
+    } else {
+        Row(box, verticalAlignment = Alignment.CenterVertically) {
+            date(Modifier.weight(2f))
+            values()
+        }
     }
 }

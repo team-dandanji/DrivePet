@@ -1,6 +1,8 @@
 package com.drivepet.app.data.remote
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 // 필드명은 docs/api/schemas/driving.yaml 의 Weather. 나머지 키는 무시한다.
@@ -17,7 +19,7 @@ import kotlinx.serialization.Serializable
 /** 어떤 실패든 null. 날씨는 없어도 앱이 그대로 동작해야 한다. */
 class WeatherRepo(private val api: suspend () -> DrivePetApi, private val location: () -> Pair<Double, Double>) {
     suspend fun load(): WeatherDto? = try {
-        val (lat, lng) = location()
+        val (lat, lng) = withContext(Dispatchers.IO) { location() } // getLastKnownLocation은 메인 스레드를 피한다
         api().weather(lat, lng).data
     } catch (e: CancellationException) {
         throw e

@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import com.drivepet.app.ui.components.isNarrowWindow
+import com.drivepet.app.ui.components.scrollWhen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -48,7 +50,47 @@ fun LinkScreen(vm: LinkViewModel, onBack: (() -> Unit)?, onSkip: (() -> Unit)?, 
     LaunchedEffect(Unit) { vm.start() }
     LaunchedEffect(ui) { (ui as? LinkUi.Linked)?.let(onLinked) }
 
-    Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+    val narrow = isNarrowWindow()
+    val consent: @Composable (Modifier) -> Unit = { m ->
+        OnboardCard(m) {
+            Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("01  필요한 정보 확인", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+                for (line in CONSENTS) Text(line, fontSize = 26.sp)
+                Text(
+                    "차량별로 지원되는 정보만 조회해요.\n위치 동의 없이도 기본 차량 관리를 이용할 수 있어요.",
+                    Modifier.padding(top = 8.dp), fontSize = 22.sp, color = DpColors.TextTertiary,
+                )
+            }
+        }
+    }
+    val qr: @Composable (Modifier) -> Unit = { m ->
+        OnboardCard(m) {
+            Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("02  카카오 QR 로그인", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QrBox(ui)
+                        // 시험용: 호스트 브라우저로 열어 가짜 로그인을 해 볼 수 있게 주소를 보여 준다. 릴리스에는 없다.
+                        if (BuildConfig.DEMO_TOOLS) (ui as? LinkUi.Showing)?.let {
+                            Text(it.qrUrl, Modifier.width(QR_SIZE), fontSize = 14.sp, color = DpColors.TextTertiary)
+                        }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text("스마트폰 카메라로 스캔 후\n카카오 계정으로 로그인하세요.", fontSize = 24.sp)
+                        Text(statusLine(ui), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        OutlinedButton(
+                            vm::retry, Modifier.fillMaxWidth().height(80.dp),
+                            enabled = ui !is LinkUi.Restoring && ui !is LinkUi.Linked, // 복원 중에 새 세션으로 끊지 않는다
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(2.dp, DpColors.TrackInactive),
+                        ) { Text("QR 다시 받기", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
+                    }
+                }
+            }
+        }
+    }
+
+    Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("DrivePet", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
             Text("01  권한 동의 · 계정 연결", Modifier.padding(start = 48.dp), fontSize = 24.sp, color = DpColors.TextTertiary)
@@ -56,46 +98,19 @@ fun LinkScreen(vm: LinkViewModel, onBack: (() -> Unit)?, onSkip: (() -> Unit)?, 
             Text("P · 주차 중", fontSize = 26.sp, fontWeight = FontWeight.Bold)
         }
         Text("스마트폰으로 간편하게 연결해요", fontSize = 44.sp, fontWeight = FontWeight.ExtraBold)
-        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
-                Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("01  필요한 정보 확인", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
-                    for (line in CONSENTS) Text(line, fontSize = 26.sp)
-                    Text(
-                        "차량별로 지원되는 정보만 조회해요.\n위치 동의 없이도 기본 차량 관리를 이용할 수 있어요.",
-                        Modifier.padding(top = 8.dp), fontSize = 22.sp, color = DpColors.TextTertiary,
-                    )
-                }
-            }
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
-                Column(Modifier.padding(32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("02  카카오 QR 로그인", fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            QrBox(ui)
-                            // 시험용: 호스트 브라우저로 열어 가짜 로그인을 해 볼 수 있게 주소를 보여 준다. 릴리스에는 없다.
-                            if (BuildConfig.DEMO_TOOLS) (ui as? LinkUi.Showing)?.let {
-                                Text(it.qrUrl, Modifier.width(QR_SIZE), fontSize = 14.sp, color = DpColors.TextTertiary)
-                            }
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text("스마트폰 카메라로 스캔 후\n카카오 계정으로 로그인하세요.", fontSize = 24.sp)
-                            Text(statusLine(ui), fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                            OutlinedButton(
-                                vm::retry, Modifier.fillMaxWidth().height(80.dp),
-                                enabled = ui !is LinkUi.Restoring && ui !is LinkUi.Linked, // 복원 중에 새 세션으로 끊지 않는다
-                                shape = RoundedCornerShape(16.dp),
-                                border = BorderStroke(2.dp, DpColors.TrackInactive),
-                            ) { Text("QR 다시 받기", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
-                        }
-                    }
-                }
+        if (narrow) {
+            consent(Modifier.fillMaxWidth())
+            qr(Modifier.fillMaxWidth())
+        } else {
+            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                consent(Modifier.weight(1f).fillMaxSize())
+                qr(Modifier.weight(1f).fillMaxSize())
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             if (onBack != null) {
                 OutlinedButton(
-                    onBack, Modifier.width(220.dp).height(96.dp), shape = RoundedCornerShape(16.dp),
+                    onBack, Modifier.width(220.dp).height(100.dp), shape = RoundedCornerShape(16.dp),
                     border = BorderStroke(2.dp, DpColors.TrackInactive),
                 ) { Text("뒤로", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
             } else Spacer(Modifier.width(1.dp))

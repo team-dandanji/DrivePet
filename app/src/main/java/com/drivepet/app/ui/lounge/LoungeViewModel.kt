@@ -4,7 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
+import com.drivepet.app.data.MissionClaimPayload
 import com.drivepet.app.data.RecordStore
+import com.drivepet.app.data.careRows
+import com.drivepet.app.data.lifePcts
+import com.drivepet.app.data.odometerMm
+import com.drivepet.app.data.db.ProfileEntity
+import com.drivepet.app.data.db.RecordEntity
+import com.drivepet.app.data.missionTrip
 import com.drivepet.app.data.recentTripSafety
 import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.data.remote.WeatherDto
@@ -12,9 +19,16 @@ import com.drivepet.app.data.toLedger
 import com.drivepet.app.domain.FuelType
 import com.drivepet.app.domain.Gauge
 import com.drivepet.app.domain.Growth
+import com.drivepet.app.domain.MISSION_MILLI
+import com.drivepet.app.domain.MissionKind
+import com.drivepet.app.domain.MissionStatus
 import com.drivepet.app.domain.Mood
+import com.drivepet.app.domain.apiExp
+import com.drivepet.app.domain.dailyMissions
+import com.drivepet.app.domain.missionStatus
 import com.drivepet.app.domain.MoodInput
 import com.drivepet.app.domain.health
+import com.drivepet.app.domain.inspectionDaysLeft
 import com.drivepet.app.domain.mood
 import com.drivepet.app.domain.satiety
 import com.drivepet.app.domain.seoulDate
@@ -24,6 +38,7 @@ import com.drivepet.app.drive.Speaker
 import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.model.VehicleState
 import com.drivepet.vehicle.model.valueOrNull
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +53,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.UUID
 import kotlin.math.roundToInt
 import java.time.Instant
 import java.time.LocalDate
@@ -59,6 +77,7 @@ data class LoungeUi(
     val showCheckInButton: Boolean,
     val warnings: List<String>,
     val careAction: CareAction?,
+    val missions: List<MissionStatus> = emptyList(),
 )
 
 data class WeatherUi(val label: String, val temp: String, val air: String?, val warning: String?, val stale: Boolean, val greetLine: String)
@@ -96,6 +115,12 @@ private const val WEATHER_WAIT_MS = 3_000L
 /** 포만·건강 모두 이 값 이하면 "부족". */
 const val LOW_PCT = 20
 
+/** 하루 첫 인사의 미션 줄. 미션이 없으면 null. */
+fun missionLine(missions: List<MissionStatus>): String? {
+    if (missions.isEmpty()) return null
+    return missions.firstOrNull { !it.done }?.let { "오늘 미션: ${it.kind.title}" } ?: "오늘 미션 다 했어!"
+}
+
 fun moodLine(m: Mood): String = when (m) {
     Mood.SICK_1, Mood.SICK_2, Mood.SICK_3 -> "몸이 좀 안 좋아…"
     Mood.HUNGRY -> "배고파…"
@@ -119,27 +144,44 @@ class LoungeViewModel(
     loadWeather: suspend () -> WeatherDto?,
 ) : ViewModel() {
     // 만들어질 때 한 번만 부른다. 어떤 실패든 null이면 날씨 칸도 인사 줄도 없다.
-    private val weatherLoad = viewModelScope.async { runCatching { loadWeather() }.getOrNull()?.let(::weatherUi) }
+    private val weatherLoad = viewModelScope.async {
+        try { loadWeather()?.let(::weatherUi) } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+    }
     private val _weather = MutableStateFlow<WeatherUi?>(null)
     val weather: StateFlow<WeatherUi?> = _weather
     init { viewModelScope.launch { _weather.value = weatherLoad.await() } }
 
+    private val profile: StateFlow<ProfileEntity?> = combine(activeProfileId, store.profiles()) { id, list -> list.firstOrNull { it.profileId == id } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** 활성 프로필이 없으면 null. */
-    val ui: StateFlow<LoungeUi?> = combine(activeProfileId, store.profiles()) { id, list -> list.firstOrNull { it.profileId == id } }
+    val ui: StateFlow<LoungeUi?> = profile
         .flatMapLatest { p ->
             if (p == null) return@flatMapLatest flowOf(null)
+            val beltAndCare = combine(beltReadable, store.maintenanceItems(p.profileId), store.vehicleCare(p.profileId)) { b, items, care -> Triple(b, items, care) }
             combine(
-                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltReadable,
-            ) { records, seen, seed, s, belt ->
+                store.records(p.profileId), store.warningsSeen(p.profileId), store.seed(p.profileId), state, beltAndCare,
+            ) { records, seen, seed, s, (belt, items, care) ->
                 val today = seoulDate(clock())
                 val total = growthTotalMilli(records, seed)
                 val todayExp = totalExpMilli(records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.map { it.toLedger() })
-                val attended = records.any { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
+                val attendance = records.firstOrNull { it.kind == "ATTENDANCE" && it.localDate == today.toString() }
+                val attended = attendance != null
+                val claimedIds = records.filter { it.kind == "MISSION_CLAIM" && it.periodKey == today.toString() }.mapNotNull { it.missionId }.toSet()
+                val todayTrips = records.filter { seoulDate(Instant.ofEpochMilli(it.occurredAt)) == today }.mapNotNull { it.missionTrip() }
+                val missions = dailyMissions(p.profileId, today).map { missionStatus(it, todayTrips, attendance?.recordId, claimedIds) }
                 val level = Growth.level(total)
                 val names = seen.map { it.name }
                 val warningDays = seen.maxOfOrNull { ChronoUnit.DAYS.between(LocalDate.parse(it.firstSeenDate), today).toInt() }
                 val satietyPct = satiety(s.energyPct.valueOrNull())
-                val petMood = mood(MoodInput(warningDays, satietyPct, null, null, attended || level > Growth.level(total - todayExp)))
+                val lifePcts = careRows(items, records, s.odometerMm()).lifePcts()
+                val due = care?.inspectionDueDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                val petMood = mood(
+                    MoodInput(
+                        warningDays, satietyPct, lifePcts.minOrNull(), inspectionDaysLeft(due, today),
+                        attended || claimedIds.isNotEmpty() || level > Growth.level(total - todayExp),
+                    ),
+                )
                 LoungeUi(
                     nickname = p.petNickname,
                     vehicleLine = "${p.vehicleName} | ${fuelLabel(p.fuelType)}",
@@ -147,7 +189,7 @@ class LoungeViewModel(
                     stage = level,
                     mood = petMood,
                     gauge = Growth.gauge(total),
-                    healthPct = health(s.warnings.toWarningInput(), emptyList(), records.recentTripSafety()).score,
+                    healthPct = health(s.warnings.toWarningInput(), lifePcts, records.recentTripSafety()).score,
                     satietyPct = satietyPct,
                     parked = s.isParked,
                     attendedToday = attended,
@@ -158,6 +200,7 @@ class LoungeViewModel(
                         satietyPct != null && satietyPct <= LOW_PCT -> CareAction.FEED
                         else -> null
                     },
+                    missions = missions,
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -170,14 +213,37 @@ class LoungeViewModel(
             val first = lastGreetDate.first() != date
             val base = (if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood)
             val greetLine = if (first) withTimeoutOrNull(WEATHER_WAIT_MS) { weatherLoad.await() }?.greetLine else null
-            speaker.say(if (greetLine != null) "$base $greetLine" else base)
+            val missionLine = if (first) missionLine(u.missions) else null
+            speaker.say(listOfNotNull(base, greetLine, missionLine).joinToString(" "))
             if (first) setLastGreetDate(date)
+        }
+    }
+
+    /** 완료했고 아직 안 받은 미션만 +30. 같은 미션·같은 날은 recordId가 같아 두 번 눌러도 한 건이다. */
+    fun claim(kind: MissionKind) {
+        viewModelScope.launch {
+            val p = profile.value ?: return@launch
+            val m = ui.value?.missions?.firstOrNull { it.kind == kind } ?: return@launch
+            if (!m.done || m.claimed) return@launch
+            val date = seoulDate(clock()).toString()
+            store.insertIfAbsent(
+                RecordEntity(
+                    recordId = UUID.nameUUIDFromBytes("mission:${p.profileId}:${kind.id}:$date".toByteArray()).toString(),
+                    profileId = p.profileId,
+                    accountId = p.accountId,
+                    kind = "MISSION_CLAIM",
+                    occurredAt = clock().toEpochMilli(),
+                    payloadJson = Json.encodeToString(MissionClaimPayload(kind.id, date, apiExp(MISSION_MILLI), m.evidence)),
+                    missionId = kind.id,
+                    periodKey = date,
+                    rewardMilli = MISSION_MILLI,
+                ),
+            )
         }
     }
 
     fun checkInNow() { viewModelScope.launch { checkIn() } } // 출석 말풍선은 코디네이터가 띄운다.
 
-    fun careTapped() = speaker.say("정비소 안내는 곧 열려요")
 
     private fun fuelLabel(fuelType: String) = when (runCatching { FuelType.valueOf(fuelType) }.getOrNull()) {
         FuelType.EV -> "전기차(EV)"

@@ -5,6 +5,10 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,8 +87,8 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
     val paidMilli = afterMilli - beforeMilli
     val withheld = bonusWithheld(paidMilli, s)
 
-    Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
-        Column(Modifier.width(600.dp).fillMaxSize(), Arrangement.spacedBy(16.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
+    val left: @Composable (Modifier) -> Unit = { m ->
+        Column(m, Arrangement.spacedBy(16.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {
             Text(
                 "+${formatExp(paidMilli)} EXP", Modifier.background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(50)).padding(horizontal = 28.dp, vertical = 10.dp),
                 fontSize = 36.sp, fontWeight = FontWeight.Bold, color = DpColors.Bubble,
@@ -92,7 +96,8 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
             Character(starter, stage, Mood.HAPPY)
             CumulativeGauge(beforeMilli, afterMilli)
         }
-        Column(Modifier.weight(1f).fillMaxSize(), Arrangement.spacedBy(16.dp)) {
+    }
+    val right: @Composable ColumnScope.(Boolean) -> Unit = { narrow ->
             Text("오늘도 수고했어요!", fontSize = 60.sp, lineHeight = 80.sp, fontWeight = FontWeight.ExtraBold)
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("안전운전 점수", Modifier.padding(bottom = 14.dp), fontSize = 30.sp)
@@ -119,11 +124,27 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
                     if (withheld) Text("중복 구간·1km 미만은 보너스 없음", fontSize = 22.sp, color = DpColors.TextTertiary)
                 }
             }
-            Box(Modifier.weight(1f))
+            if (!narrow) Box(Modifier.weight(1f))
             FilledButton("확인", onConfirm, Modifier.fillMaxWidth())
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth < NARROW_WIDTH) {
+            // 좁은 창(Connect-S 분할): 위아래로 쌓고 스크롤
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp), Arrangement.spacedBy(16.dp)) {
+                left(Modifier.fillMaxWidth())
+                right(true)
+            }
+        } else {
+            Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 32.dp), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
+                left(Modifier.width(600.dp).fillMaxSize())
+                Column(Modifier.weight(1f).fillMaxSize(), Arrangement.spacedBy(16.dp)) { right(false) }
+            }
         }
     }
 }
+
+/** 이보다 좁으면 정산을 위아래로 쌓는다(라운지 NARROW와 같은 기준). */
+private val NARROW_WIDTH = 1200.dp
 
 @Composable
 private fun Card(content: @Composable () -> Unit) {
@@ -132,9 +153,14 @@ private fun Card(content: @Composable () -> Unit) {
 
 @Composable
 private fun RewardRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label, fontSize = 26.sp)
-        Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (value == "미측정") DpColors.TextTertiary else DpColors.Text)
+        if (value.startsWith("+")) {
+            // Hi-fi: 받은 보상은 하늘색 칩
+            Text("$value EXP", Modifier.background(DpColors.Chip, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 2.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        } else {
+            Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (value == "미측정") DpColors.TextTertiary else DpColors.Text)
+        }
     }
 }
 

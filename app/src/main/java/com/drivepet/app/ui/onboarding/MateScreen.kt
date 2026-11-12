@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -34,11 +35,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.ui.components.Character
+import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private val STARTERS = listOf("STARTER_1" to "노란 알", "STARTER_2" to "초록 알", "STARTER_3" to "하얀 알")
+/** Hi-fi 메이트 선택(onboarding_알_노란색·초록색)의 이름과 소개. 세 번째는 슬라임. */
+private data class Starter(val type: String, val egg: String, val about: String)
+
+private val STARTERS = listOf(
+    Starter("STARTER_1", "노란색 알", "짧고 밝게 응원하는 병아리로 자라나요"),
+    Starter("STARTER_2", "초록색 알", "힘차게 응원하는 공룡으로 자라나요"),
+    Starter("STARTER_3", "하늘색 알", "말랑하게 응원하는 슬라임으로 자라나요"), // Hi-fi의 흰색 알(눈사람) 대신 슬라임(사용자 11/11)
+)
 
 /** 06 · 스타터 알 고르기 + 이름 짓기. 완료하면(프로필 저장·활성화 뒤) onDone으로 화면을 옮긴다. */
 @Composable
@@ -47,13 +56,14 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
     var saving by remember { mutableStateOf(false) }
     var saveFailed by remember { mutableStateOf(false) }
 
+    val narrow = isNarrowWindow()
     Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("함께 달릴 메이트를 골라 주세요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
             Text("알 3종 중 1종을 고르고 이름을 지어 주세요", fontSize = 26.sp, color = DpColors.TextTertiary)
         }
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            for ((type, label) in STARTERS) {
+            for ((type, label, about) in STARTERS) {
                 val selected = vm.starter == type
                 OnboardCard(
                     Modifier.weight(1f).fillMaxSize()
@@ -61,7 +71,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                         .selectable(selected, onClick = { vm.starter = type }, role = Role.RadioButton),
                 ) {
                     Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.SpaceBetween, Alignment.CenterHorizontally) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopEnd) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = 40.dp), contentAlignment = Alignment.TopEnd) { // 배지 자리를 늘 비워 둬 고를 때 알이 움직이지 않게
                             if (selected) {
                                 Text(
                                     "선택 중", Modifier.background(DpColors.Filled, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 4.dp),
@@ -69,8 +79,12 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
                                 )
                             }
                         }
-                        Character(type, 1, Mood.NORMAL)
-                        Text(label, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                        // 좁은 창(카드 폭 약 190dp)에서는 바닥 타원까지 카드 안에 들어오게 줄인다.
+                        Character(type, 1, Mood.NORMAL, size = if (narrow) 150.dp else null)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(label, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(about, fontSize = 22.sp, color = DpColors.TextTertiary)
+                        }
                     }
                 }
             }
@@ -89,7 +103,7 @@ fun MateScreen(vm: OnboardingViewModel, onBack: () -> Unit, onDone: () -> Unit) 
         }
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
             OutlinedButton(
-                onBack, Modifier.width(300.dp).height(96.dp), shape = RoundedCornerShape(16.dp),
+                onBack, Modifier.width(300.dp).height(100.dp), shape = RoundedCornerShape(16.dp),
                 border = BorderStroke(2.dp, DpColors.TrackInactive),
             ) { Text("이전", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = DpColors.Text) }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
