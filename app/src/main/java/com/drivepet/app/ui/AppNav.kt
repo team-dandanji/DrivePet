@@ -430,7 +430,11 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         onAllDone = {
                             // 앱을 닫기로 했으면 먼저 표시해 둔다: 점검이 닫혀 덮개가 사라진 순간 라운지가 보이는 것으로 보고 인사하지 않게.
                             if (coordinator.pendingSettlement.value == null) closing = true
-                            scope.launch { coordinator.dismissExitCheck(); if (closing) onFinish() }
+                            // 점검을 닫는 동안(mutex 대기) 정산이 생길 수 있어 닫은 뒤 다시 본다.
+                            scope.launch {
+                                coordinator.dismissExitCheck()
+                                if (coordinator.pendingSettlement.value == null) onFinish() else closing = false
+                            }
                         },
                     )
                 }
