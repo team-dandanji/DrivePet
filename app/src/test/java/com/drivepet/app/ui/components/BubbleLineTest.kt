@@ -20,6 +20,10 @@ class BubbleLineTest {
         assert(line.length <= 15)
     }
 
+    @Test fun lastWordEndingExactlyAt15IsKept() {
+        assertEquals("가나다라마 바사아자차 카타파", bubbleLine("가나다라마 바사아자차 카타파 하"))
+    }
+
     @Test fun noSpaceCutsAt15WithoutBreakingSurrogates() {
         assertEquals("가".repeat(15), bubbleLine("가".repeat(20)))
         val emoji = "😀".repeat(20)

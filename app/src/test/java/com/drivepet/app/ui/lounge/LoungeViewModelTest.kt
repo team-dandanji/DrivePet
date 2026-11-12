@@ -36,7 +36,8 @@ class LoungeViewModelTest {
     private class FakeSpeaker : Speaker {
         override val bubble = MutableStateFlow<Bubble?>(null)
         val said = mutableListOf<String>()
-        override fun say(text: String, voice: Boolean) { said += text }
+        val voices = mutableListOf<Boolean>()
+        override fun say(text: String, voice: Boolean) { said += text; voices += voice }
     }
 
     private val store = FakeRecordStore()
@@ -111,6 +112,7 @@ class LoungeViewModelTest {
         val v = vm()
         v.onEnter()
         assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
+        assertEquals(listOf(true), speaker.voices) // 라운지 인사는 목소리로도 읽는다
         assertEquals("2026-11-10", greetDate)
         v.onEnter()
         assertEquals("오늘도 같이 달려요", speaker.said.last())

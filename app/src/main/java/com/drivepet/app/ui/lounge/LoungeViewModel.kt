@@ -206,7 +206,8 @@ class LoungeViewModel(
             val base = (if (first) "안녕, 나 ${u.nickname}! " else "") + moodLine(u.mood)
             val greetLine = if (first) withTimeoutOrNull(WEATHER_WAIT_MS) { weatherLoad.await() }?.greetLine else null
             val missionLine = if (first) missionLine(u.missions) else null
-            speaker.say(listOfNotNull(base, greetLine, missionLine).joinToString(" "))
+            // 인사 전체를 목소리로 읽고, 말풍선은 첫 문장 한 줄만 보인다(SpeechBubble의 bubbleLine).
+            speaker.say(listOfNotNull(base, greetLine, missionLine).joinToString(" "), voice = true)
             if (first) setLastGreetDate(date)
         }
     }

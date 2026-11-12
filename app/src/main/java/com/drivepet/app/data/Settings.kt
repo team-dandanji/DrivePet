@@ -27,6 +27,9 @@ data class PendingCare(
     val recordId: String = UUID.randomUUID().toString(),
 )
 
+/** id 없이 저장된 옛 대기의 고정 기록 id. 서버는 record_id로 UUID만 받으므로 이름 기반 UUID로 만든다(출석과 같은 방식). */
+fun legacyPendingRecordId(profileId: String, itemId: String): String = UUID.nameUUIDFromBytes("pending:$profileId:$itemId".toByteArray()).toString()
+
 class Settings(context: Context) {
     private val store = context.applicationContext.settingsStore
     private val modeKey = stringPreferencesKey("mode")
@@ -71,7 +74,7 @@ class Settings(context: Context) {
         val item = p[pendingItemKey] ?: return@map null
         val profile = p[pendingProfileKey].orEmpty()
         // id가 없던 이전 버전의 대기는 항목·프로필로 고정 id를 만든다(읽을 때마다 바뀌면 중복 방지가 안 된다).
-        PendingCare(item, p[pendingPlaceKey].orEmpty(), profile, p[pendingArmedKey] == true, p[pendingRecordKey] ?: "pending-$profile-$item")
+        PendingCare(item, p[pendingPlaceKey].orEmpty(), profile, p[pendingArmedKey] == true, p[pendingRecordKey] ?: legacyPendingRecordId(profile, item))
     }
 
     /** null이면 지운다. */

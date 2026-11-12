@@ -29,6 +29,7 @@ fun bubbleLine(text: String): String {
     val first = SENTENCE_END.find(t)?.let { t.substring(0, it.range.last + 1) } ?: t
     if (first.codePointCount(0, first.length) <= BUBBLE_MAX) return first
     val cut = first.substring(0, first.offsetByCodePoints(0, BUBBLE_MAX))
+    if (first[cut.length] == ' ') return cut.trimEnd() // 바로 뒤가 띄어쓰기면 마지막 단어가 꼭 맞게 들어간다
     val space = cut.lastIndexOf(' ')
     return (if (space > 0) cut.substring(0, space) else cut).trimEnd()
 }
