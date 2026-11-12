@@ -149,6 +149,13 @@ class EventEngineTest {
     }
 
     @Test
+    fun `P에서 문 열 때 실내등 켜져 있으면 하차 점검에 실내등`() {
+        change { it.copy(cabinLight = Signal.Ok(true, now)) }
+        change(1_000) { it.copy(driverDoorOpen = Signal.Ok(true, now)) }
+        assertEquals(listOf(ExitItem.CABIN_LIGHT_ON), only<DriveEvent.PreExitCheck>().single().items)
+    }
+
+    @Test
     fun `벨트 안 매고 출발하면 BeltReminder`() {
         change { it.copy(driverBeltBuckled = Signal.Ok(false, now)) }
         gear(Gear.D)

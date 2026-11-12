@@ -28,7 +28,7 @@ fun capabilitiesOf(s: VehicleState): List<Capability> = listOf(
     "기어" to s.gear, "주행 제한" to s.uxRestricted, "누적거리" to s.odometerKm, "차속" to s.speedKmh,
     "브레이크" to s.brakePressed, "조향각" to s.steeringDeg, "방향지시등" to s.turnSignal,
     "운전석 문" to s.driverDoorOpen, "문 잠금" to s.doorsLocked, "운전석 창문" to s.driverWindow,
-    "전조등" to s.lowBeam, "상향등" to s.highBeam, "안전벨트" to s.driverBeltBuckled,
+    "전조등" to s.lowBeam, "상향등" to s.highBeam, "실내등" to s.cabinLight, "안전벨트" to s.driverBeltBuckled,
     "배터리·연료" to s.energyPct, "경고등" to s.warnings,
 ).map { (name, signal: Signal<*>) -> Capability(name, statusOf(signal)) }
 

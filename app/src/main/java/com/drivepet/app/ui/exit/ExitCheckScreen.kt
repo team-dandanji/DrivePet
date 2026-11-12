@@ -36,12 +36,14 @@ private const val DONE_AUTO_DISMISS_MS = 5_000L
 private fun pending(i: ExitItem) = when (i) {
     ExitItem.WINDOW_OPEN -> "창문이 열려 있어요"
     ExitItem.HEADLIGHT_ON -> "전조등이 켜져 있어요"
+    ExitItem.CABIN_LIGHT_ON -> "실내등이 켜져 있어요"
     ExitItem.DOORS_UNLOCKED -> "문이 잠기지 않았어요"
 }
 
 private fun resolved(i: ExitItem) = when (i) {
     ExitItem.WINDOW_OPEN -> "창문 닫힘"
     ExitItem.HEADLIGHT_ON -> "전조등 꺼짐"
+    ExitItem.CABIN_LIGHT_ON -> "실내등 꺼짐"
     ExitItem.DOORS_UNLOCKED -> "문 잠김"
 }
 

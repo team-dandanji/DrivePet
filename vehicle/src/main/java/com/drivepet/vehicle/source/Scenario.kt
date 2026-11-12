@@ -28,7 +28,7 @@ data class Scenario(
     companion object {
         val KEYS = setOf(
             "gear", "uxRestricted", "odometerKm", "speedKmh", "brakePressed", "steeringDeg", "turnSignal",
-            "driverDoorOpen", "doorsLocked", "driverWindow", "windows.driver", "lowBeam", "highBeam",
+            "driverDoorOpen", "doorsLocked", "driverWindow", "windows.driver", "lowBeam", "highBeam", "cabinLight",
             "driverBeltBuckled", "energyPct", "warnings",
         )
 
@@ -57,6 +57,7 @@ data class Scenario(
             "driverWindow", "windows.driver" -> s.copy(driverWindow = Signal.Ok((v as Number).toInt().coerceIn(0, 10), now))
             "lowBeam" -> s.copy(lowBeam = Signal.Ok(v as Boolean, now))
             "highBeam" -> s.copy(highBeam = Signal.Ok(v as Boolean, now))
+            "cabinLight" -> s.copy(cabinLight = Signal.Ok(v as Boolean, now))
             "driverBeltBuckled" -> s.copy(driverBeltBuckled = Signal.Ok(v as Boolean, now))
             "energyPct" -> s.copy(energyPct = Signal.Ok((v as Number).toInt(), now))
             "warnings" -> s.copy(warnings = Signal.Ok((v as List<*>).map { it.toString() }, now))
