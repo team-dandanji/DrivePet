@@ -64,6 +64,7 @@ class OnboardingViewModel(
     private val store: RecordStore,
     val state: StateFlow<VehicleState>,
     private val currentAccountId: suspend () -> String?,
+    private val setLocationConsent: suspend (Boolean) -> Unit = {},
     private val setActive: suspend (String) -> Unit,
 ) : ViewModel() {
     val capabilities: StateFlow<List<Capability>> =
@@ -75,6 +76,9 @@ class OnboardingViewModel(
     var nickname by mutableStateOf("")
     var terms by mutableStateOf(setOf<Term>())
     val termsOk: Boolean get() = Term.SERVICE in terms && Term.VEHICLE_DATA in terms
+
+    /** 약관 화면의 [다음]에서 부른다. 선택 항목(위치 정보)을 거부했으면 날씨·주변 정비소 검색을 끈다. */
+    suspend fun saveTerms() = setLocationConsent(Term.LOCATION in terms)
 
     /** 한 화면에 하나씩 묻는 소모품(EV 3, ICE·HEV 4 — 엔진오일 먼저). */
     val careQuestions: List<CareItem> get() = careItemsFor(fuelType)
@@ -136,7 +140,8 @@ class OnboardingViewModel(
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
                 OnboardingViewModel(
-                    container.store, VehicleModule.repository.state, { container.auth.get().accountId }, container.settings::setActiveProfile,
+                    container.store, VehicleModule.repository.state, { container.auth.get().accountId },
+                    container.settings::setLocationConsent, container.settings::setActiveProfile,
                 ) as T
         }
     }

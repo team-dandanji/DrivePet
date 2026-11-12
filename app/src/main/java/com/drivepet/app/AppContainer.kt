@@ -38,7 +38,7 @@ class AppContainer(context: Context) {
     val sync = SyncEngine(remote::api, syncStore, auth)
     val account = AccountService(remote::api, auth, syncStore, ::wipeLocal) { sync.run() }
     val location = LocationSource(app)
-    val weather = WeatherRepo(remote::api, location::latLng)
+    val weather = WeatherRepo(remote::api, location::latLng, { settings.locationConsent.first() })
     val places = PlacesRepo(remote::api)
     /** 내장 내비 연결. AppNav가 켜질 때 미리 맺고(주행 팝업 첫 탭이 바로 먹도록) 앱이 살아 있는 동안 둔다. */
     val navi by lazy { Navi(app) }

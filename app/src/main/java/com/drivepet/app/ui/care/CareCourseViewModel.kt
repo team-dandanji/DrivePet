@@ -30,6 +30,8 @@ sealed interface CourseUi {
     data class Ready(val stops: List<Stop>, val selected: Int, val target: CareItem) : CourseUi
     data object Empty : CourseUi
     data object Failed : CourseUi
+    /** 위치 정보 이용에 동의하지 않았다(약관 선택 항목). 위치도 서버도 쓰지 않는다. */
+    data object NoConsent : CourseUi
 }
 
 /** 내비 ETA가 없을 때 쓰는 시내 평균 속도(18km/h = 300m/분). 피그마 2.1km → 7분. */
@@ -42,6 +44,7 @@ class CareCourseViewModel(
     private val location: suspend () -> Pair<Double, Double>?,
     private val eta: suspend (PlaceDto) -> Int?,
     private val target: CareItem,
+    private val consent: suspend () -> Boolean = { true },
 ) : ViewModel() {
     private val _ui = MutableStateFlow<CourseUi>(CourseUi.Loading)
     val ui: StateFlow<CourseUi> = _ui
@@ -67,10 +70,12 @@ class CareCourseViewModel(
         _ui.value = CourseUi.Loading
         viewModelScope.launch {
             _ui.value = try {
-                val (lat, lng) = location() ?: error("위치 없음") // Failed(주변 정비소를 찾지 못했어요 + 다시 찾기)
-                // 내비 질문은 하나씩만 보낼 수 있어 차례로 묻는다.
-                val stops = places.nearby(lat, lng).sortedBy { it.distanceM }.take(MAX_STOPS).map { Stop(it, minutesTo(it)) }
-                if (stops.isEmpty()) CourseUi.Empty else CourseUi.Ready(stops, 0, target)
+                if (!consent()) CourseUi.NoConsent else {
+                    val (lat, lng) = location() ?: error("위치 없음") // Failed(주변 정비소를 찾지 못했어요 + 다시 찾기)
+                    // 내비 질문은 하나씩만 보낼 수 있어 차례로 묻는다.
+                    val stops = places.nearby(lat, lng).sortedBy { it.distanceM }.take(MAX_STOPS).map { Stop(it, minutesTo(it)) }
+                    if (stops.isEmpty()) CourseUi.Empty else CourseUi.Ready(stops, 0, target)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -89,6 +94,7 @@ class CareCourseViewModel(
                 { c.navi.currentLocation() ?: withContext(Dispatchers.IO) { c.location.latLngOrNull() } }, // 내비 위치가 없으면 마지막 위치, 그것도 없으면 null(서울시청으로 대신하지 않는다)
                 c.navi::eta,
                 target,
+                { c.settings.locationConsent.first() },
             ) as T
         }
 

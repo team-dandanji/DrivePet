@@ -259,7 +259,9 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                     }
                     composable(Routes.ONBOARD_TERMS) { entry ->
                         // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(01의 다시 설정은 약관을 거치지 않는다).
-                        TermsScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
+                        val termsVm: OnboardingViewModel = viewModel(entry, factory = OnboardingViewModel.factory(container))
+                        TermsScreen(termsVm, onBack = { nav.popBackStack() }) {
+                            container.scope.launch { termsVm.saveTerms() } // 선택 약관(위치)은 이 항목의 ViewModel에만 있어 여기서 저장한다
                             nav.navigate(linkRoute("scan"))
                         }
                     }

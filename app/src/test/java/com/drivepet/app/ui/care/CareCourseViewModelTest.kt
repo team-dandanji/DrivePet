@@ -30,8 +30,8 @@ class CareCourseViewModelTest {
     @Before fun setUp() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm(api: PlacesApi, eta: (PlaceDto) -> Int? = { null }, location: () -> Pair<Double, Double>? = { 37.44 to 127.13 }) =
-        CareCourseViewModel(PlacesRepo { api }, { location() }, { eta(it) }, CareItem.TIRE)
+    private fun vm(api: PlacesApi, eta: (PlaceDto) -> Int? = { null }, location: () -> Pair<Double, Double>? = { 37.44 to 127.13 }, consent: Boolean = true) =
+        CareCourseViewModel(PlacesRepo { api }, { location() }, { eta(it) }, CareItem.TIRE, { consent })
 
     @Test fun `shows three stops sorted by distance with minutes`() {
         val api = PlacesApi { listOf(place("c", 4800), place("a", 2100), place("b", 3400)) }
@@ -71,6 +71,15 @@ class CareCourseViewModelTest {
         loc = 37.44 to 127.13
         vm.retry()
         assertEquals(1, (vm.ui.value as CourseUi.Ready).stops.size)
+    }
+
+    @Test fun `동의하지 않으면 NoConsent, 위치도 서버도 쓰지 않는다`() {
+        val api = PlacesApi { listOf(place("a", 2100)) }
+        var locationReads = 0
+        val vm = vm(api, location = { locationReads++; 37.44 to 127.13 }, consent = false)
+        assertEquals(CourseUi.NoConsent, vm.ui.value)
+        assertEquals(0, locationReads)
+        assertEquals(0, api.calls)
     }
 
     @Test fun `remove last stop gives Empty`() {

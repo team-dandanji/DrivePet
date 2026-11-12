@@ -30,12 +30,13 @@ class OnboardingViewModelTest {
     private val store = FakeRecordStore()
     private val state = MutableStateFlow(VehicleState())
     private var activated: String? = null
+    private var locationConsent: Boolean? = null
     private var account: String? = null
     private lateinit var vm: OnboardingViewModel
 
     @Before fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
-        vm = OnboardingViewModel(store, state, { account }) { activated = it }
+        vm = OnboardingViewModel(store, state, { account }, { locationConsent = it }) { activated = it }
     }
 
     @After fun tearDown() = Dispatchers.resetMain()
@@ -110,6 +111,18 @@ class OnboardingViewModelTest {
         assertFalse(vm.termsOk)
         vm.terms = setOf(Term.SERVICE, Term.VEHICLE_DATA)
         assertTrue(vm.termsOk)
+    }
+
+    @Test fun `선택 약관 위치를 거부하면 동의 false를 저장한다`() = runTest {
+        vm.terms = setOf(Term.SERVICE, Term.VEHICLE_DATA)
+        vm.saveTerms()
+        assertEquals(false, locationConsent)
+    }
+
+    @Test fun `선택 약관 위치에 동의하면 동의 true를 저장한다`() = runTest {
+        vm.terms = Term.entries.toSet()
+        vm.saveTerms()
+        assertEquals(true, locationConsent)
     }
 
     @Test fun `periodLabel은 피그마 보기 문구`() {

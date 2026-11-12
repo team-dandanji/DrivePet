@@ -30,6 +30,7 @@ class Settings(context: Context) {
     private val serverUrlKey = stringPreferencesKey("server_url")
     private val pendingItemKey = stringPreferencesKey("pending_care_item")
     private val pendingPlaceKey = stringPreferencesKey("pending_care_place")
+    private val locationConsentKey = booleanPreferencesKey("location_consent")
     private val pendingProfileKey = stringPreferencesKey("pending_care_profile")
     private val pendingArmedKey = booleanPreferencesKey("pending_care_armed")
 
@@ -54,6 +55,11 @@ class Settings(context: Context) {
     val serverUrl: Flow<String> = store.data.map { it[serverUrlKey] ?: BuildConfig.DEFAULT_SERVER_URL }
 
     suspend fun setServerUrl(url: String) { store.edit { it[serverUrlKey] = url } }
+
+    /** 선택 약관 「위치 정보 및 날씨, 주변장소」 동의. 저장된 값이 없으면 true(기존 사용자·약관을 거치지 않는 로그인 복원은 그대로 쓴다). */
+    val locationConsent: Flow<Boolean> = store.data.map { it[locationConsentKey] ?: true }
+
+    suspend fun setLocationConsent(on: Boolean) { store.edit { it[locationConsentKey] = on } }
 
     val pendingCare: Flow<PendingCare?> = store.data.map { p ->
         val item = p[pendingItemKey] ?: return@map null

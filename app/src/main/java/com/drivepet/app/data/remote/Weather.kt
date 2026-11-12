@@ -17,10 +17,19 @@ import kotlinx.serialization.Serializable
 )
 
 /** 어떤 실패든 null. 날씨는 없어도 앱이 그대로 동작해야 한다. */
-class WeatherRepo(private val api: suspend () -> DrivePetApi, private val location: () -> Pair<Double, Double>) {
+class WeatherRepo(
+    private val api: suspend () -> DrivePetApi,
+    private val location: () -> Pair<Double, Double>,
+    private val consent: suspend () -> Boolean = { true },
+) {
+    /** 위치 정보 이용에 동의하지 않았으면 위치도 서버도 건드리지 않고 null. */
     suspend fun load(): WeatherDto? = try {
-        val (lat, lng) = withContext(Dispatchers.IO) { location() } // getLastKnownLocation은 메인 스레드를 피한다
-        api().weather(lat, lng).data
+        if (!consent()) {
+            null
+        } else {
+            val (lat, lng) = withContext(Dispatchers.IO) { location() } // getLastKnownLocation은 메인 스레드를 피한다
+            api().weather(lat, lng).data
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {

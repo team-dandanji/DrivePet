@@ -100,6 +100,16 @@ fun CareCourseScreen(vm: CareCourseViewModel, onBack: () -> Unit, onRegister: ()
                     DpCta("다시 찾기", vm::retry, if (narrow) Modifier.fillMaxWidth() else Modifier.width(616.dp))
                 }
             }
+            // 재동의 화면은 없으므로 [다시 찾기]도 두지 않는다.
+            CourseUi.NoConsent -> Column(Modifier.fillMaxSize()) {
+                CareBackHeader("펫 돌보기", onBack)
+                Box(Modifier.weight(1f).fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "위치 정보 이용에 동의하지 않아 주변 정비소를 찾을 수 없어요",
+                        style = DpType.titleL.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.Text, textAlign = TextAlign.Center,
+                    )
+                }
+            }
             is CourseUi.Ready -> {
                 val stop = u.stops[u.selected]
                 if (narrow) {
