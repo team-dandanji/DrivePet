@@ -134,6 +134,7 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
             Label("전조등")
             DevButton("하향", { fake.setLowBeam(true) }, isFake); DevButton("상향", { fake.setHighBeam(true) }, isFake)
             DevButton("끄기", { fake.setLowBeam(false); fake.setHighBeam(false) }, isFake)
+            Label("실내등"); DevButton("켜기", { fake.setCabinLight(true) }, isFake); DevButton("끄기", { fake.setCabinLight(false) }, isFake)
             Label("벨트"); DevButton("착용", { fake.setBelt(true) }, isFake); DevButton("해제", { fake.setBelt(false) }, isFake)
             Label("잔량"); DevButton("80%", { fake.setEnergy(80) }, isFake); DevButton("15%", { fake.setEnergy(15) }, isFake)
         }
