@@ -12,7 +12,7 @@ import java.math.BigDecimal
 import java.time.OffsetDateTime
 import java.util.UUID
 
-// shortcut: 검사일·소모품은 비워 보낸다, 정비 화면 계획에서 채운다
+// 검사일·소모품은 아직 비워 보낸다.
 fun ProfileEntity.toState() = ProfileStateDto(
     vehicleName = vehicleName, fuelType = fuelType, starterType = starterType, petNickname = petNickname,
     onboardingCompleted = onboardingCompleted, inspectionDueDate = null, maintenanceItems = emptyList(),

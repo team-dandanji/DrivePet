@@ -80,7 +80,7 @@ object KmaGrid {
 
 /**
  * 에어코리아 근접 측정소 조회용 TM 좌표.
- * shortcut: 중부원점 GRS80(EPSG:5181과 같은 정의)으로 가정했다. 실연동 전에 에어코리아 활용가이드의 기준점으로 확인하고, 다르면 이 정의만 바꾼다.
+ * 중부원점 GRS80(EPSG:5181과 같은 정의)으로 가정했다. 실연동 전에 에어코리아 활용가이드의 기준점으로 확인하고, 다르면 이 정의만 바꾼다.
  */
 object AirKoreaTm {
     private val transform = run {

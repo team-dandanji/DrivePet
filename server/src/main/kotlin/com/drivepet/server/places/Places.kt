@@ -91,7 +91,7 @@ class PlacesConfig {
 
 /**
  * 카카오 로컬 호출량 제한(1분 고정 창): 기기당 [PER_DEVICE]회, 서버 전체 [GLOBAL]회. 기기 토큰은 공개 /devices로 받을 수 있어 인증만으로는 공유 할당량을 지키지 못한다.
- * shortcut: 서버 한 대의 메모리 카운터라 여러 대로 늘리면 각자 따로 센다 — 그때 Redis 등 공용 저장소로 옮긴다.
+ * 서버 한 대의 메모리 카운터라, 여러 대로 늘리면 각자 따로 센다. 그때는 Redis 같은 공용 저장소로 옮긴다.
  */
 @Component
 class PlacesRateLimiter(private val clock: Clock) {
