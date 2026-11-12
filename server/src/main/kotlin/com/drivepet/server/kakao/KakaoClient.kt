@@ -18,8 +18,12 @@ data class KakaoProperties(
     val mode: String = "fake",
     val restApiKey: String = "",
     val clientSecret: String = "",
+    /** 탈퇴 때 카카오 쪽 연결을 끊는 데만 쓴다. 비어 있으면 끊지 않는다 */
+    val adminKey: String = "",
     val authBaseUrl: String = "https://kauth.kakao.com",
     val apiBaseUrl: String = "https://kapi.kakao.com",
+    /** 카카오 로컬(주변 장소 검색) API 주소. 같은 REST API 키를 쓴다 */
+    val localBaseUrl: String = "https://dapi.kakao.com",
     val timeout: Duration = Duration.ofSeconds(5),
 )
 
@@ -35,6 +39,9 @@ interface KakaoClient {
 
     /** 인가 코드 → 카카오 사용자(고유 ID, 닉네임). 실패는 KakaoExchangeException (메시지에 코드·키를 넣지 않음) */
     fun exchange(code: String, redirectUri: String): KakaoUser
+
+    /** 카카오 쪽 앱 연결 끊기(Admin 키, 회원번호 지정). Admin 키가 없으면 false. 실패는 KakaoExchangeException */
+    fun unlink(subject: String): Boolean
 }
 
 class HttpKakaoClient(private val props: KakaoProperties, private val json: JsonMapper) : KakaoClient {
@@ -80,6 +87,21 @@ class HttpKakaoClient(private val props: KakaoProperties, private val json: Json
             .ifBlank { "카카오 사용자" }
         return KakaoUser(id, nickname)
     }
+
+    override fun unlink(subject: String): Boolean {
+        if (props.adminKey.isBlank()) return false
+        val form = LinkedMultiValueMap<String, String>().apply {
+            add("target_id_type", "user_id")
+            add("target_id", subject)
+        }
+        try {
+            http.post().uri("${props.apiBaseUrl}/v1/user/unlink").header("Authorization", "KakaoAK ${props.adminKey}")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().toBodilessEntity()
+        } catch (e: Exception) {
+            throw KakaoExchangeException("카카오 연결 끊기 실패(${e.javaClass.simpleName})")
+        }
+        return true
+    }
 }
 
 /**
@@ -89,6 +111,8 @@ class HttpKakaoClient(private val props: KakaoProperties, private val json: Json
 class FakeKakaoClient : KakaoClient {
     override val fake = true
     @Volatile var failExchange = false
+    @Volatile var failUnlink = false
+    val unlinked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     override fun authorizeUrl(state: String, redirectUri: String): String =
         UriComponentsBuilder.fromUriString(redirectUri).queryParam("fake", "1").queryParam("state", state).encode().build().toUriString()
@@ -100,6 +124,12 @@ class FakeKakaoClient : KakaoClient {
             "fake-B" -> KakaoUser("fake-B", "가짜 사용자 B")
             else -> throw KakaoExchangeException("알 수 없는 가짜 코드")
         }
+    }
+
+    override fun unlink(subject: String): Boolean {
+        if (failUnlink) throw KakaoExchangeException("가짜 카카오 연결 끊기 실패")
+        unlinked += subject
+        return true
     }
 }
 

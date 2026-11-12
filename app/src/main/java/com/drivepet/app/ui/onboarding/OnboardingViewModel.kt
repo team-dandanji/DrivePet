@@ -8,6 +8,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.drivepet.app.AppContainer
 import com.drivepet.app.data.RecordStore
+import com.drivepet.app.data.careItemEntity
+import com.drivepet.app.domain.CareBaseline
+import com.drivepet.app.domain.CareItem
+import com.drivepet.app.domain.ServicedPeriod
+import com.drivepet.app.domain.careItemsFor
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.domain.FuelType
 import com.drivepet.vehicle.VehicleModule
@@ -39,26 +44,57 @@ private fun statusOf(s: Signal<*>) = when (s) {
     Signal.Unknown -> "미측정"
 }
 
+/** 약관(저장하지 않는다). SERVICE·VEHICLE_DATA가 필수. */
+enum class Term { SERVICE, VEHICLE_DATA, LOCATION }
+
+/** 소모품 질문 보기 문구(피그마 O5). ServicedPeriod.label은 정비소 탭이 쓰므로 그대로 둔다. */
+fun periodLabel(p: ServicedPeriod): String = when (p) {
+    ServicedPeriod.WITHIN_3_MONTHS -> "최근 3개월 내"
+    ServicedPeriod.ABOUT_6_MONTHS -> "3-6개월"
+    ServicedPeriod.OVER_1_YEAR -> "1년 이상"
+    ServicedPeriod.UNKNOWN -> "기억 안남"
+}
+
 private const val BATTERY_ERROR = "올바른 용량을 입력해 주세요"
 private val DECIMAL = Regex("""\d+(\.\d+)?""")
 private const val MAX_BATTERY_KWH = 200.0
 
-/** 04(차량 정보)와 06(메이트) 두 화면이 함께 쓴다. setActive는 Settings.setActiveProfile(테스트에서는 람다). */
+/** 차량 정보·소모품 질문·주행거리·메이트 화면이 함께 쓴다(약관은 같은 클래스의 따로 된 인스턴스). setActive는 Settings.setActiveProfile(테스트에서는 람다). */
 class OnboardingViewModel(
     private val store: RecordStore,
     val state: StateFlow<VehicleState>,
+    private val currentAccountId: suspend () -> String?,
+    private val setLocationConsent: suspend (Boolean) -> Unit = {},
     private val setActive: suspend (String) -> Unit,
 ) : ViewModel() {
     val capabilities: StateFlow<List<Capability>> =
         state.map(::capabilitiesOf).stateIn(viewModelScope, SharingStarted.Eagerly, capabilitiesOf(state.value))
 
-    var vehicleName by mutableStateOf("내 차")
+    /** 차량 정보 단계를 지났는지. 프로세스 복원으로 새로 만들어지면 false라 뒤 단계가 차량 정보로 돌려보낸다(AppNav.onboardRedirect). */
+    var scanDone = false
     var fuelType by mutableStateOf(FuelType.EV)
     var batteryText by mutableStateOf("")
-    /** 누적거리를 읽지 못할 때 직접 입력하는 값. 확인용이라 저장하지 않는다(ProfileEntity에 열이 없음). */
-    var odometerText by mutableStateOf("")
-    var starter by mutableStateOf<String?>(null) // STARTER_1..3
+    var starter by mutableStateOf("STARTER_1") // STARTER_1..3, 기본은 노란 알
     var nickname by mutableStateOf("")
+    var terms by mutableStateOf(setOf<Term>())
+    val termsOk: Boolean get() = Term.SERVICE in terms && Term.VEHICLE_DATA in terms
+
+    /** 약관 화면의 [다음]에서 부른다. 선택 항목(위치 정보)을 거부했으면 날씨·주변 정비소 검색을 끈다. */
+    suspend fun saveTerms() = setLocationConsent(Term.LOCATION in terms)
+
+    /** 한 화면에 하나씩 묻는 소모품(EV 3, ICE·HEV 4 — 엔진오일 먼저). */
+    val careQuestions: List<CareItem> get() = careItemsFor(fuelType)
+    /** 05·20 소모품 이력. 고르지 않은 항목은 미등록으로 저장한다. */
+    var careBaselines by mutableStateOf(mapOf<CareItem, CareBaseline>())
+        private set
+
+    /** 앞서 입력한 당시 주행거리는 남긴다. */
+    fun setPeriod(item: CareItem, p: ServicedPeriod) { careBaselines = careBaselines + (item to baseline(item).copy(servicedOn = null, period = p)) }
+
+    /** 주행거리 화면. period는 그대로, null이면 거리만 지운다. */
+    fun setOdometerKm(item: CareItem, km: Int?) { careBaselines = careBaselines + (item to baseline(item).copy(odometerMm = km?.let { it * 1_000_000L })) }
+
+    private fun baseline(item: CareItem) = careBaselines[item] ?: CareBaseline(null, null, null)
 
     /** EV일 때만 의미가 있다. 비었거나 잘못된 값은 null. */
     val batteryKwh: Double? get() =
@@ -71,10 +107,10 @@ class OnboardingViewModel(
         return if (DECIMAL.matches(t) && t.toDouble().let { it > 0.0 && it <= MAX_BATTERY_KWH }) null else BATTERY_ERROR
     }
 
-    fun nicknameError(): String? = if (nickname.trim().length in 2..8) null else "2~8자로 지어 주세요"
+    fun nicknameError(): String? = if (nickname.trim().length in 2..8) null else "2~8자 이내로 입력해주세요"
 
-    val canNext: Boolean get() = vehicleName.trim().length in 1..20 && batteryError() == null
-    val canFinish: Boolean get() = starter != null && nicknameError() == null
+    val canNext: Boolean get() = batteryError() == null
+    val canFinish: Boolean get() = nicknameError() == null
 
     private val profileId = UUID.randomUUID().toString() // 실패 뒤 다시 눌러도 같은 id로 덮어쓴다
     private var finished = false
@@ -83,25 +119,32 @@ class OnboardingViewModel(
     /** 프로필 저장 후 활성화하고 profileId를 돌려준다. 동시에 여러 번 불려도 프로필은 하나만 만든다. */
     suspend fun finish(): String = finishLock.withLock {
         if (finished) return@withLock profileId
-        val chosen = checkNotNull(starter) { "스타터를 고르지 않았다" }
         check(canNext && nicknameError() == null) { "입력이 올바르지 않다" }
         store.upsertProfile(
             ProfileEntity(
-                profileId = profileId, accountId = null, vehicleName = vehicleName.trim(), fuelType = fuelType.name,
-                starterType = chosen, petNickname = nickname.trim(), onboardingCompleted = true,
+                profileId = profileId, accountId = currentAccountId(), vehicleName = VEHICLE_NAME, fuelType = fuelType.name,
+                starterType = starter, petNickname = nickname.trim(), onboardingCompleted = true,
                 batteryKwh = batteryKwh, createdAt = System.currentTimeMillis(),
             ),
         )
+        val empty = CareBaseline(null, null, null)
+        store.saveMaintenanceItems(careItemsFor(fuelType).map { careItemEntity(profileId, it, careBaselines[it] ?: empty) })
         setActive(profileId)
         finished = true
         profileId
     }
 
     companion object {
+        /** 차에서 차 이름을 읽지 못하므로(VehicleState에 없음) 늘 이 이름이다. */
+        const val VEHICLE_NAME = "내 차"
+
         fun factory(container: AppContainer) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                OnboardingViewModel(container.store, VehicleModule.repository.state, container.settings::setActiveProfile) as T
+                OnboardingViewModel(
+                    container.store, VehicleModule.repository.state, { container.auth.get().accountId },
+                    container.settings::setLocationConsent, container.settings::setActiveProfile,
+                ) as T
         }
     }
 }

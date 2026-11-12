@@ -81,6 +81,11 @@ class ExpTest {
         assertEquals("370.000", apiExp(370_000L))
     }
 
+    @Test fun `gauge text drops trailing zero only`() {
+        assertEquals("200 / 500 EXP", gaugeExpText(200_000L, 500_000L))
+        assertEquals("200.5 / 500 EXP", gaugeExpText(200_500L, 500_000L))
+    }
+
     @Test fun `tripPaidMilli gives each trip its share and matches the prefix-difference of totalExpMilli`() {
         val m = 1_000_000L
         val trips = listOf(

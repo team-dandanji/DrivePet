@@ -27,10 +27,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         carSpeedGrantedAtLaunch = checkSelfPermission(CAR_SPEED) == PackageManager.PERMISSION_GRANTED
         setContent {
-            DrivePetTheme { AppNav((application as DrivePetApp).container) }
+            DrivePetTheme { AppNav((application as DrivePetApp).container, onFinish = { finishAndRemoveTask() }) }
         }
         if (savedInstanceState == null) {
-            permissions.launch(arrayOf(CAR_SPEED, Manifest.permission.POST_NOTIFICATIONS))
+            permissions.launch(arrayOf(CAR_SPEED, Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
     }
 

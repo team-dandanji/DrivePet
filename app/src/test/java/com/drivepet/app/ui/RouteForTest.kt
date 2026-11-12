@@ -1,5 +1,6 @@
 package com.drivepet.app.ui
 
+import com.drivepet.app.drive.isDriving
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
@@ -9,7 +10,7 @@ import org.junit.Test
 class RouteForTest {
     private data class Case(
         val name: String, val expected: Forced,
-        val loaded: Boolean = true, val hasProfile: Boolean = true, val driving: Boolean = false,
+        val loaded: Boolean = true, val hasProfile: Boolean = true, val hasAnyProfile: Boolean = true, val driving: Boolean = false,
         val exitOpen: Boolean = false, val settlement: Boolean = false, val parked: Boolean = true,
         val doorOpenedParked: Boolean = false,
     )
@@ -23,18 +24,22 @@ class RouteForTest {
         Case("정차 중 문이 열렸으면 하차 점검이 정산보다 앞", Forced.EXIT_CHECK, exitOpen = true, settlement = true, doorOpenedParked = true),
         Case("정산이 없으면 하차 점검", Forced.EXIT_CHECK, exitOpen = true),
         Case("주행 중이면 문이 열려도 DRIVING", Forced.DRIVING, driving = true, exitOpen = true, settlement = true, doorOpenedParked = true),
-        Case("프로필이 없으면 하차 점검보다 ONBOARDING", Forced.ONBOARDING, exitOpen = true, hasProfile = false),
+        Case("프로필이 없으면 하차 점검보다 ONBOARDING", Forced.ONBOARDING, exitOpen = true, hasProfile = false, hasAnyProfile = false),
         Case("정차 중 정산 대기 → SETTLEMENT", Forced.SETTLEMENT, settlement = true),
         Case("정차가 아니면 정산은 보류", Forced.NONE, settlement = true, parked = false),
-        Case("프로필이 없으면 정산보다 ONBOARDING", Forced.ONBOARDING, settlement = true, hasProfile = false),
-        Case("읽기 완료 후 프로필 없음 → ONBOARDING", Forced.ONBOARDING, hasProfile = false),
+        Case("프로필이 없으면 정산보다 ONBOARDING", Forced.ONBOARDING, settlement = true, hasProfile = false, hasAnyProfile = false),
+        Case("읽기 완료 후 프로필 없음 → ONBOARDING", Forced.ONBOARDING, hasProfile = false, hasAnyProfile = false),
         Case("읽기 전에는 프로필 없음으로 보지 않는다", Forced.NONE, hasProfile = false, loaded = false),
+        Case("활성 프로필은 없지만 프로필이 있으면 WELCOME", Forced.WELCOME, hasProfile = false, hasAnyProfile = true),
+        Case("프로필이 하나도 없으면 ONBOARDING", Forced.ONBOARDING, hasProfile = false, hasAnyProfile = false),
+        Case("주행 중이면 WELCOME 조건이어도 DRIVING", Forced.DRIVING, driving = true, hasProfile = false, hasAnyProfile = true),
+        Case("읽기 전에는 WELCOME도 아니다", Forced.NONE, hasProfile = false, hasAnyProfile = true, loaded = false),
     )
 
     @Test
     fun routeFor_table() {
         for (c in cases) {
-            assertEquals(c.name, c.expected, routeFor(c.loaded, c.hasProfile, c.driving, c.exitOpen, c.settlement, c.parked, c.doorOpenedParked))
+            assertEquals(c.name, c.expected, routeFor(c.loaded, c.hasProfile, c.hasAnyProfile, c.driving, c.exitOpen, c.settlement, c.parked, c.doorOpenedParked))
         }
     }
 
@@ -42,16 +47,64 @@ class RouteForTest {
     fun isDriving_truthTable() {
         fun st(ux: Signal<Boolean>, gear: Signal<Gear>) = VehicleState(uxRestricted = ux, gear = gear)
         val d = Signal.Ok(Gear.D, 0); val r = Signal.Ok(Gear.R, 0); val p = Signal.Ok(Gear.P, 0); val n = Signal.Ok(Gear.N, 0)
-        assertEquals(true, isDriving(st(Signal.Ok(true, 0), p)))
+        assertEquals(true, isDriving(st(Signal.Ok(true, 0), p))) // P여도 제한이 켜지면 주행 중
         assertEquals(true, isDriving(st(Signal.Ok(true, 0), Signal.Unknown)))
-        assertEquals(false, isDriving(st(Signal.Ok(false, 0), d))) // 제한이 읽히면 그 값이 우선
-        assertEquals(false, isDriving(st(Signal.Ok(false, 0), Signal.Unknown)))
+        assertEquals(true, isDriving(st(Signal.Ok(false, 0), d))) // 제한이 꺼져 있어도 P가 아니면 주행 중
+        assertEquals(true, isDriving(st(Signal.Ok(false, 0), n)))
+        assertEquals(false, isDriving(st(Signal.Ok(false, 0), p)))
+        assertEquals(false, isDriving(st(Signal.Ok(false, 0), Signal.Unknown))) // 기어를 못 읽으면 제한 값만 따름
         for (ux in listOf(Signal.Unknown, Signal.Unsupported, Signal.NoPermission)) {
             assertEquals(true, isDriving(st(ux, d)))
             assertEquals(true, isDriving(st(ux, r)))
+            assertEquals(true, isDriving(st(ux, n)))
             assertEquals(false, isDriving(st(ux, p)))
-            assertEquals(false, isDriving(st(ux, n)))
-            assertEquals(false, isDriving(st(ux, Signal.Unknown)))
+            assertEquals(false, isDriving(st(ux, Signal.Unknown))) // 둘 다 못 읽으면 false
         }
+    }
+
+    /** 06 완료 직후: WELCOME 판정이 늦게 돌아도 그 사이 활성 프로필이 정해졌으면 라운지를 01로 되돌리지 않는다. */
+    @Test fun resetTargetRechecksActiveProfile() {
+        assertEquals(null, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = false))
+        assertEquals(Routes.WELCOME, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = true)) // 다른 곳에서 활성 프로필이 지워짐
+        assertEquals(null, resetTarget(Routes.ONBOARD_MATE, Forced.WELCOME, noActive = true))
+        assertEquals(null, resetTarget(Routes.WELCOME, Forced.WELCOME, noActive = true))
+        assertEquals(Routes.ONBOARD_INTRO, resetTarget(Routes.LOUNGE, Forced.ONBOARDING, noActive = true))
+        assertEquals(null, resetTarget(Routes.ONBOARD_SCAN, Forced.ONBOARDING, noActive = true))
+        assertEquals(null, resetTarget(Routes.ONBOARD_INTRO, Forced.ONBOARDING, true))
+        for (r in listOf(Routes.ONBOARD_TERMS, Routes.ONBOARD_CARE, Routes.ONBOARD_MILEAGE)) assertEquals(r, null, resetTarget(r, Forced.ONBOARDING, true))
+        assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
+    }
+
+    /** 프로세스 복원으로 공유 ViewModel이 새로 생기면(차량 정보를 지나지 않음) 뒤 단계는 차량 정보로 돌린다. */
+    @Test fun onboardRedirectGuardsLaterSteps() {
+        assertEquals(Routes.ONBOARD_SCAN, onboardRedirect(scanDone = false)) // 주행거리·메이트
+        assertEquals(Routes.ONBOARD_SCAN, onboardRedirect(scanDone = false, careIndex = 0, careCount = 3))
+        assertEquals(null, onboardRedirect(scanDone = true))
+        assertEquals(null, onboardRedirect(scanDone = true, careIndex = 2, careCount = 3))
+        assertEquals(careRoute(0), onboardRedirect(scanDone = true, careIndex = 3, careCount = 3))
+    }
+
+    @Test fun afterLinkContinuesOnboardingWithoutRecords() {
+        assertEquals(Routes.ONBOARD_SCAN, afterLink("scan", restored = false, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("scan", restored = true, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = true, hasAnyProfile = false))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = true, hasAnyProfile = true))
+        assertEquals(Routes.WELCOME, afterLink("welcome", restored = false, hasAnyProfile = true)) // 01에서 계정만 바꿈
+        assertEquals(Routes.ONBOARD_SCAN, afterLink("welcome", restored = false, hasAnyProfile = false)) // 인트로 로그인, 서버 기록 없음
+    }
+
+    @Test
+    fun restrictedCopy_introVsGeneral() {
+        val intro = "안전하게 주차한 뒤 시작해주세요"
+        val general = "주행 중에는 서비스 사용이 제한돼요"
+        assertEquals(intro, restrictedCopy(Routes.ONBOARD_SCAN, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.LINK, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.ONBOARD_INTRO, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.WELCOME, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.LOUNGE, hasProfile = false).first) // 프로필 없이 주행 중에 처음 연 경우
+        assertEquals(general, restrictedCopy(Routes.LOUNGE, hasProfile = true).first)
+        assertEquals(general, restrictedCopy(null, hasProfile = true).first)
+        assertEquals("계정 연결과 초기 설정은 주차 중에만 이용할 수 있어요\n주행 중에는 화면을 조작하지 마세요", restrictedCopy(Routes.LOUNGE, hasProfile = false).second)
+        assertEquals("안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요", restrictedCopy(Routes.LOUNGE, hasProfile = true).second)
     }
 }

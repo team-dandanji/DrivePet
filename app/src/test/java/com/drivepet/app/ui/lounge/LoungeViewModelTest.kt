@@ -2,15 +2,21 @@ package com.drivepet.app.ui.lounge
 
 import com.drivepet.app.data.FakeRecordStore
 import com.drivepet.app.data.db.ProfileEntity
+import kotlinx.coroutines.flow.first
+import com.drivepet.app.domain.dailyMissions
 import com.drivepet.app.domain.Mood
 import com.drivepet.app.drive.Bubble
+import com.drivepet.app.data.remote.WeatherDto
 import com.drivepet.app.drive.Speaker
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -30,12 +36,12 @@ class LoungeViewModelTest {
     private class FakeSpeaker : Speaker {
         override val bubble = MutableStateFlow<Bubble?>(null)
         val said = mutableListOf<String>()
-        override fun say(text: String, voice: Boolean) { said += text }
+        val voices = mutableListOf<Boolean>()
+        override fun say(text: String, voice: Boolean) { said += text; voices += voice }
     }
 
     private val store = FakeRecordStore()
     private val state = MutableStateFlow(VehicleState(gear = Signal.Ok(Gear.P, 0L)))
-    private val belt = MutableStateFlow(false)
     private val speaker = FakeSpeaker()
     private var greetDate: String? = null
     private var now = Instant.parse("2026-11-10T03:00:00Z") // 서울 12시
@@ -50,9 +56,12 @@ class LoungeViewModelTest {
 
     @After fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm() = LoungeViewModel(
-        store, state, MutableStateFlow("p1"), belt, speaker, { true },
-        kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now },
+    /** 아무것도 안 한 날의 미션 줄(첫 미션). */
+    private fun ml(d: LocalDate) = "오늘 미션: ${dailyMissions("p1", d).first().title}"
+
+    private fun vm(checkIn: suspend () -> Boolean = { true }, loadWeather: suspend () -> WeatherDto? = { null }) = LoungeViewModel(
+        store, state, MutableStateFlow("p1"), speaker, checkIn,
+        kotlinx.coroutines.flow.flow { emit(greetDate) }, { greetDate = it }, { now }, loadWeather,
     )
 
     @Test fun `370 seed는 Lv1 92퍼센트`() = runTest {
@@ -67,37 +76,113 @@ class LoungeViewModelTest {
         store.syncWarnings("p1", listOf("TPMS"), today.minusDays(2))
         val ui = vm().ui.value!!
         assertEquals(Mood.SICK_2, ui.mood)
-        assertEquals(CareAction.HOSPITAL, ui.careAction)
         assertEquals(listOf("TPMS"), ui.warnings)
     }
 
-    @Test fun `벨트 미측정이고 오늘 미출석이며 정차 중이면 체크인 버튼`() = runTest {
-        val v = vm()
-        assertTrue(v.ui.value!!.showCheckInButton)
-        belt.value = true
-        assertFalse(v.ui.value!!.showCheckInButton)
-        belt.value = false
+    @Test fun `onEnter checks in when parked, also later when parked`() = runTest {
         state.value = VehicleState(gear = Signal.Ok(Gear.D, 0L))
-        assertFalse(v.ui.value!!.showCheckInButton)
+        var calls = 0
+        val v = vm(checkIn = { calls++; true })
+        v.onEnter()
+        assertEquals(0, calls)
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L))
+        assertEquals(1, calls)
+        v.onEnter() // 재진입은 한 번 더 시도한다(날짜가 바뀌었거나 앞선 저장이 실패했을 때)
+        assertEquals(2, calls)
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 2L)) // 감시는 한 번만 띄워 같은 정차로는 다시 부르지 않는다
+        assertEquals(2, calls)
+    }
+
+    @Test fun `re-entry checkIn failure does not kill greeting`() = runTest {
+        var fail = false
+        val v = vm(checkIn = { if (fail) error("boom") else true })
+        v.onEnter()
+        fail = true
+        now = now.plusSeconds(61)
+        v.onEnter()
+        assertEquals(2, speaker.said.size)
+    }
+
+    @Test fun `checkIn failure does not kill greeting`() = runTest {
+        val v = vm(checkIn = { error("boom") })
+        v.onEnter()
+        assertEquals(1, speaker.said.size)
     }
 
     @Test fun `하루 첫 진입만 전체 인사`() = runTest {
         val v = vm()
-        v.greetIfFirstToday()
-        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요"), speaker.said)
+        v.onEnter()
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
+        assertEquals(listOf(true), speaker.voices) // 라운지 인사는 목소리로도 읽는다
         assertEquals("2026-11-10", greetDate)
-        v.greetIfFirstToday()
+        now = now.plusSeconds(61)
+        v.onEnter()
         assertEquals("오늘도 같이 달려요", speaker.said.last())
         now = Instant.parse("2026-11-11T03:00:00Z")
-        v.greetIfFirstToday()
-        assertEquals("안녕, 나 모모! 오늘도 같이 달려요", speaker.said.last())
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L)) // 차 상태가 갱신되면 화면 값(오늘 미션)도 새 날짜로 다시 계산된다
+        v.onEnter()
+        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today.plusDays(1))}", speaker.said.last())
         assertNotNull(greetDate)
     }
 
-    @Test fun `포만 20 이하면 FEED`() = runTest {
+    /** 덮개가 연달아 닫혀 onEnter가 몰려도 인사는 60초에 한 번. 출석 시도는 매번 한다. */
+    @Test fun `greeting is skipped within 60s but check-in still runs`() = runTest {
+        var calls = 0
+        val v = vm(checkIn = { calls++; true })
+        v.onEnter() // 하루 첫 인사
+        assertEquals(1, speaker.said.size)
+        val afterFirst = calls
+        now = now.plusSeconds(30)
+        v.onEnter()
+        assertEquals(1, speaker.said.size) // 60초 안: 인사 없음
+        assertEquals(afterFirst + 1, calls) // 출석 시도는 함
+        now = now.plusSeconds(31)
+        v.onEnter()
+        assertEquals(2, speaker.said.size) // 마지막 인사 뒤 61초: 다시 인사
+        assertEquals("오늘도 같이 달려요", speaker.said.last())
+    }
+
+    @Test fun `포만 20 이하여도 돌보기 버튼은 없다`() = runTest {
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), energyPct = Signal.Ok(18, 0L))
         val ui = vm().ui.value!!
         assertEquals(Mood.HUNGRY, ui.mood)
-        assertEquals(CareAction.FEED, ui.careAction)
+    }
+
+    private val clear12 = WeatherDto(12.0, "CLEAR", null, emptyList(), null, false)
+
+    @Test fun `greetIncludesWeatherWhenReady`() = runTest {
+        val v = vm { clear12 }
+        v.onEnter()
+        assertEquals("안녕, 나 모모! 오늘도 같이 달려요 오늘은 맑음, 12°C야. ${ml(today)}", speaker.said.single())
+        assertEquals("맑음", v.weather.value!!.label)
+    }
+
+    @Test fun `greetWithoutWeatherAfterTimeout`() = runTest {
+        val v = vm { awaitCancellation() }
+        v.onEnter()
+        runCurrent()
+        assertTrue(speaker.said.isEmpty())
+        advanceTimeBy(3_001)
+        runCurrent()
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
+        assertEquals(null, v.weather.value)
+    }
+
+    @Test fun `weatherFailureHidesCard`() = runTest {
+        val v = vm { null }
+        v.onEnter()
+        assertEquals(null, v.weather.value)
+        assertEquals(listOf("안녕, 나 모모! 오늘도 같이 달려요 ${ml(today)}"), speaker.said)
+    }
+
+    @Test fun worriedWhenCareLow() = runTest {
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), odometerKm = Signal.Ok(24_500.0, 0L), warnings = Signal.Ok(emptyList(), 0L))
+        val before = vm().ui.value!!
+        assertEquals(Mood.NORMAL, before.mood)
+        store.saveMaintenanceItems(listOf(com.drivepet.app.data.careItemEntity("p1", com.drivepet.app.domain.CareItem.TIRE, com.drivepet.app.domain.CareBaseline(15_000_000_000, null, null))))
+        val ui = vm().ui.value!!
+        assertEquals(Mood.WORRIED, ui.mood) // 9,500km 지남 → 남은 주기 5%
+        assertEquals(100, before.healthPct) // 경고등만: 40/40
+        assertEquals(Math.round((40 + 5 * 0.3) / 70 * 100).toInt(), ui.healthPct)
     }
 }

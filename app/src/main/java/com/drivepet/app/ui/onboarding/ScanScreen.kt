@@ -1,156 +1,121 @@
 package com.drivepet.app.ui.onboarding
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.domain.FuelType
+import com.drivepet.app.ui.components.DpChoice
 import com.drivepet.app.ui.theme.DpColors
+import com.drivepet.app.ui.theme.DpType
 import com.drivepet.vehicle.model.valueOrNull
 import java.util.Locale
 
-/** 04 · 차량 정보 확인. 누적거리는 읽히면 표시만, 못 읽으면 직접 입력. */
+/** 차 이름 아래 큰 글씨(라운지와 같은 표기). */
+private val FUEL_TITLE = mapOf(FuelType.EV to "전기차(EV)", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")
+
+/**
+ * 차량 정보 확인(403:36100). CTA는 늘 켜져 있다(배터리 용량을 잘못 적었을 때만 꺼진다).
+ * 차가 연료 종류를 알려 주지 않아, 피그마 「수정하기」 자리에 연료 고르기를 둔다(소모품 질문 수가 이것으로 정해진다).
+ * EV면 배터리 용량(선택, 효율 점수용)을 오른쪽 카드 맨 아래에서 받는다.
+ */
 @Composable
-fun ScanScreen(vm: OnboardingViewModel, onNext: () -> Unit) {
+fun ScanScreen(vm: OnboardingViewModel, onBack: () -> Unit, onNext: () -> Unit) {
     val caps by vm.capabilities.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     val odometer = state.odometerKm.valueOrNull()
+    val energy = state.energyPct.valueOrNull()
+    val warnings = state.warnings.valueOrNull().orEmpty()
+    val unreadable = caps.filter { it.status != "읽힘" }.map { it.name }
 
-    Column(Modifier.fillMaxSize().padding(40.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("차량 정보를 확인해 주세요", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold)
-            Text("차에서 읽은 정보예요. 읽지 못한 항목은 직접 적어 주세요", fontSize = 26.sp, color = DpColors.TextTertiary)
+    OnboardStep(
+        "차량 정보 확인하기", 1, onBack, "차량 정보를 불러왔어요", "지원 가능한 차량 정보를 조회했어요. 잘못된 항목은 수정할 수 있어요.",
+        cta = StepCta("다음", vm.canNext, onNext),
+    ) { narrow ->
+        val cardHeight = if (narrow) Modifier else Modifier.heightIn(min = 505.dp)
+        val left: @Composable (Modifier) -> Unit = { m ->
+            GlassCard(m.then(cardHeight)) {
+                Column(Modifier.padding(40.dp).then(if (narrow) Modifier else Modifier.fillMaxHeight())) {
+                    Text("차량 프로필", style = DpType.titleS, color = DpColors.TextTertiary)
+                    Text("차량 정보는 자동 매핑됐어요", Modifier.padding(top = 4.dp), style = DpType.labelM, color = DpColors.TextTertiary)
+                    Text(OnboardingViewModel.VEHICLE_NAME, Modifier.padding(top = 83.dp), style = DpType.headlineL, color = DpColors.Text, maxLines = 1)
+                    Text(FUEL_TITLE.getValue(vm.fuelType), Modifier.padding(top = 4.dp), style = DpType.titleL, color = DpColors.Text)
+                    if (narrow) Spacer(Modifier.height(40.dp)) else Spacer(Modifier.weight(1f))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        for ((type, label) in FUELS) DpChoice(label, vm.fuelType == type, { vm.fuelType = type }, Modifier.weight(1f))
+                    }
+                }
+            }
         }
-        Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
-                Column(Modifier.padding(32.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    Text("차량 프로필", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                    Field("차량 이름") {
-                        OutlinedTextField(
-                            vm.vehicleName, { vm.vehicleName = it }, Modifier.fillMaxWidth(), singleLine = true,
-                            textStyle = FIELD_TEXT, supportingText = { Text("1~20자", fontSize = 20.sp) },
-                            isError = vm.vehicleName.trim().length !in 1..20,
-                        )
-                    }
-                    Field("연료 종류") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            for ((type, label) in FUELS) {
-                                Choice(label, vm.fuelType == type, { vm.fuelType = type }, Modifier.weight(1f))
-                            }
-                        }
-                    }
+        val right: @Composable (Modifier) -> Unit = { m ->
+            GlassCard(m.then(cardHeight)) {
+                Column(
+                    Modifier.padding(horizontal = 52.dp, vertical = 40.dp).then(if (narrow) Modifier else Modifier.fillMaxHeight()),
+                    verticalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterVertically),
+                ) {
+                    InfoRow("누적 주행거리", odometer?.let { String.format(Locale.US, "%,.0f km", it) } ?: "조회 불가")
+                    InfoRow(if (vm.fuelType == FuelType.EV) "배터리 잔량" else "연료 잔량", energy?.let { "$it %" } ?: "조회 불가")
+                    InfoRow("차량 경고", warnings.joinToString(", ").ifEmpty { "없음" })
+                    InfoRow("조회 불가 항목", unreadable.joinToString(", ").ifEmpty { "없음" })
                     if (vm.fuelType == FuelType.EV) {
-                        Field("배터리 용량 (kWh, 선택)") {
-                            val error = vm.batteryError()
+                        val error = vm.batteryError()
+                        InfoRow("배터리 용량") {
                             OutlinedTextField(
                                 vm.batteryText, { vm.batteryText = it }, Modifier.fillMaxWidth(), singleLine = true,
-                                textStyle = FIELD_TEXT, isError = error != null,
-                                supportingText = error?.let { { Text(it, fontSize = 20.sp) } },
+                                textStyle = DpType.bodyM.copy(color = DpColors.Text), isError = error != null,
+                                placeholder = { Text("선택 입력", style = DpType.bodyS.copy(fontWeight = FontWeight.Normal), color = DpColors.TextQuaternary) },
+                                suffix = { Text("kWh", style = DpType.bodyS.copy(fontWeight = FontWeight.Normal)) },
+                                supportingText = error?.let { { Text(it, style = DpType.labelS) } },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             )
                         }
                     }
-                    Field("누적 주행거리") {
-                        if (odometer != null) {
-                            Text(String.format(Locale.US, "%,.0f km", odometer), fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                        } else {
-                            OutlinedTextField(
-                                vm.odometerText, { vm.odometerText = it.filter(Char::isDigit) }, Modifier.fillMaxWidth(),
-                                singleLine = true, textStyle = FIELD_TEXT, suffix = { Text("km", fontSize = 26.sp) },
-                                supportingText = { Text("차에서 읽지 못했어요", fontSize = 20.sp) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            )
-                        }
-                    }
-                }
-            }
-            OnboardCard(Modifier.weight(1f).fillMaxSize()) {
-                Column(Modifier.padding(32.dp)) {
-                    Text("차량 기능 확인", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold)
-                    Column(Modifier.weight(1f).padding(top = 12.dp).verticalScroll(rememberScrollState())) {
-                        caps.forEachIndexed { i, c ->
-                            if (i > 0) HorizontalDivider(color = DpColors.Divider)
-                            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), Arrangement.SpaceBetween) {
-                                Text(c.name, fontSize = 26.sp, color = DpColors.TextTertiary)
-                                Text(c.status, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            PrimaryButton("다음", vm.canNext, onNext, Modifier.width(420.dp))
+        if (narrow) Column(verticalArrangement = Arrangement.spacedBy(24.dp)) { left(Modifier.fillMaxWidth()); right(Modifier.fillMaxWidth()) }
+        else Column(Modifier.verticalScroll(rememberScrollState())) { // EV 배터리 칸·긴 목록이면 505보다 길어진다
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                left(Modifier.width(593.dp).fillMaxHeight()); right(Modifier.weight(1f).fillMaxHeight())
+            }
         }
     }
 }
 
-private val FIELD_TEXT = TextStyle(fontSize = 28.sp, color = DpColors.Text)
-private val FUELS = listOf(FuelType.EV to "EV", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")
+/** 오른쪽 카드 한 줄(라벨 260 + 값 40 Bold). */
+@Composable
+private fun InfoRow(label: String, value: String) = InfoRow(label) {
+    Text(value, style = DpType.titleL, color = DpColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+}
 
 @Composable
-private fun Field(label: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, fontSize = 24.sp, color = DpColors.TextTertiary)
-        content()
+private fun InfoRow(label: String, value: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(100.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.width(260.dp), style = DpType.titleM.copy(fontWeight = FontWeight.Normal), color = DpColors.TextTertiary)
+        Box(Modifier.weight(1f)) { value() }
     }
 }
 
-@Composable
-private fun Choice(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier.height(72.dp).background(if (selected) DpColors.Filled else Color.White, shape)
-            .then(if (selected) Modifier else Modifier.border(BorderStroke(2.dp, DpColors.TrackInactive), shape))
-            .selectable(selected, onClick = onClick, role = Role.RadioButton),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else DpColors.Text)
-    }
-}
-
-@Composable
-internal fun OnboardCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(modifier.background(DpColors.Card, RoundedCornerShape(20.dp))) { content() }
-}
-
-@Composable
-internal fun PrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick, modifier.height(96.dp), enabled, shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = DpColors.Filled, contentColor = Color.White,
-            disabledContainerColor = DpColors.TrackInactive, disabledContentColor = Color.White,
-        ),
-    ) { Text(text, fontSize = 30.sp, fontWeight = FontWeight.Bold) }
-}
+internal val FUELS = listOf(FuelType.EV to "EV", FuelType.ICE to "내연기관", FuelType.HEV to "하이브리드")

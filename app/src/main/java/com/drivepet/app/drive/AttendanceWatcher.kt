@@ -18,26 +18,26 @@ class AttendanceWatcher(private val store: RecordStore, private val clock: () ->
     /** driverBeltBuckled가 Ok(true)를 한 번이라도 받았으면 true, 이후 유지. 실제 차 모드의 Ok(false) 고정은 "읽을 수 없음"이다. */
     val beltReadable: StateFlow<Boolean> = _beltReadable
 
-    suspend fun onState(profileId: String, s: VehicleState): Boolean {
+    suspend fun onState(profileId: String, accountId: String?, s: VehicleState): Boolean {
         if (s.driverBeltBuckled.valueOrNull() != true) return false
         _beltReadable.value = true
-        return checkIn(profileId)
+        return checkIn(profileId, accountId)
     }
 
     /** 벨트 착용(true)이 한 번도 안 온 차에서, 정차(P) 중에만 수동 출석. */
-    suspend fun manualCheckIn(profileId: String, s: VehicleState): Boolean {
+    suspend fun manualCheckIn(profileId: String, accountId: String?, s: VehicleState): Boolean {
         if (_beltReadable.value || !s.isParked) return false
-        return checkIn(profileId)
+        return checkIn(profileId, accountId)
     }
 
-    private suspend fun checkIn(profileId: String): Boolean {
+    private suspend fun checkIn(profileId: String, accountId: String?): Boolean {
         val now = clock()
         val date = seoulDate(now)
         return store.insertIfAbsent(
             RecordEntity(
                 recordId = UUID.nameUUIDFromBytes("att:$profileId:$date".toByteArray()).toString(),
                 profileId = profileId,
-                accountId = null,
+                accountId = accountId,
                 kind = "ATTENDANCE",
                 occurredAt = now.toEpochMilli(),
                 payloadJson = Json.encodeToString(AttendancePayload(date.toString())),

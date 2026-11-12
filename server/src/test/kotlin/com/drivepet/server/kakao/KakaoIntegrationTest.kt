@@ -43,9 +43,13 @@ class KakaoIntegrationTest : IntegrationTest() {
     }
 
     @Test
-    fun `QR 생성 - 3분 유효, 가짜 모드 qrUrl은 콜백의 개발용 로그인 페이지`() {
+    fun `QR 생성 - 5분 유효, 가짜 모드 qrUrl은 콜백의 개발용 로그인 페이지`() {
         val dev = register()
+        val before = clock.instant()
         val r = post("/api/v1/auth/kakao/qr-sessions", token = dev.access)
+        val after = clock.instant()
+        val expires = java.time.OffsetDateTime.parse(r.data["expiresAt"].asString()).toInstant()
+        assertTrue(!expires.isBefore(before.plus(Duration.ofMinutes(5)).minusSeconds(1)) && !expires.isAfter(after.plus(Duration.ofMinutes(5)).plusSeconds(1)), "expiresAt=$expires")
         assertEquals("PENDING", r.data["status"].asString())
         assertTrue(r.data["qrUrl"].asString().startsWith("https://test.drivepet.local/api/v1/auth/kakao/callback?fake=1&state="))
         assertTrue(r.data["expiresAt"].asString().endsWith("+09:00"))
@@ -100,7 +104,7 @@ class KakaoIntegrationTest : IntegrationTest() {
     fun `만료 - 상태는 200 EXPIRED, 콜백은 400 안내 페이지, LINKED도 수령 기간이 지나면 EXPIRED`() {
         val dev = register()
         val qr = newQr(dev.access)
-        clock.advance(Duration.ofMinutes(3).plusSeconds(1))
+        clock.advance(Duration.ofMinutes(5).plusSeconds(1))
         assertEquals("EXPIRED", get("/api/v1/auth/kakao/qr-sessions/${qr.id}", dev.access).data["status"].asString())
         val cb = callback(qr.state, "fake-A")
         assertEquals(400, cb.status)
@@ -108,7 +112,7 @@ class KakaoIntegrationTest : IntegrationTest() {
 
         clock.reset()
         val (qr2, _) = link(dev.access)
-        clock.advance(Duration.ofMinutes(4))
+        clock.advance(Duration.ofMinutes(5).plusSeconds(1))
         // dev.access는 연결 전 토큰이지만 상태 조회는 허용된다
         assertEquals("EXPIRED", get("/api/v1/auth/kakao/qr-sessions/${qr2.id}", dev.access).data["status"].asString())
     }

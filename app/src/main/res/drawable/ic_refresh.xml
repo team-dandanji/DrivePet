@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 refresh(40, QR 다시받기 374:56691). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+    <path
+        android:pathData="M33.3333 18.3334C32.9257 15.4004 31.5651 12.6828 29.4611 10.5992C27.357 8.51557 24.6263 7.18155 21.6895 6.80261C18.7526 6.42366 15.7727 7.02082 13.2087 8.50209C10.6446 9.98337 8.63875 12.2666 7.5 15M6.66667 8.33335V15H13.3333M6.66667 21.6667C7.07427 24.5996 8.43489 27.3172 10.5389 29.4008C12.643 31.4844 15.3737 32.8185 18.3105 33.1974C21.2474 33.5764 24.2273 32.9792 26.7913 31.4979C29.3554 30.0166 31.3613 27.7334 32.5 25M33.3333 31.6667V25H26.6667"
+        android:strokeColor="#FF131417" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

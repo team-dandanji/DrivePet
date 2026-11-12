@@ -12,8 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.drivepet.app.ui.theme.DpColors
+import com.drivepet.app.ui.theme.DpType
 
 /** percent가 null이면 "미측정"과 빈 트랙(0%로 바꾸지 않는다). */
 @Composable
@@ -21,8 +21,8 @@ fun StatGauge(label: String, percent: Int?, modifier: Modifier = Modifier) {
     val shown = percent?.coerceIn(0, 100)
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, fontSize = 26.sp, color = DpColors.TextTertiary)
-            Text(shown?.let { "$it%" } ?: "미측정", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(label, style = DpType.bodyS.copy(fontWeight = FontWeight.Normal), color = DpColors.TextTertiary)
+            Text(shown?.let { "$it%" } ?: "미측정", style = DpType.bodyM.copy(fontWeight = FontWeight.Bold))
         }
         LinearProgressIndicator(
             progress = { (shown ?: 0) / 100f },

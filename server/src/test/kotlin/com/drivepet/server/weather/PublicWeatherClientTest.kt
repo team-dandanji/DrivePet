@@ -131,6 +131,8 @@ class PublicWeatherClientTest {
         assertNull(HttpKmaClient.parseWarnings("o 강풍주의보 : 서울\no 호우경보 :"))
         assertNull(HttpKmaClient.parseWarnings("o 강풍주의보 : 서울\no : 경기도"))
         assertEquals(1, HttpKmaClient.parseWarnings("o 강풍주의보 : 서울\n(참고) 해제 예고 없음")!!.size)
+        assertEquals(emptyList(), HttpKmaClient.parseWarnings("o 없 음"))
+        assertEquals(emptyList(), HttpKmaClient.parseWarnings("o  없  음"))
     }
 
     @Test

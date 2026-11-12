@@ -8,6 +8,7 @@ import org.junit.jupiter.api.assertThrows
 import tools.jackson.databind.json.JsonMapper
 import java.net.InetSocketAddress
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** 로컬 스텁으로 카카오 토큰 교환·사용자 조회 요청 모양과 파싱을 확인한다 */
@@ -16,6 +17,8 @@ class HttpKakaoClientTest {
     private var tokenBody = ""
     private var tokenResponse = """{"access_token":"kakao-at","token_type":"bearer"}"""
     private var meAuth = ""
+    private var unlinkAuth = ""
+    private var unlinkBody = ""
 
     @BeforeEach
     fun start() {
@@ -29,14 +32,19 @@ class HttpKakaoClientTest {
             val b = """{"id":123456789,"kakao_account":{"profile":{"nickname":"지우"}}}""".toByteArray()
             ex.sendResponseHeaders(200, b.size.toLong()); ex.responseBody.use { it.write(b) }
         }
+        server.createContext("/v1/user/unlink") { ex ->
+            unlinkAuth = ex.requestHeaders.getFirst("Authorization") ?: ""
+            unlinkBody = ex.requestBody.readAllBytes().toString(Charsets.UTF_8)
+            val b = """{"id":123456789}""".toByteArray(); ex.sendResponseHeaders(200, b.size.toLong()); ex.responseBody.use { it.write(b) }
+        }
         server.start()
     }
 
     @AfterEach
     fun stop() = server.stop(0)
 
-    private fun client(secret: String = "") = HttpKakaoClient(
-        KakaoProperties(mode = "live", restApiKey = "rest-key", clientSecret = secret,
+    private fun client(secret: String = "", adminKey: String = "") = HttpKakaoClient(
+        KakaoProperties(mode = "live", restApiKey = "rest-key", clientSecret = secret, adminKey = adminKey,
             authBaseUrl = "http://127.0.0.1:${server.address.port}", apiBaseUrl = "http://127.0.0.1:${server.address.port}"),
         JsonMapper.builder().build(),
     )
@@ -58,5 +66,14 @@ class HttpKakaoClientTest {
         tokenResponse = """{"error":"invalid_grant"}"""
         val e = assertThrows<KakaoExchangeException> { client().exchange("the-code", "https://x.example/cb") }
         assertTrue("the-code" !in e.message!! && "rest-key" !in e.message!!)
+    }
+
+    @Test
+    fun `탈퇴 연결 끊기 - Admin 키로 회원번호 지정, 키가 없으면 호출하지 않는다`() {
+        assertFalse(client().unlink("123456789"))
+        assertEquals("", unlinkAuth)
+        assertTrue(client(adminKey = "admin-key").unlink("123456789"))
+        assertEquals("KakaoAK admin-key", unlinkAuth)
+        assertTrue("target_id_type=user_id" in unlinkBody && "target_id=123456789" in unlinkBody)
     }
 }

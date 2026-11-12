@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProfileDao {
-    @Query("SELECT * FROM profile ORDER BY createdAt")
+    @Query("SELECT * FROM profile WHERE deletedAt IS NULL ORDER BY createdAt")
     fun profiles(): Flow<List<ProfileEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -79,4 +79,80 @@ interface DevSeedDao {
 
     @Query("SELECT seedMilli FROM dev_seed WHERE profileId = :profileId")
     fun seed(profileId: String): Flow<Long?>
+}
+
+@Dao
+interface SyncDao {
+    @Query("SELECT * FROM profile WHERE accountId = :accountId AND stateRevision IS NULL AND deletedAt IS NULL ORDER BY createdAt")
+    suspend fun profilesToCreate(accountId: String): List<ProfileEntity>
+
+    @Query(
+        "SELECT r.* FROM record r JOIN profile p ON p.profileId = r.profileId " +
+            "WHERE r.accountId = :accountId AND r.syncState IS NULL AND p.stateRevision IS NOT NULL AND p.deletedAt IS NULL " +
+            "ORDER BY r.occurredAt, r.recordId LIMIT :limit",
+    )
+    suspend fun pendingRecords(accountId: String, limit: Int): List<RecordEntity>
+
+    @Query("SELECT COUNT(*) FROM profile WHERE accountId = :accountId AND stateRevision IS NULL AND deletedAt IS NULL")
+    fun profilesToCreateCount(accountId: String): Flow<Int>
+
+    @Query(
+        "SELECT COUNT(*) FROM record r JOIN profile p ON p.profileId = r.profileId " +
+            "WHERE r.accountId = :accountId AND r.syncState IS NULL AND p.stateRevision IS NOT NULL AND p.deletedAt IS NULL",
+    )
+    fun pendingRecordsCount(accountId: String): Flow<Int>
+
+    @Query("UPDATE profile SET stateRevision = :stateRevision WHERE profileId = :profileId")
+    suspend fun markProfileCreated(profileId: String, stateRevision: Long)
+
+    @Query("UPDATE record SET syncState = :syncState WHERE recordId = :recordId")
+    suspend fun markRecord(recordId: String, syncState: String)
+
+    @Query("UPDATE profile SET accountId = :accountId WHERE accountId IS NULL")
+    suspend fun adoptProfiles(accountId: String)
+
+    @Query("UPDATE record SET accountId = :accountId WHERE accountId IS NULL")
+    suspend fun adoptRecords(accountId: String)
+
+    @Query("SELECT cursor FROM sync_cursor WHERE accountId = :accountId")
+    suspend fun cursor(accountId: String): String?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveCursor(c: SyncCursorEntity)
+
+    @Query("SELECT * FROM profile WHERE profileId = :profileId")
+    suspend fun profile(profileId: String): ProfileEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun putProfile(p: ProfileEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertRecord(r: RecordEntity)
+
+    @Query("UPDATE profile SET deletedAt = :deletedAt WHERE profileId = :profileId")
+    suspend fun markProfileDeleted(profileId: String, deletedAt: Long)
+}
+
+@Dao
+interface MaintenanceDao {
+    @Query("SELECT * FROM maintenance_item WHERE profileId = :profileId AND archived = 0")
+    fun items(profileId: String): Flow<List<MaintenanceItemEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(items: List<MaintenanceItemEntity>)
+
+    @Query("SELECT COUNT(*) FROM maintenance_item WHERE profileId = :profileId")
+    suspend fun count(profileId: String): Int
+
+    /** 그 프로필 항목이 하나도 없을 때만 넣는다(정비 탭을 여러 번 열어도 한 벌). */
+    @Transaction
+    suspend fun ensure(profileId: String, defaults: List<MaintenanceItemEntity>) {
+        if (count(profileId) == 0) upsertAll(defaults)
+    }
+
+    @Query("SELECT * FROM vehicle_care WHERE profileId = :profileId")
+    fun care(profileId: String): Flow<VehicleCareEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setCare(c: VehicleCareEntity)
 }

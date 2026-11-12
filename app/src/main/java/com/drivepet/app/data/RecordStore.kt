@@ -3,6 +3,8 @@ package com.drivepet.app.data
 import com.drivepet.app.data.db.AppDatabase
 import com.drivepet.app.data.db.DevSeedEntity
 import com.drivepet.app.data.db.InterruptedTripEntity
+import com.drivepet.app.data.db.MaintenanceItemEntity
+import com.drivepet.app.data.db.VehicleCareEntity
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.data.db.TripInProgressEntity
@@ -36,6 +38,14 @@ interface RecordStore {
     fun warningsSeen(profileId: String): Flow<List<WarningSeenEntity>>
     suspend fun setSeed(profileId: String, milli: Long)
     fun seed(profileId: String): Flow<Long>
+    /** archived 제외. */
+    fun maintenanceItems(profileId: String): Flow<List<MaintenanceItemEntity>>
+    /** 같은 itemId면 덮어쓴다. */
+    suspend fun saveMaintenanceItems(items: List<MaintenanceItemEntity>)
+    /** 그 프로필 항목이 0개일 때만 [defaults]를 넣는다. */
+    suspend fun ensureMaintenanceItems(profileId: String, defaults: () -> List<MaintenanceItemEntity>)
+    fun vehicleCare(profileId: String): Flow<VehicleCareEntity?>
+    suspend fun setVehicleCare(c: VehicleCareEntity)
 }
 
 class RoomRecordStore(db: AppDatabase) : RecordStore {
@@ -45,6 +55,7 @@ class RoomRecordStore(db: AppDatabase) : RecordStore {
     private val interrupted = db.interruptedTripDao()
     private val warnings = db.warningSeenDao()
     private val seeds = db.devSeedDao()
+    private val care = db.maintenanceDao()
 
     override fun profiles() = profiles.profiles()
     override suspend fun upsertProfile(p: ProfileEntity) = profiles.upsert(p)
@@ -61,6 +72,11 @@ class RoomRecordStore(db: AppDatabase) : RecordStore {
     override fun warningsSeen(profileId: String) = warnings.seen(profileId)
     override suspend fun setSeed(profileId: String, milli: Long) = seeds.set(DevSeedEntity(profileId, milli))
     override fun seed(profileId: String): Flow<Long> = seeds.seed(profileId).map { it ?: 0L }
+    override fun maintenanceItems(profileId: String) = care.items(profileId)
+    override suspend fun saveMaintenanceItems(items: List<MaintenanceItemEntity>) = care.upsertAll(items)
+    override suspend fun ensureMaintenanceItems(profileId: String, defaults: () -> List<MaintenanceItemEntity>) = care.ensure(profileId, defaults())
+    override fun vehicleCare(profileId: String) = care.care(profileId)
+    override suspend fun setVehicleCare(c: VehicleCareEntity) = care.setCare(c)
 }
 
 fun RecordEntity.toLedger(): LedgerRecord {

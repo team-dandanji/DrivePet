@@ -7,7 +7,7 @@
 
 ## APK
 
-**[`apk/단단지_DrivePet_release.apk`](apk/단단지_DrivePet_release.apk)** — release 빌드, 버전 1.0.0
+**[`apk/단단지_Carpet_release.apk`](apk/단단지_Carpet_release.apk)** — release 빌드, 버전 1.0.0
 
 ## 실행 방법
 
@@ -16,11 +16,21 @@
 1. Pleos Connect 에뮬레이터를 켭니다(아래 [테스트 환경](#테스트-환경)).
 2. APK를 설치합니다.
    ```bash
-   adb install apk/단단지_DrivePet_release.apk
+   adb install apk/단단지_Carpet_release.apk
    ```
 3. 하단 앱 목록에서 **DrivePet**을 엽니다.
 4. 처음 실행하면 권한을 두 번 묻습니다. 모두 **허용**을 누릅니다. (차속 권한은 에뮬레이터에서 "위치 정보에 액세스" 창으로 표시됩니다. 두 번째는 알림 권한입니다.)
-5. 온보딩(차량 정보 확인 → 메이트 알 고르기·이름 짓기)을 마치면 캐릭터 라운지가 열립니다.
+5. 온보딩(차량 정보 확인 → 소모품 관리 이력 → 메이트 알 고르기·이름 짓기)을 마치면 캐릭터 라운지가 열립니다.
+
+### 앱에서 해 볼 것
+
+| 화면 | 해 볼 것 |
+|---|---|
+| 라운지 | 캐릭터(병아리·공룡·슬라임)와 건강점수·배터리, 특이사항. **오늘의 미션** 3개(서울 날짜마다 바뀜) — 완료하면 "받기 +30" |
+| 차 정비소 | 소모품(EV 3종 / 내연기관·하이브리드 4종)의 남은 관리 주기, 정기검사 D-Day. "방금 교체했어요" → 관리 기록(+50 EXP, 같은 소모품 하루 1회), "관리 이력 수정"에서 관리일·주행거리·검사일 입력 |
+| 정비소·충전소 안내 | 경고등이 켜지면 라운지의 "병원 가기", 배터리가 20% 이하면 "밥 주러 가기" → 내비게이션의 장소 검색(정비소)·주변 충전소 화면을 엽니다 |
+| 주행기록 | 지난 주행 목록 |
+| 창 크기 | 분할 세로 창·가로 창에서도 라운지가 창에 맞춰 다시 배치됩니다 |
 
 ### 주행을 보는 방법 (Virtual Console)
 
@@ -61,9 +71,9 @@
 | 에뮬레이터 | **Pleos Connect v2.1.0 APIs**, API 34 (Android 14), Android Automotive. 개발 PC에 따라 arm64-v8a(Apple Silicon) 또는 x86_64 이미지 |
 | 화면 규격 | **2560 × 1440 px, 160 dpi** (가로형 단일 디스플레이). 앱은 홈 화면 오른쪽 분할 창(약 1682 × 1210 px) 안에서 실행됩니다 |
 | 실행 사용자 | 에뮬레이터 앱은 Android 사용자 10에서 실행됩니다. `adb shell` 명령으로 앱을 다룰 때는 `--user 10`을 붙입니다(예: `adb shell am start --user 10 -n com.drivepet.app/.MainActivity`) |
-| 필요한 설정 | 차속 권한(`android.car.permission.CAR_SPEED`)·알림 권한 허용. Virtual Console 사용 시 `adb forward tcp:8088 tcp:8088` |
+| 필요한 설정 | 차속 권한(`android.car.permission.CAR_SPEED`)·알림 권한 허용(내비 화면 열기 권한 `pleos.car.permission.NAVI_CUSTOM_MAP`은 설치 때 자동 허용). Virtual Console 사용 시 `adb forward tcp:8088 tcp:8088` |
 | IDE·빌드 | Android Studio, Gradle 8.13, JDK 21, AGP 8.13.0, Kotlin 2.0.21 |
-| SDK | `ai.pleos.playground:Vehicle:2.3.2`, `vehicle-data:1.1.11` |
+| SDK | `ai.pleos.playground:Vehicle:2.3.2`, `vehicle-data:1.1.11`, `NaviHelper:3.0.5`(정비소·충전소 안내) |
 | 앱 | minSdk 28, targetSdk 34, compileSdk 35 |
 
 에뮬레이터 설치 순서: [tools/drivepet-probe/docs/test-procedure.md](tools/drivepet-probe/docs/test-procedure.md)

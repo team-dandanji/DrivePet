@@ -1,6 +1,7 @@
 package com.drivepet.app.data.db
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "profile")
@@ -14,10 +15,14 @@ data class ProfileEntity(
     val onboardingCompleted: Boolean,
     val batteryKwh: Double?,
     val createdAt: Long,
+    /** 서버가 준 최신 stateRevision. null = 아직 CREATE_PROFILE 전. */
+    val stateRevision: Long? = null,
+    /** 다른 기기에서 삭제됨(PROFILE_DELETED). */
+    val deletedAt: Long? = null,
 )
 
 /** kind: TRIP | ATTENDANCE | REPLACEMENT | MISSION_CLAIM. payloadJson은 동기화 body, 나머지 열은 원장 계산용 사본. */
-@Entity(tableName = "record")
+@Entity(tableName = "record", indices = [Index("profileId")])
 data class RecordEntity(
     @PrimaryKey val recordId: String,
     val profileId: String,
@@ -35,6 +40,15 @@ data class RecordEntity(
     val missionId: String? = null,
     val periodKey: String? = null,
     val rewardMilli: Long? = null,
+    /** null = 올릴 대상, "SYNCED", 또는 서버 오류 코드(다시 보내지 않음). */
+    val syncState: String? = null,
+)
+
+/** 계정별 마지막으로 받은 서버 커서. */
+@Entity(tableName = "sync_cursor")
+data class SyncCursorEntity(
+    @PrimaryKey val accountId: String,
+    val cursor: String,
 )
 
 @Entity(tableName = "trip_in_progress")
@@ -69,4 +83,24 @@ data class WarningSeenEntity(
 data class DevSeedEntity(
     @PrimaryKey val profileId: String,
     val seedMilli: Long,
+)
+
+/** 소모품 한 항목의 처음 등록 기준(API MaintenanceItemSetting 모양). 기기 안에만 두고 동기화하지 않는다. kind = CareItem 이름. */
+@Entity(tableName = "maintenance_item", indices = [Index("profileId")])
+data class MaintenanceItemEntity(
+    @PrimaryKey val itemId: String,
+    val profileId: String,
+    val kind: String,
+    val intervalKm: Int,
+    val baselineOdometerMm: Long?,
+    val baselineServicedOn: String?,
+    val baselineServicedPeriod: String?,
+    val archived: Boolean = false,
+)
+
+/** 프로필별 정기검사 예정일(yyyy-MM-dd). profile 열로 두지 않는 이유: ProfileDao.upsert(REPLACE)가 stateRevision을 지운다. */
+@Entity(tableName = "vehicle_care")
+data class VehicleCareEntity(
+    @PrimaryKey val profileId: String,
+    val inspectionDueDate: String?,
 )

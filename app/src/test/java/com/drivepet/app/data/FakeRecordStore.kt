@@ -1,6 +1,8 @@
 package com.drivepet.app.data
 
 import com.drivepet.app.data.db.InterruptedTripEntity
+import com.drivepet.app.data.db.MaintenanceItemEntity
+import com.drivepet.app.data.db.VehicleCareEntity
 import com.drivepet.app.data.db.ProfileEntity
 import com.drivepet.app.data.db.RecordEntity
 import com.drivepet.app.data.db.TripInProgressEntity
@@ -56,4 +58,14 @@ class FakeRecordStore : RecordStore {
 
     override suspend fun setSeed(profileId: String, milli: Long) = seeds.update { it + (profileId to milli) }
     override fun seed(profileId: String): Flow<Long> = seeds.map { it[profileId] ?: 0L }
+
+    private val items = MutableStateFlow<Map<String, MaintenanceItemEntity>>(emptyMap())
+    private val cares = MutableStateFlow<Map<String, VehicleCareEntity>>(emptyMap())
+    override fun maintenanceItems(profileId: String): Flow<List<MaintenanceItemEntity>> =
+        items.map { m -> m.values.filter { it.profileId == profileId && !it.archived } }
+    override suspend fun saveMaintenanceItems(items: List<MaintenanceItemEntity>) = this.items.update { m -> m + items.associateBy { it.itemId } }
+    override suspend fun ensureMaintenanceItems(profileId: String, defaults: () -> List<MaintenanceItemEntity>) =
+        items.update { m -> if (m.values.any { it.profileId == profileId }) m else m + defaults().associateBy { it.itemId } }
+    override fun vehicleCare(profileId: String): Flow<VehicleCareEntity?> = cares.map { it[profileId] }
+    override suspend fun setVehicleCare(c: VehicleCareEntity) = cares.update { it + (c.profileId to c) }
 }

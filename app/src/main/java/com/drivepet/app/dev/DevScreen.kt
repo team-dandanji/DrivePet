@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -15,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.AppContainer
+import com.drivepet.app.data.normalizeServerUrl
 import com.drivepet.app.domain.formatExp
 import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.theme.DpColors
@@ -41,10 +44,15 @@ import com.drivepet.vehicle.VehicleModule
 import com.drivepet.vehicle.VehicleModule.Mode
 import com.drivepet.vehicle.model.Gear
 import com.drivepet.vehicle.model.TurnSide
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import retrofit2.HttpException
+import java.io.IOException
 
 val SCENARIOS = listOf("commute_12km", "demo_levelup", "demo_exit_warning")
 
@@ -61,7 +69,7 @@ fun AppContainer.startScenario(name: String) {
 }
 
 /** 개발자 메뉴. DEMO_TOOLS 빌드에서만 경로가 열린다. */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalCoroutinesApi::class)
 @Composable
 fun DevScreen(container: AppContainer, onBack: () -> Unit) {
     val mode by container.settings.mode.collectAsStateWithLifecycle(null)
@@ -75,6 +83,13 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val fake = VehicleModule.fake
     val isFake = mode == Mode.FAKE
+    val auth by container.auth.state.collectAsStateWithLifecycle(null)
+    val pending by remember { container.auth.state.map { it.accountId }.flatMapLatest { a -> a?.let(container.syncStore::pendingCount) ?: flowOf(0) } }
+        .collectAsStateWithLifecycle(0)
+    var serverUrl by remember { mutableStateOf("") }
+    var serverError by remember { mutableStateOf(false) }
+    var unlinkFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { serverUrl = container.settings.serverUrl.first() }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp, vertical = 24.dp), Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -130,6 +145,32 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
             }
         }
 
+        Section("서버")
+        OutlinedTextField(
+            serverUrl, { serverUrl = it; serverError = false }, Modifier.fillMaxWidth(),
+            label = { Text("서버 주소", fontSize = 22.sp) }, singleLine = true, isError = serverError,
+            supportingText = { if (serverError) Text("http:// 또는 https:// 주소를 넣어 주세요", fontSize = 22.sp) },
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 26.sp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            DevButton("저장", {
+                val url = normalizeServerUrl(serverUrl)
+                if (url == null) serverError = true else { serverUrl = url; scope.launch { container.settings.setServerUrl(url) } }
+            })
+            DevButton("지금 동기화", { scope.launch { runCatching { container.sync.run() } } }) // 워커 재시도 대기(backoff)를 거치지 않고 바로 돈다
+            DevButton("카카오 연결 해제", {
+                // 해제 요청이 실패하면(오프라인 등) 연결 상태를 그대로 둔다.
+                scope.launch { unlinkFailed = try { container.account.unlink(); false } catch (e: IOException) { true } catch (e: HttpException) { true } }
+            }, auth?.accountId != null)
+        }
+        val a = auth
+        Text(
+            "${if (a?.deviceId != null) "기기 등록됨" else "기기 등록 안 됨"} · " +
+                "${if (a?.accountId != null) "계정 ${a.nickname ?: ""}".trim() else "계정 미연결"} · 대기 ${pending}건",
+            fontSize = 26.sp, color = DpColors.TextTertiary,
+        )
+        if (unlinkFailed) Text("연결을 해제하지 못했어요", fontSize = 24.sp, color = DpColors.Danger)
+
         Section("로컬 데이터")
         DevButton("로컬 데이터 초기화", { confirmReset = true })
     }
@@ -141,8 +182,8 @@ fun DevScreen(container: AppContainer, onBack: () -> Unit) {
             confirmButton = {
                 TextButton({
                     confirmReset = false
-                    // 화면이 온보딩으로 바뀌면 이 화면의 scope는 사라지므로 앱 scope에서 끝까지 지운다.
-                    container.scope.launch(Dispatchers.IO) { container.db.clearAllTables(); container.settings.clear() }
+                    // 화면이 온보딩으로 바뀌면 이 화면의 scope는 사라지므로 앱 scope에서 끝까지 지운다. AuthStore(기기 신원)는 남긴다.
+                    container.scope.launch { container.wipeLocal() }
                 }) { Text("지우기", fontSize = 26.sp, color = DpColors.Danger) }
             },
             dismissButton = { TextButton({ confirmReset = false }) { Text("취소", fontSize = 26.sp) } },

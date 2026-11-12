@@ -43,4 +43,29 @@ class SettlementUiTest {
         assertEquals("0", signalBonusText(line(80.0), withheld = true))
         assertEquals("미측정", signalBonusText(line(null, MeasurementStatus.UNMEASURED)))
     }
+
+    @Test fun `reward rows follow the figma four lines`() {
+        val rows = rewardRows(settlement(24_000L, 50_000L), 74_000L)
+        assertEquals(4, rows.size)
+        assertEquals("거리 12km × 2EXP", rows[0].first)
+        assertEquals("+24.0EXP", rows[0].second)
+        assertEquals("급조향", rows[1].first)
+        assertEquals("미측정", rows[1].second)
+        assertEquals("공조 중복", rows[2].first)
+        assertEquals("방향지시등 80% 이상", rows[3].first)
+        assertEquals("미측정", rewardRows(settlement(null, 0L), 0L)[0].second)
+    }
+
+    @Test fun `measured steering row shows count and bonus`() {
+        val s = settlement(24_000L, 15_000L).copy(breakdown = listOf(SafetyLine(SafetyItem.STEERING, 10, MeasurementStatus.MEASURED, 0.0)))
+        val row = rewardRows(s, 39_000L)[1]
+        assertEquals("급조향 0회", row.first)
+        assertEquals("+15EXP", row.second)
+    }
+
+    @Test fun `gauge stages split at level boundaries`() {
+        assertEquals(listOf(0.25f to 0.5f), gaugeStages(100_000L, 200_000L))
+        assertEquals(listOf(0.875f to 1f, 0f to 0.1f), gaugeStages(350_000L, 450_000L))
+        assertEquals(listOf(0.25f to 1f, 0f to 1f, 0f to 1f), gaugeStages(100_000L, 1_000_000L))
+    }
 }

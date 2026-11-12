@@ -5,6 +5,7 @@ import java.math.RoundingMode
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 const val ATTENDANCE_MILLI = 10_000L
 const val REPLACEMENT_MILLI = 50_000L
@@ -133,6 +134,13 @@ fun tripPaidMilli(trips: List<TripLedger>): List<Long> {
 
 fun formatExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale(1, RoundingMode.HALF_UP).toPlainString()
 
+/** 레벨 막대 아래 「200 / 500 EXP」(피그마 「000 / 000 EXP」, 419:50656). 정수면 「.0」을 떼고, 소수가 있으면 한 자리까지 남긴다. */
+fun gaugeExpText(inLevelMilli: Long, needMilli: Long): String =
+    "${formatExp(inLevelMilli).removeSuffix(".0")} / ${formatExp(needMilli).removeSuffix(".0")} EXP"
+
 fun apiExp(milli: Long): String = BigDecimal(milli).movePointLeft(3).setScale(3).toPlainString()
 
 fun seoulDate(at: Instant): LocalDate = at.atZone(SEOUL).toLocalDate()
+
+/** 서울 오프셋 ISO 시각, 예: "2026-11-10T08:31:20+09:00". */
+fun isoSeoul(epochMillis: Long): String = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(Instant.ofEpochMilli(epochMillis).atZone(SEOUL))
