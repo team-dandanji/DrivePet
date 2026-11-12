@@ -43,7 +43,7 @@ class Settings(context: Context) {
     private val pendingArmedKey = booleanPreferencesKey("pending_care_armed")
     private val pendingRecordKey = stringPreferencesKey("pending_care_record")
 
-    // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 22·개발자 메뉴에서만 시작한다.
+    // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 개발자 메뉴에서만 시작한다.
     private val defaultMode = VehicleModule.Mode.REAL
 
     val mode: Flow<VehicleModule.Mode> = store.data.map { p ->

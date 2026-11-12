@@ -60,7 +60,7 @@ import com.drivepet.app.ui.theme.DpType
 /** TabHeader 높이(위 여백 40 + 80 + 아래 여백 24 + 구분선 1). */
 private const val HEADER_DP = 145
 
-/** 07 · 08 메인 라운지(HIFI 419:50656). 08(이상 감지)은 같은 화면에서 특이사항 카드·CTA가 채워진 상태다. 프로필이 없으면 아무것도 그리지 않는다. */
+/** 메인 라운지(피그마 419:50656). 이상 감지 상태는 같은 화면에서 특이사항 카드·CTA가 채워진 상태다. 프로필이 없으면 아무것도 그리지 않는다. */
 @Composable
 fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, shown: Boolean, onCare: () -> Unit, onDev: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()

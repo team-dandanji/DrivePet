@@ -26,7 +26,7 @@ interface TokenStore {
 
 private val Context.authDataStore by preferencesDataStore(name = "auth")
 
-// shortcut: 비밀값을 암호화 없이 DataStore에 둔다, 실차 배포 전 Keystore로 옮긴다.
+// 비밀값을 암호화 없이 DataStore에 둔다. 실차 배포 전에 Keystore로 옮겨야 한다.
 class AuthStore(context: Context) : TokenStore {
     private val store = context.applicationContext.authDataStore
     private val keys = listOf("device_id", "device_secret", "access_token", "refresh_token", "account_id", "nickname")

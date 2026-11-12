@@ -67,20 +67,14 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
 - 바깥에 열린 포트: Oracle 보안 목록(Default Security List for drivepet-vcn)과 VM iptables 둘 다 22·80·443만.
 - 공개 IP는 임시(ephemeral) IP라 인스턴스를 **종료(terminate)** 하면 바뀝니다. 바뀌면 sslip.io 주소, 앱 `DEFAULT_SERVER_URL`, 카카오 Redirect URI를 모두 다시 맞춰야 합니다. 중지·시작으로는 바뀌지 않습니다.
 
-접속(맥에 있는 전용 키):
-
-```bash
-ssh -i ~/.ssh/drivepet_vm ubuntu@129.225.197.147
-cd ~/drivepet/server
-alias dc='docker compose -f compose.yaml -f compose.deploy.yaml'
-```
+VM 접속 정보(키·계정)는 저장소에 적지 않고 서버 담당자가 따로 관리합니다. VM 안의 서버 폴더에서 아래 명령을 씁니다(`dc` = `docker compose -f compose.yaml -f compose.deploy.yaml`).
 
 | 할 일 | 명령 |
 |---|---|
 | 상태 | `dc ps` |
 | 로그 | `dc logs -f server` (Caddy 인증서 문제는 `dc logs caddy`) |
 | 재시작 | `dc restart server` |
-| 코드 갱신 재배포 | 맥에서 `rsync -az --exclude build --exclude .gradle --exclude .env -e "ssh -i ~/.ssh/drivepet_vm" server/ ubuntu@129.225.197.147:~/drivepet/server/` → VM에서 `dc up -d --build` |
+| 코드 갱신 재배포 | `server/` 폴더를 VM의 서버 폴더로 복사(`build`·`.gradle`·`.env` 제외) → VM에서 `dc up -d --build` |
 | 비밀값 교체 | VM에서 `nano .env`(권한 600 유지) → `dc up -d` |
 | 바깥에서 확인 | `curl -X POST https://129-225-197-147.sslip.io/api/v1/devices -H 'Content-Type: application/json' -d '{"deviceId":"…","deviceSecret":"32자 이상","appVersion":"1.0.0"}'` |
 
@@ -89,8 +83,7 @@ VM의 `.env`는 로컬 `server/.env`에서 scp로 복사한 뒤 아래만 바꿨
 - `SPRING_PROFILES_ACTIVE=local-live`, `DRIVEPET_PUBLIC_BASE_URL=https://129-225-197-147.sslip.io`, `DRIVEPET_HOST=129-225-197-147.sslip.io`
 - `DRIVEPET_JWT_SECRET`, `DB_PASSWORD`: VM에서 `openssl rand -hex`로 새로 만든 값(로컬과 다름). JWT 비밀을 바꾸면 기존 기기 토큰이 모두 무효가 되어 앱이 다시 등록합니다. `DB_PASSWORD`는 DB 볼륨을 처음 만들 때만 적용되니, 바꾸려면 DB 안에서 `ALTER USER`도 같이 해야 합니다.
 - 카카오 개발자 콘솔 Redirect URI: `https://129-225-197-147.sslip.io/api/v1/auth/kakao/callback`
-- `KAKAO_ADMIN_KEY`: 회원 탈퇴 때 카카오 쪽 연결 끊기용. 채팅·커밋에 남기지 않도록 맥 터미널에서 직접 넣습니다(값을 숨겨 입력받아 VM `.env`에 씀):
-  `read -rs "K?Kakao Admin 키: " && echo && ssh -i ~/.ssh/drivepet_vm ubuntu@129.225.197.147 "cd ~/drivepet/server && sed -i '/^KAKAO_ADMIN_KEY=/d' .env && cat >> .env && docker compose -f compose.yaml -f compose.deploy.yaml up -d" <<< "KAKAO_ADMIN_KEY=$K"; unset K`
+- `KAKAO_ADMIN_KEY`: 회원 탈퇴 때 카카오 쪽 연결 끊기용. 값이 채팅·커밋·터미널 기록에 남지 않게 숨겨 입력받아 VM `.env`에 넣은 뒤 `dc up -d`로 다시 띄웁니다.
 
 ## 수동 확인
 

@@ -32,7 +32,7 @@ import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 
 /**
- * 01 · 탑승 후 앱 실행. 저장된 프로필을 불러왔다고 알리고 라운지로 보낸다.
+ * 앱 실행 화면. 저장된 프로필을 불러왔다고 알리고 라운지로 보낸다.
  * onSetup은 새로 시작하거나 프로필을 다시 설정할 때(기존 프로필은 지우지 않는다). onAccount는 카카오 계정 연결·바꾸기.
  */
 @Composable
@@ -66,7 +66,7 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                     Box(Modifier.fillMaxWidth().background(DpColors.SurfaceLow, RoundedCornerShape(16.dp)).padding(24.dp)) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("${c.vehicleName} · ${c.fuelLabel}", style = DpType.bodyM.copy(fontWeight = FontWeight.Bold))
-                            Text("${c.petNickname}  /  Lv.${c.level}  /  로컬 프로필 복원 완료", style = DpType.bodyM.copy(fontWeight = FontWeight.Bold))
+                            Text("${c.petNickname}  /  Lv.${c.level}", style = DpType.bodyM.copy(fontWeight = FontWeight.Bold))
                         }
                     }
                     // 카드는 내용만큼. 다른 프로필이 있을 때만 목록이 자리를 차지하고, 많으면 목록만 스크롤한다.
@@ -90,14 +90,12 @@ fun WelcomeScreen(vm: WelcomeViewModel, onLounge: () -> Unit, onSetup: () -> Uni
                     }
                 }
             }
-            Text("시동 후 앱 실행 · 차량 상태 기록 준비", style = DpType.labelM, color = DpColors.TextTertiary)
         }
     }
 
     Column(Modifier.fillMaxSize().scrollWhen(narrow).padding(40.dp), verticalArrangement = Arrangement.spacedBy(32.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Carpet", style = DpType.titleM.copy(fontWeight = FontWeight.ExtraBold))
-            Text("01  탑승 후 앱 실행", Modifier.padding(start = 48.dp), style = DpType.labelM, color = DpColors.TextTertiary)
             Spacer(Modifier.weight(1f))
             Text("P · 주차 중", style = DpType.bodyS)
         }

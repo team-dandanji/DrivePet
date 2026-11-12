@@ -33,7 +33,7 @@ private const val POLL_EVERY_TICKS = 2 // 1초 틱 2번 = 2초마다 조회
 private const val QR_VALID_SEC = 300L // 서버가 주는 유효 시간(5분)
 
 /**
- * 03 · 카카오 QR 연결. 세션 하나당 루프 하나가 1초마다 남은 시간을 갱신하고 2초마다 상태를 조회한다(조회는 한 번에 하나).
+ * 카카오 QR 연결. 세션 하나당 루프 하나가 1초마다 남은 시간을 갱신하고 2초마다 상태를 조회한다(조회는 한 번에 하나).
  * 복원돼 연결되면(Linked.restored) 그 계정의 가장 최근 프로필을 활성으로 저장한 뒤 Linked를 내보낸다.
  */
 class LinkViewModel(

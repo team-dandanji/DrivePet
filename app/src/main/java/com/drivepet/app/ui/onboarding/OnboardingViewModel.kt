@@ -47,7 +47,7 @@ private fun statusOf(s: Signal<*>) = when (s) {
 /** 약관(저장하지 않는다). SERVICE·VEHICLE_DATA가 필수. */
 enum class Term { SERVICE, VEHICLE_DATA, LOCATION }
 
-/** 소모품 질문 보기 문구(피그마 O5). ServicedPeriod.label은 정비소 탭이 쓰므로 그대로 둔다. */
+/** 소모품 질문 보기 문구. ServicedPeriod.label은 정비소 탭이 쓰므로 그대로 둔다. */
 fun periodLabel(p: ServicedPeriod): String = when (p) {
     ServicedPeriod.WITHIN_3_MONTHS -> "최근 3개월 내"
     ServicedPeriod.ABOUT_6_MONTHS -> "3-6개월"
@@ -84,7 +84,7 @@ class OnboardingViewModel(
 
     /** 한 화면에 하나씩 묻는 소모품(EV 3, ICE·HEV 4 — 엔진오일 먼저). */
     val careQuestions: List<CareItem> get() = careItemsFor(fuelType)
-    /** 05·20 소모품 이력. 고르지 않은 항목은 미등록으로 저장한다. */
+    /** 소모품 이력. 고르지 않은 항목은 미등록으로 저장한다. */
     var careBaselines by mutableStateOf(mapOf<CareItem, CareBaseline>())
         private set
 
