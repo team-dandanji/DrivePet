@@ -59,6 +59,37 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
   3. 카카오 개발자 앱의 Redirect URI에 `{그 주소}/api/v1/auth/kakao/callback`을 등록합니다. **터널 주소가 바뀌면 2·3을 다시 합니다.**
 - QR 세션은 3분 유효. 만료 직전에 연결돼도 연결 시각부터 3분 동안은 LINKED 토큰을 받을 수 있습니다.
 
+## 클라우드 배포 (상시 서버)
+
+- 주소: **`https://129-225-197-147.sslip.io/api/v1`**. demo·release 앱 빌드의 기본 주소이고, debug는 `10.0.2.2` 그대로입니다.
+- VM: Oracle Cloud Japan Central(Osaka), `drivepet-server`(Ampere A1 1 OCPU·6GB, Ubuntu 24.04, Always Free 한도 안). 계정은 Pay As You Go라 유휴 회수 대상이 아닙니다. 예산 알림을 걸어 두세요.
+- 구성: `compose.yaml` + `compose.deploy.yaml`. Caddy만 80·443을 열고, `Caddyfile`대로 sslip.io 주소의 Let's Encrypt 인증서를 자동으로 받아 `server:8080`으로 넘깁니다. DB·서버 포트는 바깥에 열지 않습니다. 컨테이너는 재부팅 뒤 자동으로 다시 뜹니다.
+- 바깥에 열린 포트: Oracle 보안 목록(Default Security List for drivepet-vcn)과 VM iptables 둘 다 22·80·443만.
+- 공개 IP는 임시(ephemeral) IP라 인스턴스를 **종료(terminate)** 하면 바뀝니다. 바뀌면 sslip.io 주소, 앱 `DEFAULT_SERVER_URL`, 카카오 Redirect URI를 모두 다시 맞춰야 합니다. 중지·시작으로는 바뀌지 않습니다.
+
+접속(맥에 있는 전용 키):
+
+```bash
+ssh -i ~/.ssh/drivepet_vm ubuntu@129.225.197.147
+cd ~/drivepet/server
+alias dc='docker compose -f compose.yaml -f compose.deploy.yaml'
+```
+
+| 할 일 | 명령 |
+|---|---|
+| 상태 | `dc ps` |
+| 로그 | `dc logs -f server` (Caddy 인증서 문제는 `dc logs caddy`) |
+| 재시작 | `dc restart server` |
+| 코드 갱신 재배포 | 맥에서 `rsync -az --exclude build --exclude .gradle --exclude .env -e "ssh -i ~/.ssh/drivepet_vm" server/ ubuntu@129.225.197.147:~/drivepet/server/` → VM에서 `dc up -d --build` |
+| 비밀값 교체 | VM에서 `nano .env`(권한 600 유지) → `dc up -d` |
+| 바깥에서 확인 | `curl -X POST https://129-225-197-147.sslip.io/api/v1/devices -H 'Content-Type: application/json' -d '{"deviceId":"…","deviceSecret":"32자 이상","appVersion":"1.0.0"}'` |
+
+VM의 `.env`는 로컬 `server/.env`에서 scp로 복사한 뒤 아래만 바꿨습니다. 값은 커밋·출력하지 않습니다.
+
+- `SPRING_PROFILES_ACTIVE=local-live`, `DRIVEPET_PUBLIC_BASE_URL=https://129-225-197-147.sslip.io`, `DRIVEPET_HOST=129-225-197-147.sslip.io`
+- `DRIVEPET_JWT_SECRET`, `DB_PASSWORD`: VM에서 `openssl rand -hex`로 새로 만든 값(로컬과 다름). JWT 비밀을 바꾸면 기존 기기 토큰이 모두 무효가 되어 앱이 다시 등록합니다. `DB_PASSWORD`는 DB 볼륨을 처음 만들 때만 적용되니, 바꾸려면 DB 안에서 `ALTER USER`도 같이 해야 합니다.
+- 카카오 개발자 콘솔 Redirect URI: `https://129-225-197-147.sslip.io/api/v1/auth/kakao/callback`
+
 ## 수동 확인
 
 `requests/smoke.http` (IntelliJ HTTP Client / VS Code REST Client): 기기 등록 → 날씨 → QR → 동기화 업로드·다운로드.
