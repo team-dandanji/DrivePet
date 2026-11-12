@@ -17,7 +17,6 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "DEFAULT_SERVER_URL", "\"http://10.0.2.2:8080/api/v1/\"")
     }
     buildFeatures {
         compose = true
@@ -25,12 +24,15 @@ android {
     }
     buildTypes {
         debug {
+            buildConfigField("String", "DEFAULT_SERVER_URL", "\"http://10.0.2.2:8080/api/v1/\"")
             buildConfigField("boolean", "DEMO_TOOLS", "true")
             manifestPlaceholders["distractionOptimized"] = "true"
         }
         release {
             // 공모전 규칙에 서명 키 요건이 없어 개발용(debug) 키로 서명한다. 앱마켓에 올릴 때 정식 키로 바꾼다.
             signingConfig = signingConfigs.getByName("debug")
+            // 클라우드 서버(Oracle VM, server/README.md "클라우드 배포"). demo는 initWith(release)로 같은 주소를 쓴다
+            buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://129-225-197-147.sslip.io/api/v1/\"")
             buildConfigField("boolean", "DEMO_TOOLS", "false")
             manifestPlaceholders["distractionOptimized"] = "false"
         }
