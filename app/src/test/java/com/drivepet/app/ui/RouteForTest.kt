@@ -72,12 +72,16 @@ class RouteForTest {
     }
 
     @Test
-    fun restrictedCopy_onboardingVsRest() {
-        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.ONBOARD_SCAN).first)
-        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.LINK).first)
-        assertEquals("안전하게 주차한 뒤 시작해주세요", restrictedCopy(Routes.WELCOME).first)
-        assertEquals("주행 중에는 서비스 사용이 제한돼요", restrictedCopy(Routes.LOUNGE).first)
-        assertEquals("주행 중에는 서비스 사용이 제한돼요", restrictedCopy(null).first)
-        assertEquals("안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요", restrictedCopy(Routes.LOUNGE).second)
+    fun restrictedCopy_introVsGeneral() {
+        val intro = "안전하게 주차한 뒤 시작해주세요"
+        val general = "주행 중에는 서비스 사용이 제한돼요"
+        assertEquals(intro, restrictedCopy(Routes.ONBOARD_SCAN, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.LINK, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.WELCOME, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.LOUNGE, hasProfile = false).first) // 프로필 없이 주행 중에 처음 연 경우
+        assertEquals(general, restrictedCopy(Routes.LOUNGE, hasProfile = true).first)
+        assertEquals(general, restrictedCopy(null, hasProfile = true).first)
+        assertEquals("계정 연결과 초기 설정은 주차 중에만 이용할 수 있어요\n주행 중에는 화면을 조작하지 마세요", restrictedCopy(Routes.LOUNGE, hasProfile = false).second)
+        assertEquals("안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요", restrictedCopy(Routes.LOUNGE, hasProfile = true).second)
     }
 }

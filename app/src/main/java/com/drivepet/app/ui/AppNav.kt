@@ -143,9 +143,12 @@ val ONBOARDING_ROUTES: Set<String> = setOf(Routes.LINK, Routes.ONBOARD_SCAN, Rou
 
 private const val PARK_FIRST_TITLE = "안전하게 주차한 뒤 시작해주세요"
 
-/** 주행 중 팝업 문구(제목, 본문). 온보딩·인트로·링크 화면에서는 주차 안내, 그 밖에는 사용 제한 안내. */
-fun restrictedCopy(route: String?): Pair<String, String> =
-    if (route != null && (route in ONBOARDING_ROUTES || route == Routes.WELCOME)) {
+/**
+ * 주행 중 팝업 문구(제목, 본문). 온보딩·인트로·링크 화면이거나 아직 활성 프로필이 없으면(첫 실행을 주행 중에 연 경우
+ * 시작 경로가 라운지여도) 주차 안내, 그 밖에는 사용 제한 안내.
+ */
+fun restrictedCopy(route: String?, hasProfile: Boolean): Pair<String, String> =
+    if (!hasProfile || (route != null && (route in ONBOARDING_ROUTES || route == Routes.WELCOME))) {
         PARK_FIRST_TITLE to "계정 연결과 초기 설정은 주차 중에만 이용할 수 있어요\n주행 중에는 화면을 조작하지 마세요"
     } else {
         "주행 중에는 서비스 사용이 제한돼요" to "안전을 위해 주행 중에는 화면을 쓸 수 없어요\n차를 세우면 다시 이용할 수 있어요"
@@ -370,7 +373,8 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
             when (forced) {
                 Forced.DRIVING -> {
                     // 팝업: dim이 터치를 삼키고 뒤로 가기는 소비한다. 닫히는 건 주행이 끝날 때뿐.
-                    val (title, body) = restrictedCopy(route)
+                    // 프로필 읽기가 끝나기 전에는 프로필이 있는 것으로 보고 경로만 따른다.
+                    val (title, body) = restrictedCopy(route, hasProfile = !ready || profile != null)
                     DpPopup(title, body, onDismissRequest = {}) {
                         PopupButton("네비게이션으로 돌아가기", { container.navi.bringToFront() }, primary = true)
                     }

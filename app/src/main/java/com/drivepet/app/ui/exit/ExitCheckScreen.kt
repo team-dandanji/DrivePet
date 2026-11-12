@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,6 +34,7 @@ import com.drivepet.app.R
 import com.drivepet.app.drive.ExitCheck
 import com.drivepet.app.ui.components.DpPopup
 import com.drivepet.app.ui.components.PopupButton
+import com.drivepet.app.ui.components.PopupSpec
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 import com.drivepet.vehicle.model.ExitItem
@@ -53,6 +55,16 @@ private fun title(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "실내등 �
 private fun hint(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "차량 조명 스위치로 꺼주세요" else "차량 창문 스위치로 닫아주세요"
 private fun resolved(i: ExitItem) = if (i == ExitItem.CABIN_LIGHT_ON) "꺼짐" else "닫힘"
 
+/** 하차 점검 팝업 규격(419:55335): radius 48, 패딩 48, 간격 40, 제목 40/52 Bold, 본문 30/38, 버튼 100·radius 32·32/40 Bold. */
+private val ExitPopupSpec = PopupSpec(
+    radius = 48.dp, padding = 48.dp, sectionGap = 40.dp,
+    headerPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 30.dp), // 머리말과 카드 사이 70
+    headerGap = 4.dp,
+    titleStyle = DpType.titleL, bodyStyle = DpType.bodyL, bodyColor = DpColors.Text,
+    buttonHeight = 100.dp, buttonRadius = 32.dp, buttonStyle = DpType.titleS.copy(fontWeight = FontWeight.Bold),
+    maxWidth = 1234.dp, // 1138 + 패딩 48×2
+)
+
 /**
  * 하차 전 점검 팝업(419:55335): 보던 화면 위에 뜬다. 항목이 정상이 되면 ✓가 300ms에 걸쳐 켜지고,
  * 보이는 항목이 모두 정상이면 잠시 뒤 [onAllDone]을 부른다(앱 종료로 이어진다). [onStay]는 [아직 안 내려요].
@@ -69,11 +81,12 @@ fun ExitCheckPopup(check: ExitCheck, onStay: () -> Unit, onAllDone: () -> Unit) 
     DpPopup(
         "하차 전, 창문과 조명을 확인해주세요", "모두 확인되면 자동으로 닫혀요", onDismissRequest = {},
         content = {
-            Column(Modifier.fillMaxWidth().padding(top = 20.dp), Arrangement.spacedBy(40.dp)) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 48.dp), Arrangement.spacedBy(40.dp)) {
                 items.forEach { ExitRow(it, check.items[it] == true) }
             }
         },
         icon = { Image(painterResource(R.drawable.ic_alert_triangle), null, Modifier.size(60.dp)) },
+        spec = ExitPopupSpec,
     ) { PopupButton("아직 안 내려요", onStay, primary = false) }
 }
 
