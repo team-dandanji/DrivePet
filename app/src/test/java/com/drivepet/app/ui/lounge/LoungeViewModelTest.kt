@@ -86,9 +86,19 @@ class LoungeViewModelTest {
         assertEquals(0, calls)
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 1L))
         assertEquals(1, calls)
-        v.onEnter() // 감시는 한 번만 띄운다
-        state.value = VehicleState(gear = Signal.Ok(Gear.P, 2L))
-        assertEquals(1, calls)
+        v.onEnter() // 재진입은 한 번 더 시도한다(날짜가 바뀌었거나 앞선 저장이 실패했을 때)
+        assertEquals(2, calls)
+        state.value = VehicleState(gear = Signal.Ok(Gear.P, 2L)) // 감시는 한 번만 띄워 같은 정차로는 다시 부르지 않는다
+        assertEquals(2, calls)
+    }
+
+    @Test fun `re-entry checkIn failure does not kill greeting`() = runTest {
+        var fail = false
+        val v = vm(checkIn = { if (fail) error("boom") else true })
+        v.onEnter()
+        fail = true
+        v.onEnter()
+        assertEquals(2, speaker.said.size)
     }
 
     @Test fun `checkIn failure does not kill greeting`() = runTest {

@@ -52,12 +52,10 @@ private const val TAG = "DriveCoordinator"
 private const val CHANNEL_SETTLEMENT = "settlement"
 private const val NOTIFICATION_SETTLEMENT = 2001
 
-/** 주행 제한이 읽히면 그 값을 따르고, 못 읽으면(Ok 아님) 기어가 D/R일 때 주행 중으로 본다. */
+/** 피그마 규칙: 기어가 P가 아니면(N 포함) 주행 중. 주행 제한(uxRestricted)이 켜져도 주행 중. 기어를 못 읽으면 제한 값만 따르고, 둘 다 못 읽으면 false. */
 fun isDriving(s: VehicleState): Boolean {
-    val ux = s.uxRestricted.valueOrNull()
-    if (ux != null) return ux
     val gear = s.gear.valueOrNull()
-    return gear == Gear.D || gear == Gear.R
+    return (gear != null && gear != Gear.P) || s.uxRestricted.valueOrNull() == true
 }
 
 /** 정비소 안내를 시작한 뒤 처음 주행하면 팝업을 켠다(armed). 이미 켰거나 대기가 없으면 쓰지 않는다. */

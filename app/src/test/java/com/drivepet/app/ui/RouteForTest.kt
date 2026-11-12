@@ -47,16 +47,18 @@ class RouteForTest {
     fun isDriving_truthTable() {
         fun st(ux: Signal<Boolean>, gear: Signal<Gear>) = VehicleState(uxRestricted = ux, gear = gear)
         val d = Signal.Ok(Gear.D, 0); val r = Signal.Ok(Gear.R, 0); val p = Signal.Ok(Gear.P, 0); val n = Signal.Ok(Gear.N, 0)
-        assertEquals(true, isDriving(st(Signal.Ok(true, 0), p)))
+        assertEquals(true, isDriving(st(Signal.Ok(true, 0), p))) // P여도 제한이 켜지면 주행 중
         assertEquals(true, isDriving(st(Signal.Ok(true, 0), Signal.Unknown)))
-        assertEquals(false, isDriving(st(Signal.Ok(false, 0), d))) // 제한이 읽히면 그 값이 우선
-        assertEquals(false, isDriving(st(Signal.Ok(false, 0), Signal.Unknown)))
+        assertEquals(true, isDriving(st(Signal.Ok(false, 0), d))) // 제한이 꺼져 있어도 P가 아니면 주행 중
+        assertEquals(true, isDriving(st(Signal.Ok(false, 0), n)))
+        assertEquals(false, isDriving(st(Signal.Ok(false, 0), p)))
+        assertEquals(false, isDriving(st(Signal.Ok(false, 0), Signal.Unknown))) // 기어를 못 읽으면 제한 값만 따름
         for (ux in listOf(Signal.Unknown, Signal.Unsupported, Signal.NoPermission)) {
             assertEquals(true, isDriving(st(ux, d)))
             assertEquals(true, isDriving(st(ux, r)))
+            assertEquals(true, isDriving(st(ux, n)))
             assertEquals(false, isDriving(st(ux, p)))
-            assertEquals(false, isDriving(st(ux, n)))
-            assertEquals(false, isDriving(st(ux, Signal.Unknown)))
+            assertEquals(false, isDriving(st(ux, Signal.Unknown))) // 둘 다 못 읽으면 false
         }
     }
 

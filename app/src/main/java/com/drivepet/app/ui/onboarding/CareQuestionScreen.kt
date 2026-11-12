@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.domain.CareItem
 import com.drivepet.app.domain.ServicedPeriod
+import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 import kotlinx.coroutines.delay
@@ -53,7 +54,9 @@ fun CareQuestionScreen(vm: OnboardingViewModel, index: Int, onBack: () -> Unit, 
     val (headline, sub) = question(item)
     val selected = vm.careBaselines[item]?.period
     var picked by remember { mutableStateOf<ServicedPeriod?>(null) }
-    LaunchedEffect(picked) { if (picked != null) { delay(AUTO_NEXT_MS); onNext() } }
+    // 주행 제한 중에는 넘어가지 않고 기다렸다가, P로 돌아오면 이 단계에서 다시 0.4초 뒤 넘어간다.
+    val driving = LocalDriving.current
+    LaunchedEffect(picked, driving) { if (picked != null && !driving) { delay(AUTO_NEXT_MS); onNext() } }
 
     OnboardStep("소모품 이력 확인하기", 2, onBack, headline, sub, dots = items.size to index) { narrow ->
         Box(Modifier.fillMaxWidth().then(if (narrow) Modifier else Modifier.weight(1f)), contentAlignment = if (narrow) Alignment.TopCenter else Alignment.Center) {

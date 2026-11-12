@@ -188,6 +188,7 @@ class LoungeViewModel(
     /**
      * 라운지에 들어올 때마다 부른다. 자동 출석 감시는 한 번만 띄우고, 하루 첫 진입은 자기소개를 붙인다.
      * 기어 신호가 늦게 오는 콜드스타트도 있어 "정차 중"이 되는 순간마다 출석을 시도한다(checkIn은 멱등).
+     * 다시 들어올 때도 한 번 시도한다: P를 유지한 채 날짜가 바뀌었거나 앞선 저장이 실패했으면 감시만으로는 다시 불리지 않는다.
      */
     fun onEnter() {
         if (!watchingPark) {
@@ -195,9 +196,9 @@ class LoungeViewModel(
             viewModelScope.launch {
                 combine(state.map { it.isParked }, profile.map { it?.profileId }) { parked, id -> parked && id != null }
                     .distinctUntilChanged().filter { it }
-                    .collect { try { checkIn() } catch (e: CancellationException) { throw e } catch (e: Exception) { /* 출석 실패가 인사·화면을 막지 않게 */ } }
+                    .collect { tryCheckIn() }
             }
-        }
+        } else viewModelScope.launch { tryCheckIn() }
         viewModelScope.launch {
             val u = ui.filterNotNull().first()
             val date = seoulDate(clock()).toString()
@@ -208,6 +209,10 @@ class LoungeViewModel(
             speaker.say(listOfNotNull(base, greetLine, missionLine).joinToString(" "))
             if (first) setLastGreetDate(date)
         }
+    }
+
+    private suspend fun tryCheckIn() {
+        try { checkIn() } catch (e: CancellationException) { throw e } catch (e: Exception) { /* 출석 실패가 인사·화면을 막지 않게 */ }
     }
 
     private fun fuelLabel(fuelType: String) = when (runCatching { FuelType.valueOf(fuelType) }.getOrNull()) {

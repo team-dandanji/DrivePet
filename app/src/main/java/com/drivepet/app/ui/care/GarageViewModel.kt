@@ -90,12 +90,14 @@ class GarageViewModel(
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** 교체 기록을 남기고 새 recordId를 돌려준다. 누적거리를 못 읽으면 odometerMm = null(남은 주기는 미산출로 남는다). */
-    suspend fun replace(itemId: String): String? {
+    /**
+     * 교체 기록을 남기고 recordId를 돌려준다. 누적거리를 못 읽으면 odometerMm = null(남은 주기는 미산출로 남는다).
+     * [id]가 이미 있으면 새로 넣지 않고 그 id를 돌려준다(정비 기록 팝업의 재시도가 기록을 두 번 만들지 않게).
+     */
+    suspend fun replace(itemId: String, id: String = UUID.randomUUID().toString()): String? {
         val p = profile.value ?: return null
         val now = clock()
         val date = seoulDate(now).toString()
-        val id = UUID.randomUUID().toString()
         store.insertIfAbsent(
             RecordEntity(
                 recordId = id, profileId = p.profileId, accountId = p.accountId, kind = "REPLACEMENT", occurredAt = now.toEpochMilli(),

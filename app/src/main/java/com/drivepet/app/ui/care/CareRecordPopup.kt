@@ -36,7 +36,7 @@ fun careRowIdFor(item: CareItem, rows: List<CareRow>): String? = rows.firstOrNul
  * 정비 기록 팝업(D5 419:53613). 라운지 화면 위에 같은 창 안에서 뜬다(라운지 루트 Box의 마지막 자식으로 둔다).
  * 라운지가 RESUMED이고 정차 중일 때만 보인다. 주행이 시작되면 사라지고, pending은 그대로 남는다.
  * [visible]이 false(하차 점검 등 다른 팝업이 떠 있음)이면 겹치지 않게 숨긴다.
- * [네]는 교체 기록을 남기고 pending을 지운 뒤 [onRecorded]로 새 recordId를 넘긴다.
+ * [네]는 pending의 recordId로 교체 기록을 남기고(이미 있으면 그대로) pending을 지운 뒤 [onRecorded]로 그 recordId를 넘긴다.
  */
 @Composable
 fun CareRecordPopup(container: AppContainer, visible: Boolean = true, onRecorded: (String) -> Unit) {
@@ -76,7 +76,8 @@ fun CareRecordPopup(container: AppContainer, visible: Boolean = true, onRecorded
                 scope.launch {
                     // 정비 항목 행은 프로필마다 따로 있어, CareItem 이름으로 찾아 그 itemId로 기록한다.
                     val rowId = careRowIdFor(item, vm.ui.filterNotNull().first().rows)
-                    val id = rowId?.let { vm.replace(it) }
+                    // 대기를 만들 때 정한 id로 넣는다: 저장 뒤 대기 삭제 전에 끊겨 다시 물어도 기록은 하나만 남는다.
+                    val id = rowId?.let { vm.replace(it, p.recordId) }
                     container.settings.setPendingCare(null)
                     busy = false
                     id?.let(onRecorded)

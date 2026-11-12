@@ -62,6 +62,16 @@ class GarageViewModelTest {
         assertEquals(24_800, again.odometerKm)
     }
 
+    /** 정비 기록 팝업 재시도: 같은 id로 두 번 기록해도 하나만 남고 같은 id를 돌려준다. */
+    @Test fun replaceTwiceWithSameIdStoresOnce() = runTest {
+        val v = vm()
+        val tire = v.ui.value!!.rows.first { it.care.name == "TIRE" }.item.itemId
+        assertEquals("visit-1", v.replace(tire, "visit-1"))
+        now = now.plusSeconds(60)
+        assertEquals("visit-1", v.replace(tire, "visit-1"))
+        assertEquals(listOf("visit-1"), store.records("p1").first().filter { it.kind == "REPLACEMENT" }.map { it.recordId })
+    }
+
     @Test fun replaceWithUnknownOdometerStoresNull() = runTest {
         state.value = VehicleState(gear = Signal.Ok(Gear.P, 0L), odometerKm = Signal.Unknown)
         val v = vm()

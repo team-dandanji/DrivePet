@@ -155,11 +155,11 @@ private fun RisingExpTag(text: String) {
     DpTag(text, TagStyle.Glass, Modifier.alpha(rise.value).offset(y = (24 * (1f - rise.value)).dp))
 }
 
-/** 정비 전 → 후 총 EXP 막대. 칩이 뜬 뒤 200ms 있다가 800ms ease-out으로 채운다. 레벨 경계를 넘으면 새 레벨 기준으로 다시 시작한다. */
+/** 정비 전 → 후 총 EXP 막대. 칩이 다 뜬 뒤(400ms) 200ms 있다가(정산 화면과 같다) 800ms ease-out으로 채운다. 레벨 경계를 넘으면 새 레벨 기준으로 다시 시작한다. */
 @Composable
 private fun ExpGauge(beforeMilli: Long, afterMilli: Long) {
     val anim = remember(beforeMilli, afterMilli) { Animatable(beforeMilli.toFloat()) }
-    LaunchedEffect(anim) { anim.animateTo(afterMilli.toFloat(), tween(GAUGE_MS, GAUGE_DELAY_MS, EaseOut)) }
+    LaunchedEffect(anim) { anim.animateTo(afterMilli.toFloat(), tween(GAUGE_MS, RISE_MS + GAUGE_DELAY_MS, EaseOut)) }
     val g = Growth.gauge(anim.value.toLong())
     Column(Modifier.fillMaxWidth().padding(horizontal = 160.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         LinearProgressIndicator(

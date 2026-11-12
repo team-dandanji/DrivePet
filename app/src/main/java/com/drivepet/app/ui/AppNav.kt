@@ -107,7 +107,7 @@ object Routes {
     const val CARE_DONE = "garage/done/{recordId}"
     const val TRIPS = "trips"
     const val CARE_COURSE = "care/course"
-    const val CARE_ROUTE_DONE = "care/route-done"
+    const val CARE_ROUTE_DONE = "care/route-done/{item}" // item = CareItem 이름(프로세스 복원 때 항목을 잃지 않게)
     const val SETTLEMENT = "settlement"
     const val LEVEL_UP = "levelup"
     const val DEV = "dev"
@@ -293,6 +293,14 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                         composable(Routes.ONBOARD_CARE, arguments = listOf(navArgument("index") { type = NavType.IntType })) { entry ->
                             val vm = onboardingVm(nav, entry, container)
                             val i = entry.arguments?.getInt("index") ?: 0
+                            // 프로세스 복원으로 질문 수가 줄면(입력값이 기본 EV로 돌아감) 빈 화면 대신 처음 질문, 입력이 비었으면 차량 정보로 돌린다.
+                            if (i !in vm.careQuestions.indices) {
+                                LaunchedEffect(Unit) {
+                                    if (vm.careBaselines.isEmpty()) nav.popBackStack(Routes.ONBOARD_SCAN, inclusive = false)
+                                    else nav.navigate(careRoute(0)) { popUpTo(Routes.ONBOARD_SCAN) }
+                                }
+                                return@composable
+                            }
                             CareQuestionScreen(vm, i, onBack = { nav.popBackStack() }) {
                                 // 마지막 질문 뒤에는 주행거리. 0.4초 사이에 화면이 바뀌었으면 넘기지 않는다.
                                 if (nav.currentBackStackEntry == entry) nav.navigate(if (i + 1 < vm.careQuestions.size) careRoute(i + 1) else Routes.ONBOARD_MILEAGE)
@@ -352,14 +360,15 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             target?.let { t ->
                                 CareCourseScreen(
                                     viewModel(entry, factory = CareCourseViewModel.factory(container, t)),
-                                    onBack = { nav.popBackStack() }, onRegister = { nav.navigate(Routes.CARE_ROUTE_DONE) },
+                                    onBack = { nav.popBackStack() }, onRegister = { nav.navigate("care/route-done/${t.name}") },
                                 )
                             }
                         }
-                        composable(Routes.CARE_ROUTE_DONE) {
+                        composable(Routes.CARE_ROUTE_DONE, arguments = listOf(navArgument("item") { type = NavType.StringType })) {
                             val courseEntry = remember(it) { nav.getBackStackEntry(Routes.CARE_COURSE) }
-                            // 앞 화면이 만든 것을 그대로 받는다(팩토리는 프로세스 복원 때만 쓰인다)
-                            val vm: CareCourseViewModel = viewModel(courseEntry, factory = CareCourseViewModel.factory(container, CareItem.TIRE))
+                            val item = it.arguments?.getString("item")?.let { n -> runCatching { CareItem.valueOf(n) }.getOrNull() } ?: CareItem.TIRE
+                            // 앞 화면이 만든 것을 그대로 받는다(팩토리는 프로세스 복원 때만 쓰인다). 복원되면 고른 장소가 없어 아래에서 코스 화면으로 돌아간다.
+                            val vm: CareCourseViewModel = viewModel(courseEntry, factory = CareCourseViewModel.factory(container, item))
                             val ready = vm.ui.collectAsStateWithLifecycle().value as? CourseUi.Ready
                             val stop = ready?.stops?.getOrNull(ready.selected)
                             if (ready == null || stop == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }

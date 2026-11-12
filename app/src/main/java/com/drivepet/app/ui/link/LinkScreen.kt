@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.drivepet.app.R
+import com.drivepet.app.ui.LocalDriving
 import com.drivepet.app.ui.onboarding.OnboardStep
 import com.drivepet.app.ui.onboarding.StepCta
 import com.drivepet.app.ui.theme.DpColors
@@ -58,7 +59,9 @@ fun LinkScreen(vm: LinkViewModel, login: Boolean, onBack: (() -> Unit)?, onLinke
     var done by remember { mutableStateOf(false) }
     val linked = ui as? LinkUi.Linked
     val go = { if (linked != null && !done) { done = true; onLinked(linked) } }
-    LaunchedEffect(linked) { if (linked != null) { delay(AUTO_NEXT_MS); go() } }
+    // 주행 제한 중에는 넘어가지 않고 기다렸다가, P로 돌아오면 1초 뒤 넘어간다.
+    val driving = LocalDriving.current
+    LaunchedEffect(linked, driving) { if (linked != null && !driving) { delay(AUTO_NEXT_MS); go() } }
 
     OnboardStep(
         "회원가입 및 로그인", 0, onBack ?: {}, "QR코드를 스캔하여 카카오톡 계정을 연결해주세요", "휴대폰에서 동의하면 자동으로 연결돼요",
