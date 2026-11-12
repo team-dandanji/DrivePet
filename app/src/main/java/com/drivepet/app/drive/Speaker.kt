@@ -11,7 +11,7 @@ data class Bubble(val text: String, val at: Long)
 
 interface Speaker {
     val bubble: StateFlow<Bubble?>
-    /** 1부: 말풍선만(voice 무시), 3부에서 TTS. */
+    /** voice = true면 말풍선과 함께 목소리도 낸다(TtsSpeaker). BubbleSpeaker는 voice를 무시. */
     fun say(text: String, voice: Boolean = false)
 }
 

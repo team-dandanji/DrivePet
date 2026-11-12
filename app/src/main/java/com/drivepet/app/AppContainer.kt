@@ -8,6 +8,7 @@ import com.drivepet.app.data.db.AppDatabase
 import com.drivepet.app.drive.BubbleSpeaker
 import com.drivepet.app.drive.DriveCoordinator
 import com.drivepet.app.drive.Speaker
+import com.drivepet.app.drive.TtsSpeaker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,6 +19,6 @@ class AppContainer(context: Context) {
     val db: AppDatabase = AppDatabase.build(app)
     val store: RecordStore = RoomRecordStore(db)
     val settings = Settings(app)
-    val speaker: Speaker = BubbleSpeaker(scope)
+    val speaker: Speaker = TtsSpeaker(app, BubbleSpeaker(scope))
     val coordinator = DriveCoordinator(app, store, settings, speaker, scope)
 }
