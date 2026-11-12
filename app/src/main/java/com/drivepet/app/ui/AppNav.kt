@@ -194,6 +194,8 @@ fun AppNav(container: AppContainer) {
 
     var menu by remember { mutableStateOf<HeaderMenuKind?>(null) }
     LaunchedEffect(overlay) { if (overlay) menu = null }
+    // 탈퇴·연결 성공으로 경로가 바뀌면 닫힌다. 실패하면 경로가 그대로라 메뉴에 안내 문구가 남는다.
+    LaunchedEffect(route) { menu = null }
 
     // 입력창(IME)도 별도 창이라 주행이 시작되면 포커스를 풀어 닫는다.
     val focus = LocalFocusManager.current

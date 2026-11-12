@@ -49,6 +49,9 @@ import com.drivepet.app.ui.components.TagStyle
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
 
+/** TabHeader 높이(위 여백 40 + 80 + 아래 여백 24 + 구분선 1). */
+private const val HEADER_DP = 145
+
 /** 07 · 08 메인 라운지(HIFI 419:50656). 08(이상 감지)은 같은 화면에서 특이사항 카드·CTA가 채워진 상태다. 프로필이 없으면 아무것도 그리지 않는다. */
 @Composable
 fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDev: () -> Unit) {
@@ -77,7 +80,8 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        when (loungeLayout(maxWidth.value.toInt(), maxHeight.value.toInt())) {
+        // 창 높이로 가른다(LoungeLayoutTest의 기준). 이 영역은 헤더를 뺀 높이라 헤더 높이를 더해 창 높이로 되돌린다.
+        when (loungeLayout(maxWidth.value.toInt(), maxHeight.value.toInt() + HEADER_DP)) {
             // 17 Connect-S 분할 세로 창: 위아래로 쌓고 스크롤
             LoungeLayout.NARROW -> Column(
                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 32.dp, vertical = 24.dp),
@@ -99,9 +103,10 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
                     bubbleRow()
                     statusRow()
                 }
-                Column(Modifier.width(720.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // 낮은 창은 카드 두 장 + CTA가 한 화면에 안 들어가므로 오른쪽 열은 스크롤한다.
+                Column(Modifier.width(720.dp).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     stats()
-                    WarningPanel(u, onCare, Modifier.weight(1f))
+                    WarningPanel(u, onCare, Modifier.fillMaxWidth(), fill = false)
                     ExpCard(u)
                 }
             }
@@ -113,10 +118,10 @@ fun LoungeScreen(vm: LoungeViewModel, speaker: Speaker, onCare: () -> Unit, onDe
                     statusRow()
                     ExpCard(u)
                 }
-                Column(Modifier.width(592.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.width(592.dp).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(24.dp)) {
                     Text("펫 컨디션", style = DpType.titleM.copy(fontWeight = FontWeight.ExtraBold), color = DpColors.TextSecondary)
                     stats()
-                    WarningPanel(u, onCare, Modifier.weight(1f))
+                    WarningPanel(u, onCare, Modifier.fillMaxWidth(), fill = false)
                 }
             }
         }
@@ -209,7 +214,7 @@ private fun StatCard(label: String, value: Int?, tag: Pair<String, TagStyle>?, u
     }
 }
 
-/** 특이사항 카드: 경고 카드 최대 2개(TPMS 먼저), 경고가 있을 때만 [돌보러 가기 ›]. [fill]이면 CTA를 카드 아래로 민다. */
+/** 특이사항 카드: 경고 카드 최대 2개(TPMS 먼저), 경고가 있을 때만 [돌보러 가기 ›]. [fill]이면 CTA를 카드 아래로 민다(스크롤 열에서는 쓰지 않는다). */
 @Composable
 private fun WarningPanel(u: LoungeUi, onCare: () -> Unit, modifier: Modifier, fill: Boolean = true) {
     Glass(modifier, PaddingValues(horizontal = 28.dp, vertical = 36.dp)) {

@@ -69,7 +69,6 @@ fun AccountMenu(container: AppContainer, onLink: () -> Unit, onDismiss: () -> Un
             PopupButton("취소", { confirmDelete = false }, primary = false)
             PopupButton("탈퇴", {
                 confirmDelete = false
-                onDismiss()
                 run("탈퇴하지 못했어요. 인터넷 연결을 확인해 주세요") { container.account.deleteAccount() }
             }, primary = true)
         }

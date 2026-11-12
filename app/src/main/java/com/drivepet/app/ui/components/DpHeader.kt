@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.drivepet.app.ui.theme.DpColors
 import com.drivepet.app.ui.theme.DpType
@@ -37,10 +38,10 @@ private const val APP_NAME = "Carpet"
 
 /** 헤더 공통: 높이 80 줄, 위 40 / 아래 24 여백, 아래 1 구분선(피그마 page_navigation 토큰). */
 @Composable
-private fun HeaderFrame(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+private fun HeaderFrame(modifier: Modifier = Modifier, start: Dp = 40.dp, content: @Composable RowScope.() -> Unit) {
     Column(modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 24.dp).height(80.dp).padding(start = 40.dp, end = 24.dp),
+            Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 24.dp).height(80.dp).padding(start = start, end = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) { content() }
         Box(Modifier.fillMaxWidth().height(1.dp).background(DpColors.DividerTertiary))
@@ -74,8 +75,8 @@ private fun Chevron(size: Int, down: Boolean, color: Color = DpColors.Text) {
 
 /** 앱 아이콘 자리(80, r20, 핸들 모양). 실제 아이콘 에셋이 들어오면 이 Canvas만 바꾼다. */
 @Composable
-private fun AppIcon() {
-    Canvas(Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).background(DpColors.Filled).border(1.dp, DpColors.Divider, RoundedCornerShape(20.dp))) {
+private fun AppIcon(side: Dp = 80.dp) {
+    Canvas(Modifier.size(side).clip(RoundedCornerShape(20.dp)).background(DpColors.Filled).border(1.dp, DpColors.Divider, RoundedCornerShape(20.dp))) {
         val c = Offset(size.width / 2, size.height / 2)
         val stroke = Stroke(width = 5.dp.toPx())
         drawCircle(Color.White, size.width * 0.28f, c, style = stroke)
@@ -88,28 +89,33 @@ private fun AppIcon() {
 /**
  * 라운지 계열 상단: 앱 아이콘 80 + 「Carpet ▾」 + 밑줄 탭 + ⋯. 앱 이름 줄을 누르면 [onAppMenu], ⋯는 [onMoreMenu].
  * 탭은 32 Bold, 고른 탭은 글자색 Text + 4 밑줄, 나머지는 TextSecondary(419:50656).
+ * 분할 세로 창(폭 840)에서는 간격·아이콘·앱 이름을 줄여 한 줄에 들어가게 한다(넓은 창 합계 약 980, 좁은 창 약 790 추정).
  */
 @Composable
 fun TabHeader(selected: Tab, onSelect: (Tab) -> Unit, onAppMenu: () -> Unit, onMoreMenu: () -> Unit, modifier: Modifier = Modifier) {
-    HeaderFrame(modifier) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(48.dp)) {
-            Row(Modifier.clickable(onClick = onAppMenu), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                AppIcon()
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(APP_NAME, style = DpType.titleL, color = DpColors.Text)
+    val narrow = isNarrowWindow()
+    HeaderFrame(modifier, start = if (narrow) 24.dp else 40.dp) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (narrow) 16.dp else 48.dp)) {
+            Row(Modifier.clickable(onClick = onAppMenu), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (narrow) 8.dp else 16.dp)) {
+                AppIcon(if (narrow) 64.dp else 80.dp)
+                Row(Modifier.padding(horizontal = if (narrow) 8.dp else 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(APP_NAME, style = if (narrow) DpType.titleS.copy(fontWeight = FontWeight.Bold) else DpType.titleL, color = DpColors.Text, maxLines = 1)
                     Chevron(28, down = true)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(if (narrow) 8.dp else 24.dp)) {
                 Tab.entries.forEach { tab ->
                     val on = tab == selected
                     Box(
                         Modifier.height(80.dp).clickable { onSelect(tab) }.drawBehind {
                             if (on) drawRect(DpColors.Text, Offset(0f, size.height - 4.dp.toPx()), Size(size.width, 4.dp.toPx()))
-                        }.padding(horizontal = 14.dp),
+                        }.padding(horizontal = if (narrow) 8.dp else 14.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(tab.label, style = DpType.titleS.copy(fontWeight = FontWeight.Bold), color = if (on) DpColors.Text else DpColors.TextSecondary)
+                        Text(
+                            tab.label, style = DpType.titleS.copy(fontWeight = FontWeight.Bold), color = if (on) DpColors.Text else DpColors.TextSecondary,
+                            maxLines = 1, softWrap = false,
+                        )
                     }
                 }
             }
