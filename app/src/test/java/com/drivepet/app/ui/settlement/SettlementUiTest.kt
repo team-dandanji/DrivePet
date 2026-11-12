@@ -62,4 +62,10 @@ class SettlementUiTest {
         assertEquals("급조향 0회", row.first)
         assertEquals("+15EXP", row.second)
     }
+
+    @Test fun `gauge stages split at level boundaries`() {
+        assertEquals(listOf(0.25f to 0.5f), gaugeStages(100_000L, 200_000L))
+        assertEquals(listOf(0.875f to 1f, 0f to 0.1f), gaugeStages(350_000L, 450_000L))
+        assertEquals(listOf(0.25f to 1f, 0f to 1f, 0f to 1f), gaugeStages(100_000L, 1_000_000L))
+    }
 }

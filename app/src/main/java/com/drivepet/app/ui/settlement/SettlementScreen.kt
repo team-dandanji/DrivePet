@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,7 +27,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -165,9 +170,13 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
                 confirm(Modifier.fillMaxWidth())
             }
         } else {
-            Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                left(Modifier.weight(1f).fillMaxHeight())
-                Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.SpaceBetween) { title(); info() }
+            // 본문은 ✕ 줄과 CTA 줄 사이 칸 안에서만 그린다. 칸보다 길면 본문만 스크롤하고 CTA는 고정이다(창이 낮아도 CTA를 가리지 않는다).
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val bodyH = maxHeight
+                Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    left(Modifier.weight(1f).heightIn(min = bodyH))
+                    Column(Modifier.weight(1f).heightIn(min = bodyH), Arrangement.SpaceBetween) { title(); info() }
+                }
             }
             Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 40.dp), Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
                 replay(Modifier.width(616.dp))
@@ -225,19 +234,57 @@ private fun RewardCard(rows: List<Pair<String, String>>, withheld: Boolean) {
     }
 }
 
-/** 정산 전 → 후 총 EXP 막대(8, 가운데 폭 제한). 「+EXP」가 나타난 200ms 뒤 800ms 동안 채우며, 레벨 경계를 넘으면 새 레벨 기준으로 다시 시작한다. */
+private fun needOf(level: Int): Long? = when (level) {
+    1 -> Growth.LV2_MILLI
+    2 -> Growth.LV3_MILLI - Growth.LV2_MILLI
+    else -> null
+}
+
+private fun fractionIn(totalMilli: Long): Float {
+    val g = Growth.gauge(totalMilli)
+    return g.needMilli?.let { g.inLevelMilli / it.toFloat() } ?: 1f
+}
+
+/**
+ * 막대 단계별 (시작, 끝) 비율(0..1). 같은 레벨이면 한 단계, 레벨이 오르면 「지금 레벨 → 가득」, (새 레벨마다) 0으로 되돌린 뒤 「0 → 남은 값」.
+ * 최고 레벨(필요 EXP 없음)은 항상 가득이다.
+ */
+fun gaugeStages(beforeMilli: Long, afterMilli: Long): List<Pair<Float, Float>> {
+    val lb = Growth.level(beforeMilli)
+    val la = Growth.level(afterMilli)
+    if (lb == la) return listOf(fractionIn(beforeMilli) to fractionIn(afterMilli))
+    return buildList {
+        add(fractionIn(beforeMilli) to 1f)
+        repeat(la - lb - 1) { add(0f to 1f) }
+        add(0f to fractionIn(afterMilli))
+    }
+}
+
+/**
+ * 정산 전 → 후 총 EXP 막대(8, 가운데 폭 제한). 「+EXP」가 끝난 200ms 뒤 총 800ms ease-out으로 채운다.
+ * 레벨이 오르면 가득 찬 뒤 새 레벨 0에서 남은 값만큼 채운다(800ms를 단계별 채울 길이에 비례해 나눈다).
+ */
 @Composable
 private fun CumulativeGauge(beforeMilli: Long, afterMilli: Long, narrow: Boolean) {
-    val anim = remember(beforeMilli, afterMilli) { Animatable(beforeMilli.toFloat()) }
-    LaunchedEffect(anim) {
+    val lb = Growth.level(beforeMilli)
+    var shown by remember(beforeMilli, afterMilli) { mutableStateOf(lb to gaugeStages(beforeMilli, afterMilli).first().first) }
+    LaunchedEffect(beforeMilli, afterMilli) {
+        val stages = gaugeStages(beforeMilli, afterMilli)
+        val total = stages.sumOf { (it.second - it.first).toDouble() }.toFloat()
         delay((EXP_MS + GAUGE_DELAY_MS).toLong())
-        anim.animateTo(afterMilli.toFloat(), tween(GAUGE_MS, easing = EaseOut))
+        stages.forEachIndexed { i, (from, to) ->
+            val level = lb + i
+            shown = level to from
+            val ms = if (total > 0f) maxOf(1, (GAUGE_MS * (to - from) / total).toInt()) else 1
+            Animatable(from).animateTo(to, tween(ms, easing = EaseOut)) { shown = level to value }
+        }
     }
-    val g = Growth.gauge(anim.value.toLong())
+    val (level, fill) = shown
+    val need = needOf(level)
     Column(Modifier.fillMaxWidth().padding(horizontal = if (narrow) 80.dp else 160.dp), Arrangement.spacedBy(12.dp), Alignment.CenterHorizontally) {
         Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(DpColors.TrackInactive)) {
-            Box(Modifier.fillMaxWidth(g.percent / 100f).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(DpColors.Filled))
+            Box(Modifier.fillMaxWidth(fill.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(DpColors.Filled))
         }
-        Text(g.needMilli?.let { "${formatExp(g.inLevelMilli)} / ${formatExp(it)} EXP" } ?: "MAX", style = DpType.labelM, color = DpColors.TextSecondary)
+        Text(need?.let { "${formatExp((fill * it).toLong())} / ${formatExp(it)} EXP" } ?: "MAX", style = DpType.labelM, color = DpColors.TextSecondary)
     }
 }
