@@ -24,6 +24,7 @@ interface DrivePetApi {
     @DELETE("account") suspend fun deleteAccount(): Envelope<AccountDeleted>
     @PUT("sync/backup") suspend fun upload(@Body r: UploadRequest, @Tag a: ExpectedAccount): Envelope<UploadResult>
     @GET("weather") suspend fun weather(@Query("lat") lat: Double, @Query("lng") lng: Double): Envelope<WeatherDto>
+    @GET("places") suspend fun places(@Query("lat") lat: Double, @Query("lng") lng: Double): Envelope<List<PlaceDto>>
     @GET("sync/backup") suspend fun download(
         @Query("schemaVersion") v: Int, @Query("cursor") cursor: String?, @Query("limit") limit: Int, @Tag a: ExpectedAccount,
     ): Envelope<DownloadResult>

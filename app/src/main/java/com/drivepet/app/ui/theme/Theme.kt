@@ -60,6 +60,8 @@ object DpColors {
     val TagNeutral = Color(0xFF686A72)
     val GlassStrong = Color(0x80FFFFFF)
     val Sky500 = Color(0xFF609BB2)
+    /** 경로·번호 원 파랑(drivepet/control/on). */
+    val ControlOn = Color(0xFF4781FF)
 }
 
 /** Sky: sky_top → surface_low(70% 지점), 이후 단색. 180° 세로. */

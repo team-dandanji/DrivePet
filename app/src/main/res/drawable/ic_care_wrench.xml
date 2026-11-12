@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 419:51561 dp/app icon(정비소 망치). 색은 화면에서 tint로 입힌다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="80dp" android:height="80dp" android:viewportWidth="80" android:viewportHeight="80">
+    <path
+        android:pathData="M43.3348 30L67.9448 54.7267C70.6882 57.46 70.6882 61.8867 67.9448 64.6167C66.6269 65.9275 64.8437 66.6634 62.9848 66.6634C61.126 66.6634 59.3427 65.9275 58.0248 64.6167L33.3348 40M33.3348 40L53.3348 20L43.3348 10L23.3348 30L12.5348 34.32C11.8948 34.576 11.3283 34.9869 10.8861 35.5157C10.444 36.0445 10.1399 36.6747 10.0011 37.3499C9.86239 38.0251 9.89333 38.7242 10.0912 39.3845C10.289 40.0448 10.6476 40.6457 11.1348 41.1333L22.2014 52.2C22.6891 52.6872 23.29 53.0457 23.9503 53.2436C24.6106 53.4414 25.3097 53.4724 25.9849 53.3336C26.6601 53.1949 27.2903 52.8908 27.8191 52.4486C28.3479 52.0064 28.7587 51.44 29.0148 50.8L33.3348 40Z"
+        android:strokeWidth="6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

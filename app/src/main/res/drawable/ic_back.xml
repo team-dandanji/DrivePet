@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 ic_arrow(뒤로, 56). 색은 화면에서 tint로 입힌다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="56dp" android:height="56dp" android:viewportWidth="56" android:viewportHeight="56">
+    <path
+        android:pathData="M37.8166 10.0168C38.7278 10.928 38.7278 12.4054 37.8166 13.3166L23.1332 28L37.8166 42.6834C38.7278 43.5946 38.7278 45.072 37.8166 45.9832C36.9054 46.8945 35.428 46.8945 34.5168 45.9832L18.1834 29.6499C17.2722 28.7387 17.2722 27.2613 18.1834 26.3501L34.5168 10.0168C35.428 9.10553 36.9054 9.10553 37.8166 10.0168Z"
+        android:fillColor="#FFFFFFFF" android:fillType="evenOdd" />
+</vector>

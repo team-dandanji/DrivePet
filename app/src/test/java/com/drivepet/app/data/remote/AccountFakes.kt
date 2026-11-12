@@ -60,6 +60,7 @@ class QrApi : DrivePetApi {
     override suspend fun upload(r: UploadRequest, a: ExpectedAccount): Envelope<UploadResult> = error("unused")
     override suspend fun download(v: Int, cursor: String?, limit: Int, a: ExpectedAccount): Envelope<DownloadResult> = error("unused")
     override suspend fun weather(lat: Double, lng: Double): Envelope<WeatherDto> = error("unused")
+    override suspend fun places(lat: Double, lng: Double): Envelope<List<PlaceDto>> = error("unused")
 }
 
 fun linked(account: String = "acc_1", nick: String? = "지우", synced: Boolean = true) = QrStatus(

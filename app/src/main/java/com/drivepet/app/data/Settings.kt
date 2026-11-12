@@ -18,12 +18,17 @@ fun normalizeServerUrl(input: String): String? {
     return if (t.endsWith("/")) t else "$t/"
 }
 
+/** 내비로 안내를 시작한 정비(itemId = CareItem 이름). 방문 후 기록 팝업이 쓴다. */
+data class PendingCare(val itemId: String, val placeName: String)
+
 class Settings(context: Context) {
     private val store = context.applicationContext.settingsStore
     private val modeKey = stringPreferencesKey("mode")
     private val profileKey = stringPreferencesKey("active_profile_id")
     private val greetKey = stringPreferencesKey("last_greet_date")
     private val serverUrlKey = stringPreferencesKey("server_url")
+    private val pendingItemKey = stringPreferencesKey("pending_care_item")
+    private val pendingPlaceKey = stringPreferencesKey("pending_care_place")
 
     // 저장된 값이 없으면 모든 빌드에서 실차. 리플레이는 22·개발자 메뉴에서만 시작한다.
     private val defaultMode = VehicleModule.Mode.REAL
@@ -46,6 +51,19 @@ class Settings(context: Context) {
     val serverUrl: Flow<String> = store.data.map { it[serverUrlKey] ?: BuildConfig.DEFAULT_SERVER_URL }
 
     suspend fun setServerUrl(url: String) { store.edit { it[serverUrlKey] = url } }
+
+    val pendingCare: Flow<PendingCare?> = store.data.map { p ->
+        val item = p[pendingItemKey] ?: return@map null
+        PendingCare(item, p[pendingPlaceKey].orEmpty())
+    }
+
+    /** null이면 지운다. */
+    suspend fun setPendingCare(c: PendingCare?) {
+        store.edit {
+            if (c == null) { it.remove(pendingItemKey); it.remove(pendingPlaceKey) }
+            else { it[pendingItemKey] = c.itemId; it[pendingPlaceKey] = c.placeName }
+        }
+    }
 
     /** 개발자 메뉴 "로컬 데이터 초기화": 서버 주소만 남기고 설정을 지운다(지우면 시연 빌드가 기본 http 주소로 돌아가 서버 기능이 끊긴다). */
     suspend fun clear() {

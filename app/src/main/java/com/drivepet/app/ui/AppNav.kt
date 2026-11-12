@@ -36,16 +36,17 @@ import com.drivepet.app.data.growthTotalMilli
 import com.drivepet.app.domain.Growth
 import com.drivepet.app.ui.components.Tab
 import com.drivepet.app.ui.components.TopTabs
-import com.drivepet.app.domain.FuelType
+import com.drivepet.app.data.PendingCare
+import com.drivepet.app.domain.CareItem
+import com.drivepet.app.ui.care.CareCourseScreen
+import com.drivepet.app.ui.care.CareCourseViewModel
 import com.drivepet.app.ui.care.CareDoneScreen
+import com.drivepet.app.ui.care.CourseUi
 import com.drivepet.app.ui.care.CareHistoryScreen
 import com.drivepet.app.ui.care.GarageEditScreen
 import com.drivepet.app.ui.care.GarageScreen
 import com.drivepet.app.ui.care.GarageViewModel
-import com.drivepet.app.ui.care.PlaceScreen
-import com.drivepet.app.ui.care.PlaceTab
-import com.drivepet.app.ui.care.placeRoute
-import com.drivepet.app.ui.lounge.CareAction
+import com.drivepet.app.ui.care.RouteDoneScreen
 import com.drivepet.app.ui.drive.DrivingScreen
 import com.drivepet.app.ui.exit.ExitCheckScreen
 import com.drivepet.app.ui.drive.RestrictedEntryDialog
@@ -89,6 +90,8 @@ object Routes {
     const val GARAGE_EDIT = "garage/edit"
     const val CARE_DONE = "garage/done/{recordId}"
     const val TRIPS = "trips"
+    const val CARE_COURSE = "care/course"
+    const val CARE_ROUTE_DONE = "care/route-done"
     const val DRIVING = "driving"
     const val SETTLEMENT = "settlement"
     const val LEVEL_UP = "levelup"
@@ -260,7 +263,7 @@ fun AppNav(container: AppContainer) {
                     composable(Routes.LOUNGE) {
                         LoungeScreen(
                             viewModel(factory = LoungeViewModel.factory(container)), container.speaker,
-                            onCare = { nav.navigate(placeRoute(if (it == CareAction.HOSPITAL) PlaceTab.REPAIR else PlaceTab.ENERGY)) },
+                            onCare = { nav.navigate(Routes.CARE_COURSE) }, // 병원·밥 모두 펫 돌보기로(밥은 Task 6에서 빠진다)
                         ) { nav.navigate(Routes.DEV) }
                     }
                     composable(Routes.GARAGE) {
@@ -282,10 +285,36 @@ fun AppNav(container: AppContainer) {
                         )
                     }
                     composable(Routes.TRIPS) { TripsScreen(container) }
-                    composable("place/{tab}", arguments = listOf(navArgument("tab") { type = NavType.StringType })) { entry ->
-                        val tab = runCatching { PlaceTab.valueOf(entry.arguments?.getString("tab").orEmpty()) }.getOrDefault(PlaceTab.REPAIR)
-                        val fuel = profile?.fuelType ?: FuelType.EV
-                        PlaceScreen(tab, fuel, state.warnings.valueOrNull()?.firstOrNull(), pet.first, pet.second) { nav.popBackStack() }
+                    composable(Routes.CARE_COURSE) { entry ->
+                        // 정비 항목은 들어올 때 한 번 정한다. ViewModel은 이 항목에 두고 경로 등록 완료 화면이 같이 쓴다.
+                        val target by produceState<CareItem?>(null, profile?.profileId) { value = CareCourseViewModel.targetFor(container, profile?.profileId) }
+                        target?.let { t ->
+                            CareCourseScreen(
+                                viewModel(entry, factory = CareCourseViewModel.factory(container, t)),
+                                onBack = { nav.popBackStack() }, onRegister = { nav.navigate(Routes.CARE_ROUTE_DONE) },
+                            )
+                        }
+                    }
+                    composable(Routes.CARE_ROUTE_DONE) {
+                        val courseEntry = remember(it) { nav.getBackStackEntry(Routes.CARE_COURSE) }
+                        // 앞 화면이 만든 것을 그대로 받는다(팩토리는 프로세스 복원 때만 쓰인다)
+                        val vm: CareCourseViewModel = viewModel(courseEntry, factory = CareCourseViewModel.factory(container, CareItem.TIRE))
+                        val ready = vm.ui.collectAsStateWithLifecycle().value as? CourseUi.Ready
+                        val stop = ready?.stops?.getOrNull(ready.selected)
+                        if (ready == null || stop == null) { LaunchedEffect(Unit) { nav.popBackStack() }; return@composable }
+                        val toLounge = { nav.navigate(Routes.LOUNGE) { popUpTo(Routes.LOUNGE); launchSingleTop = true } }
+                        RouteDoneScreen(
+                            stop.place.name, pet.first, pet.second, onBack = { nav.popBackStack() }, onLounge = toLounge,
+                            onStart = {
+                                container.navi.startGuidance(stop.place).also { ok ->
+                                    if (ok) {
+                                        // 방문 후 기록 팝업(Task 5)이 쓴다. 앱 범위에서 저장해 화면을 떠나도 끝까지 쓴다.
+                                        container.scope.launch { container.settings.setPendingCare(PendingCare(ready.target.name, stop.place.name)) }
+                                        toLounge()
+                                    }
+                                }
+                            },
+                        )
                     }
                     composable(
                         "${Routes.LEVEL_UP}/{before}/{after}",

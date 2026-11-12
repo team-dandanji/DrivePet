@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 피그마 418:49396 dp/app icon(휴지통). 색은 화면에서 tint로 입힌다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+    <path
+        android:pathData="M6.66667 11.6667H33.3333M16.6667 18.3333V28.3333M23.3333 18.3333V28.3333M8.33333 11.6667L10 31.6667C10 32.5507 10.3512 33.3986 10.9763 34.0237C11.6014 34.6488 12.4493 35 13.3333 35H26.6667C27.5507 35 28.3986 34.6488 29.0237 34.0237C29.6488 33.3986 30 32.5507 30 31.6667L31.6667 11.6667M15 11.6667V6.66667C15 6.22464 15.1756 5.80072 15.4882 5.48816C15.8007 5.17559 16.2246 5 16.6667 5H23.3333C23.7754 5 24.1993 5.17559 24.5118 5.48816C24.8244 5.80072 25 6.22464 25 6.66667V11.6667"
+        android:strokeWidth="3" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>

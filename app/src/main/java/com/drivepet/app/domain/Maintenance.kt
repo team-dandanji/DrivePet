@@ -55,3 +55,18 @@ fun careLife(item: CareItem, baseline: CareBaseline, replacements: List<Replacem
 }
 
 fun inspectionDaysLeft(due: LocalDate?, today: LocalDate): Int? = due?.let { ChronoUnit.DAYS.between(today, it).toInt() }
+
+/** 펫 돌보기에서 정비소에 맡길 항목: TPMS 경고면 타이어, 아니면 남은 주기 %가 가장 낮은 항목, 정보가 없으면 타이어. */
+fun careTarget(warnings: List<String>, lifePcts: Map<CareItem, Int?>): CareItem {
+    if (warnings.any { "TPMS" in it }) return CareItem.TIRE
+    return lifePcts.mapNotNull { (item, pct) -> pct?.let { item to it } }.minByOrNull { it.second }?.first ?: CareItem.TIRE
+}
+
+/** 태그·안내 문구용 짧은 이름(예 「타이어 점검 필요」). */
+val CareItem.shortName: String
+    get() = when (this) {
+        CareItem.ENGINE_OIL -> "엔진오일"
+        CareItem.TIRE -> "타이어"
+        CareItem.CABIN_FILTER -> "에어컨 필터"
+        CareItem.WIPER -> "와이퍼"
+    }
