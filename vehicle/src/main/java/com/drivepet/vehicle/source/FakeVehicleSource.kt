@@ -35,6 +35,7 @@ class FakeVehicleSource(
                 driverWindow = Signal.Ok(0, now),
                 lowBeam = Signal.Ok(false, now),
                 highBeam = Signal.Ok(false, now),
+                cabinLight = Signal.Ok(false, now),
                 driverBeltBuckled = Signal.Ok(false, now),
                 energyPct = Signal.Ok(80, now),
                 warnings = Signal.Ok(emptyList(), now),
@@ -69,6 +70,7 @@ class FakeVehicleSource(
     fun setWindow(level: Int) = set { s, t -> s.copy(driverWindow = Signal.Ok(level.coerceIn(0, 10), t)) }
     fun setLowBeam(on: Boolean) = set { s, t -> s.copy(lowBeam = Signal.Ok(on, t)) }
     fun setHighBeam(on: Boolean) = set { s, t -> s.copy(highBeam = Signal.Ok(on, t)) }
+    fun setCabinLight(on: Boolean) = set { s, t -> s.copy(cabinLight = Signal.Ok(on, t)) }
     fun setBelt(buckled: Boolean) = set { s, t -> s.copy(driverBeltBuckled = Signal.Ok(buckled, t)) }
     fun setEnergy(pct: Int) = set { s, t -> s.copy(energyPct = Signal.Ok(pct.coerceIn(0, 100), t)) }
     fun setWarnings(names: List<String>) = set { s, t -> s.copy(warnings = Signal.Ok(names, t)) }

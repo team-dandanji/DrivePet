@@ -216,6 +216,7 @@ class EventEngine(private val config: RuleConfig = RuleConfig()) {
         val items = buildList {
             if ((next.driverWindow.valueOrNull() ?: 0) > 0) add(ExitItem.WINDOW_OPEN)
             if (next.headlightOn) add(ExitItem.HEADLIGHT_ON)
+            if (next.cabinLight.valueOrNull() == true) add(ExitItem.CABIN_LIGHT_ON)
             if (next.doorsLocked.valueOrNull() == false) add(ExitItem.DOORS_UNLOCKED)
         }
         out += DriveEvent.PreExitCheck(items, now)

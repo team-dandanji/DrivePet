@@ -28,6 +28,8 @@ data class VehicleState(
     val driverWindow: Signal<Int> = Signal.Unknown,
     val lowBeam: Signal<Boolean> = Signal.Unknown,
     val highBeam: Signal<Boolean> = Signal.Unknown,
+    /** 실내등(Cabin light) 켜짐. Pleos Light.getCurrentCabinLightState, 권한 CAR_LIGHTS. */
+    val cabinLight: Signal<Boolean> = Signal.Unknown,
     /** 운전석 안전벨트 착용. 에뮬레이터에서는 읽기만 확인됨(조작 항목 없음). */
     val driverBeltBuckled: Signal<Boolean> = Signal.Unknown,
     /** 연료 또는 배터리 잔량(%). V-09 확인 전까지 Unknown. */

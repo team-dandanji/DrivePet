@@ -191,6 +191,17 @@ class RealVehicleSource(
             unregisters += { api.unregisterHighBeamLightState(l) }
         }
 
+        guard("cabinLight") {
+            val api = v.getLight()
+            api.getCurrentCabinLightState({ st -> onCabinLight(st) }, fail("cabinLight") { s, x -> s.copy(cabinLight = x) })
+            val l = object : LightStateListener {
+                override fun onLightStateUpdated(state: LightState?) = onCabinLight(state)
+                override fun onFailed(e: Exception) = fail("cabinLight") { s, x -> s.copy(cabinLight = x) }(e)
+            }
+            api.registerCabinLightState(l)
+            unregisters += { api.unregisterCabinLightState(l) }
+        }
+
         guard("turnSignal") {
             val api = v.getTurnSignal()
             api.getCurrentTurnSignalState({ st -> onTurn(st) }, fail("turnSignal") { s, x -> s.copy(turnSignal = x) })
@@ -241,6 +252,13 @@ class RealVehicleSource(
         val on = state?.toString() ?: return
         val isOn = on.equals("ON", ignoreCase = true)
         set { s, t -> if (high) s.copy(highBeam = s.highBeam.updated(isOn, t)) else s.copy(lowBeam = s.lowBeam.updated(isOn, t)) }
+    }
+
+    private fun onCabinLight(state: Any?) {
+        val v = state?.toString() ?: return
+        Log.i(TAG, "cabinLight 값=$v")
+        val isOn = v.equals("ON", ignoreCase = true)
+        set { s, t -> s.copy(cabinLight = s.cabinLight.updated(isOn, t)) }
     }
 
     private fun onTurn(state: Any?) {

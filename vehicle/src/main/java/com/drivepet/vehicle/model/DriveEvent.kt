@@ -46,4 +46,4 @@ sealed class DriveEvent {
     data class VehicleWarning(val names: List<String>, override val at: Long) : DriveEvent()
 }
 
-enum class ExitItem { WINDOW_OPEN, HEADLIGHT_ON, DOORS_UNLOCKED }
+enum class ExitItem { WINDOW_OPEN, HEADLIGHT_ON, CABIN_LIGHT_ON, DOORS_UNLOCKED }

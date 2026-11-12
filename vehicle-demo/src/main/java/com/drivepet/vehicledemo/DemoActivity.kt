@@ -104,6 +104,7 @@ class DemoActivity : ComponentActivity() {
             label("창문"), button("0") { f.setWindow(0) }, button("4") { f.setWindow(4) }, button("10") { f.setWindow(10) },
             label("  전조등"), button("하향") { f.setLowBeam(true) }, button("상향") { f.setHighBeam(true) },
             button("끄기") { f.setLowBeam(false); f.setHighBeam(false) },
+            label("  실내등"), button("켜기") { f.setCabinLight(true) }, button("끄기") { f.setCabinLight(false) },
         ))
         fakePanel.addView(row(
             label("벨트"), button("착용") { f.setBelt(true) }, button("해제") { f.setBelt(false) },
@@ -194,6 +195,7 @@ class DemoActivity : ComponentActivity() {
         문 잠금       ${s.doorsLocked.label()}
         운전석 창문   ${s.driverWindow.label()}
         하향/상향등   ${s.lowBeam.label()} / ${s.highBeam.label()}
+        실내등        ${s.cabinLight.label()}
         안전벨트      ${s.driverBeltBuckled.label()}
         잔량 %        ${s.energyPct.label()}
         경고등        ${s.warnings.label()}

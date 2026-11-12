@@ -39,6 +39,7 @@ class ExitCheckTracker {
             done || when (item) {
                 ExitItem.WINDOW_OPEN -> s.driverWindow.valueOrNull() == 0
                 ExitItem.HEADLIGHT_ON -> (s.lowBeam.isOk || s.highBeam.isOk) && !s.headlightOn
+                ExitItem.CABIN_LIGHT_ON -> s.cabinLight.valueOrNull() == false
                 ExitItem.DOORS_UNLOCKED -> s.doorsLocked.valueOrNull() == true
             }
         }

@@ -110,7 +110,7 @@ class OnboardingViewModelTest {
     @Test fun `capabilities는 상태 흐름을 따라 이름·상태 문구를 낸다`() {
         val speed = { vm.capabilities.value.first { it.name == "차속" }.status }
         val gear = { vm.capabilities.value.first { it.name == "기어" }.status }
-        assertEquals(15, vm.capabilities.value.size)
+        assertEquals(16, vm.capabilities.value.size) // 실내등 추가로 16개
         assertEquals("미측정", speed())
         state.value = state.value.copy(speedKmh = Signal.Ok(30.0, 0L), gear = Signal.Unsupported, odometerKm = Signal.NoPermission)
         assertEquals("읽힘", speed())
