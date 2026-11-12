@@ -89,6 +89,8 @@ VM의 `.env`는 로컬 `server/.env`에서 scp로 복사한 뒤 아래만 바꿨
 - `SPRING_PROFILES_ACTIVE=local-live`, `DRIVEPET_PUBLIC_BASE_URL=https://129-225-197-147.sslip.io`, `DRIVEPET_HOST=129-225-197-147.sslip.io`
 - `DRIVEPET_JWT_SECRET`, `DB_PASSWORD`: VM에서 `openssl rand -hex`로 새로 만든 값(로컬과 다름). JWT 비밀을 바꾸면 기존 기기 토큰이 모두 무효가 되어 앱이 다시 등록합니다. `DB_PASSWORD`는 DB 볼륨을 처음 만들 때만 적용되니, 바꾸려면 DB 안에서 `ALTER USER`도 같이 해야 합니다.
 - 카카오 개발자 콘솔 Redirect URI: `https://129-225-197-147.sslip.io/api/v1/auth/kakao/callback`
+- `KAKAO_ADMIN_KEY`: 회원 탈퇴 때 카카오 쪽 연결 끊기용. 채팅·커밋에 남기지 않도록 맥 터미널에서 직접 넣습니다(값을 숨겨 입력받아 VM `.env`에 씀):
+  `read -rs "K?Kakao Admin 키: " && echo && ssh -i ~/.ssh/drivepet_vm ubuntu@129.225.197.147 "cd ~/drivepet/server && sed -i '/^KAKAO_ADMIN_KEY=/d' .env && cat >> .env && docker compose -f compose.yaml -f compose.deploy.yaml up -d" <<< "KAKAO_ADMIN_KEY=$K"; unset K`
 
 ## 수동 확인
 
