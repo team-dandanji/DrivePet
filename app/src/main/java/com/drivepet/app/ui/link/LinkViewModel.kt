@@ -30,7 +30,7 @@ sealed interface LinkUi {
 }
 
 private const val POLL_EVERY_TICKS = 2 // 1초 틱 2번 = 2초마다 조회
-private const val QR_VALID_SEC = 180L // 서버가 주는 유효 시간(3분)
+private const val QR_VALID_SEC = 300L // 서버가 주는 유효 시간(5분)
 
 /**
  * 03 · 카카오 QR 연결. 세션 하나당 루프 하나가 1초마다 남은 시간을 갱신하고 2초마다 상태를 조회한다(조회는 한 번에 하나).
@@ -70,7 +70,7 @@ class LinkViewModel(
             _ui.value = LinkUi.Failed(FAILED_MESSAGE)
             return
         }
-        // 차량과 서버 시계가 어긋나면 expiresAt을 믿지 않고 받은 시각 + 3분을 마감으로 쓴다.
+        // 차량과 서버 시계가 어긋나면 expiresAt을 믿지 않고 받은 시각 + 5분을 마감으로 쓴다.
         val received = clock()
         val serverExpiry = OffsetDateTime.parse(qr.expiresAt).toInstant()
         val expiresAt = if (Duration.between(received, serverExpiry).let { it.isNegative || it.isZero || it.seconds > QR_VALID_SEC }) {

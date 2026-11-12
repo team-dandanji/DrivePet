@@ -1,7 +1,7 @@
 # DrivePet 서버
 
-차량 앱의 **기기 인증 · 카카오 QR 로그인 · 기록 동기화 · 날씨 프록시**를 맡는 서버입니다. 점수·EXP는 계산하지 않습니다(앱이 기기 안에서 계산).
-계약: 팀 노션 「DrivePet API 명세서」 (API 9개). 회원 탈퇴 `DELETE /api/v1/account`는 명세 이후 추가(아래 "보관·파기").
+차량 앱의 **기기 인증 · 카카오 QR 로그인 · 기록 동기화 · 날씨 프록시 · 주변 정비소 검색**을 맡는 서버입니다. 점수·EXP는 계산하지 않습니다(앱이 기기 안에서 계산).
+계약: 팀 노션 「DrivePet API 명세서」 (API 9개). 회원 탈퇴 `DELETE /api/v1/account`는 명세 이후 추가(아래 "보관·파기"), 주변 정비소 `GET /api/v1/places?lat=&lng=`(기기 토큰 필요, 카카오 로컬 키워드 검색, 가까운 순 최대 3곳, 카카오 실패는 502 `EXTERNAL_API_FAILED`)도 추가.
 
 Spring Boot 4.0 · Kotlin · JDK 21 · PostgreSQL 17 · Flyway · JWT(HS256)
 
@@ -44,7 +44,7 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
 | `SPRING_PROFILES_ACTIVE` | `local-fake`(기본) 또는 `local-live`(실제 외부 API) |
 | `DRIVEPET_JWT_SECRET` | JWT 서명 키, 32바이트 이상 무작위. `local-live`에서는 필수 |
 | `DRIVEPET_PUBLIC_BASE_URL` | 폰에서 접속되는 서버 주소(HTTPS 터널). 카카오 Redirect URI = 이 주소 + `/api/v1/auth/kakao/callback` |
-| `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | 카카오 개발자 앱 (Client Secret을 켠 경우만 두 번째 값) |
+| `KAKAO_REST_API_KEY`, `KAKAO_CLIENT_SECRET` | 카카오 개발자 앱 (Client Secret을 켠 경우만 두 번째 값). 같은 REST API 키를 카카오 로컬(`/places` 주변 정비소 검색)에도 쓰므로 개발자 콘솔에서 카카오맵(로컬) API 사용을 켜야 함 |
 | `KAKAO_ADMIN_KEY` | 카카오 Admin 키. 회원 탈퇴 때 카카오 쪽 앱 연결을 끊는 데만 씀. 비우면 DB만 파기 |
 | `DATA_GO_KR_SERVICE_KEY` | 공공데이터포털 일반 인증키(Decoding). 기상청 단기예보·특보, 에어코리아 대기오염·측정소정보 공통 |
 
@@ -57,7 +57,7 @@ Docker가 켜져 있어야 합니다(Testcontainers가 실제 PostgreSQL을 띄�
   1. 터널을 엽니다(예: `cloudflared tunnel --url http://localhost:8080`).
   2. 나온 주소를 `DRIVEPET_PUBLIC_BASE_URL`에 넣고 서버를 다시 시작합니다.
   3. 카카오 개발자 앱의 Redirect URI에 `{그 주소}/api/v1/auth/kakao/callback`을 등록합니다. **터널 주소가 바뀌면 2·3을 다시 합니다.**
-- QR 세션은 3분 유효. 만료 직전에 연결돼도 연결 시각부터 3분 동안은 LINKED 토큰을 받을 수 있습니다.
+- QR 세션은 5분 유효. 만료 직전에 연결돼도 연결 시각부터 3분 동안은 LINKED 토큰을 받을 수 있습니다.
 
 ## 클라우드 배포 (상시 서버)
 

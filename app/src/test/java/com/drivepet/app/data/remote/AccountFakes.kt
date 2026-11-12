@@ -40,9 +40,9 @@ class OwnerStore : SyncStore {
 }
 
 class QrApi : DrivePetApi {
-    /** 서버 시계. 새 세션마다 expiresAt = 이 시각 + 3분. */
+    /** 서버 시계. 새 세션마다 expiresAt = 이 시각 + 5분. */
     var now: () -> Instant = { Instant.parse("2026-01-01T00:00:00Z") }
-    var expiresAt: () -> String = { now().plusSeconds(180).toString() }
+    var expiresAt: () -> String = { now().plusSeconds(300).toString() }
     var createCalls = 0
     var statusCalls = 0
     /** n번째(1부터) qrStatus 호출의 응답. */

@@ -22,6 +22,8 @@ data class KakaoProperties(
     val adminKey: String = "",
     val authBaseUrl: String = "https://kauth.kakao.com",
     val apiBaseUrl: String = "https://kapi.kakao.com",
+    /** 카카오 로컬(주변 장소 검색) API 주소. 같은 REST API 키를 쓴다 */
+    val localBaseUrl: String = "https://dapi.kakao.com",
     val timeout: Duration = Duration.ofSeconds(5),
 )
 

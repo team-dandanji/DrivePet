@@ -78,7 +78,7 @@ class KakaoService(
     private val seoul = ZoneId.of("Asia/Seoul")
 
     companion object {
-        val SESSION_TTL: Duration = Duration.ofMinutes(3)
+        val SESSION_TTL: Duration = Duration.ofMinutes(5)
 
         /** 만료 직전에 연결돼도 앱이 토큰을 받을 수 있게, 연결 시각부터 최소 이만큼은 LINKED 조회를 허용한다 */
         val LINKED_GRACE: Duration = Duration.ofMinutes(3)

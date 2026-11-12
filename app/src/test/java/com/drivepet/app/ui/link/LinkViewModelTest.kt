@@ -65,14 +65,14 @@ class LinkViewModelTest {
     @Test fun showsRemainingSeconds() {
         newVm().start()
         advance(1)
-        assertEquals(LinkUi.Showing("http://fake/qr/1", 180), vm.ui.value)
+        assertEquals(LinkUi.Showing("http://fake/qr/1", 300), vm.ui.value)
         advance(1_000)
-        assertEquals(LinkUi.Showing("http://fake/qr/1", 179), vm.ui.value)
+        assertEquals(LinkUi.Showing("http://fake/qr/1", 299), vm.ui.value)
     }
 
     @Test fun expiresAtExpiresAt() {
         newVm().start()
-        advance(179_999)
+        advance(299_999)
         assertTrue(vm.ui.value is LinkUi.Showing)
         advance(2)
         assertEquals(LinkUi.Expired, vm.ui.value)
@@ -126,12 +126,12 @@ class LinkViewModelTest {
         assertEquals(LinkUi.Linked("지우", restored = false), vm.ui.value)
     }
 
-    @Test fun skewedExpiresAtFallsBackToReceiptPlusThreeMinutes() {
+    @Test fun skewedExpiresAtFallsBackToReceiptPlusFiveMinutes() {
         for (skewed in listOf(base.minusSeconds(600), base.plusSeconds(600))) {
             api.expiresAt = { skewed.toString() }
             newVm().start()
             advance(1)
-            assertEquals(180, (vm.ui.value as LinkUi.Showing).remainingSec)
+            assertEquals(300, (vm.ui.value as LinkUi.Showing).remainingSec)
             vm.stop()
         }
     }
@@ -145,12 +145,12 @@ class LinkViewModelTest {
 
     @Test fun retryCreatesNewSession() {
         newVm().start()
-        advance(180_001)
+        advance(300_001)
         assertEquals(LinkUi.Expired, vm.ui.value)
         vm.retry()
         advance(1)
         assertEquals(2, api.createCalls)
-        assertEquals(LinkUi.Showing("http://fake/qr/2", 180), vm.ui.value) // 새 세션은 다시 3분
+        assertEquals(LinkUi.Showing("http://fake/qr/2", 300), vm.ui.value) // 새 세션은 다시 5분
     }
 
     @Test fun retryWhileShowingStopsOldPolling() {
