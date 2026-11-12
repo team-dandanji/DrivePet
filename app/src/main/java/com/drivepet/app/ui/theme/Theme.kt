@@ -64,6 +64,14 @@ object DpColors {
     val ControlOn = Color(0xFF4781FF)
     /** 선택된 카드 바탕(drivepet/palette/sky_50). */
     val Sky50 = Color(0xFFE7F8FF)
+
+    // 온보딩(Task 9) 토큰.
+    /** 선택된 약관 체크 칸(drivepet/control/on_pressed). */
+    val ControlOnPressed = Color(0xFF325AB2)
+    /** QR 남은 시간 빨강(informative_negative). */
+    val InformativeNegative = Color(0xFFFE3D16)
+    /** 입력 오류 테두리·문구(regulation/red). */
+    val RegulationRed = Color(0xFFF62E24)
 }
 
 /** Sky: sky_top → surface_low(70% 지점), 이후 단색. 180° 세로. */

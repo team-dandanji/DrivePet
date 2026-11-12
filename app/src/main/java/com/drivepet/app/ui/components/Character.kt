@@ -45,11 +45,11 @@ fun Character(starter: String, stage: Int, mood: Mood, modifier: Modifier = Modi
     }
 }
 
-/** 시안(APP Graphic)에 있는 그림만: 병아리(알·병아리·닭), 슬라임(알·슬라임·마법사 모자), 공룡(알·2단계). 없는 단계는 null → "이미지 없음". */
+/** 시안(APP Graphic)에 있는 그림만: 병아리(알·병아리·닭), 눈사람(흰 알·눈사람 — 3단계도 같은 눈사람, 134:15891), 공룡(알·2단계). 없는 단계는 null → "이미지 없음". */
 private fun artOf(starter: String, stage: Int): Int? = when (starter) {
     "STARTER_1" -> when (stage) { 1 -> R.drawable.pet_starter1_stage1; 2 -> R.drawable.pet_starter1_stage2; else -> R.drawable.pet_starter1_stage3 }
     "STARTER_2" -> when (stage) { 1 -> R.drawable.pet_starter2_stage1; 2 -> R.drawable.pet_starter2_stage2; else -> null }
-    "STARTER_3" -> when (stage) { 1 -> R.drawable.pet_starter3_stage1; 2 -> R.drawable.pet_starter3_stage2; else -> R.drawable.pet_starter3_stage3 }
+    "STARTER_3" -> if (stage == 1) R.drawable.pet_starter3_stage1 else R.drawable.pet_starter3_stage2
     else -> null
 }
 

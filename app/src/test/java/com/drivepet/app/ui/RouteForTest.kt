@@ -66,8 +66,10 @@ class RouteForTest {
         assertEquals(Routes.WELCOME, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = true)) // 다른 곳에서 활성 프로필이 지워짐
         assertEquals(null, resetTarget(Routes.ONBOARD_MATE, Forced.WELCOME, noActive = true))
         assertEquals(null, resetTarget(Routes.WELCOME, Forced.WELCOME, noActive = true))
-        assertEquals(linkRoute("scan"), resetTarget(Routes.LOUNGE, Forced.ONBOARDING, noActive = true))
+        assertEquals(Routes.ONBOARD_INTRO, resetTarget(Routes.LOUNGE, Forced.ONBOARDING, noActive = true))
         assertEquals(null, resetTarget(Routes.ONBOARD_SCAN, Forced.ONBOARDING, noActive = true))
+        assertEquals(null, resetTarget(Routes.ONBOARD_INTRO, Forced.ONBOARDING, true))
+        for (r in listOf(Routes.ONBOARD_TERMS, Routes.ONBOARD_CARE, Routes.ONBOARD_MILEAGE)) assertEquals(r, null, resetTarget(r, Forced.ONBOARDING, true))
         assertEquals(null, resetTarget(Routes.LOUNGE, Forced.NONE, noActive = false))
     }
 
@@ -77,6 +79,7 @@ class RouteForTest {
         val general = "주행 중에는 서비스 사용이 제한돼요"
         assertEquals(intro, restrictedCopy(Routes.ONBOARD_SCAN, hasProfile = true).first)
         assertEquals(intro, restrictedCopy(Routes.LINK, hasProfile = true).first)
+        assertEquals(intro, restrictedCopy(Routes.ONBOARD_INTRO, hasProfile = true).first)
         assertEquals(intro, restrictedCopy(Routes.WELCOME, hasProfile = true).first)
         assertEquals(intro, restrictedCopy(Routes.LOUNGE, hasProfile = false).first) // 프로필 없이 주행 중에 처음 연 경우
         assertEquals(general, restrictedCopy(Routes.LOUNGE, hasProfile = true).first)

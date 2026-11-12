@@ -24,6 +24,8 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,7 +49,6 @@ import com.drivepet.app.ui.care.CareCourseViewModel
 import com.drivepet.app.ui.care.CareDoneScreen
 import com.drivepet.app.ui.care.CareRecordPopup
 import com.drivepet.app.ui.care.CourseUi
-import com.drivepet.app.ui.care.CareHistoryScreen
 import com.drivepet.app.ui.care.GarageEditScreen
 import com.drivepet.app.ui.care.GarageScreen
 import com.drivepet.app.ui.care.GarageViewModel
@@ -61,7 +62,11 @@ import com.drivepet.app.ui.lounge.LoungeScreen
 import com.drivepet.app.ui.link.LinkScreen
 import com.drivepet.app.ui.link.LinkViewModel
 import com.drivepet.app.ui.lounge.LoungeViewModel
+import com.drivepet.app.ui.onboarding.CareQuestionScreen
+import com.drivepet.app.ui.onboarding.IntroScreen
 import com.drivepet.app.ui.onboarding.MateScreen
+import com.drivepet.app.ui.onboarding.MileageScreen
+import com.drivepet.app.ui.onboarding.TermsScreen
 import com.drivepet.app.ui.onboarding.OnboardingViewModel
 import com.drivepet.app.ui.onboarding.ScanScreen
 import com.drivepet.app.ui.settlement.LevelUpScreen
@@ -87,9 +92,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 object Routes {
     const val WELCOME = "welcome"
-    const val LINK = "onboard/link?next={next}" // next = scan(기본, 온보딩 이어가기) | welcome(01에서 계정만 바꾸기)
+    const val ONBOARD_INTRO = "onboard/intro"
+    const val ONBOARD_TERMS = "onboard/terms"
+    const val LINK = "onboard/link?next={next}" // next = scan(기본, 온보딩 이어가기) | welcome(로그인·01에서 계정만 바꾸기)
     const val ONBOARD_SCAN = "onboard/scan"
-    const val ONBOARD_CARE = "onboard/care"
+    const val ONBOARD_CARE = "onboard/care/{index}" // 소모품 질문 하나(0부터)
+    const val ONBOARD_MILEAGE = "onboard/mileage"
     const val ONBOARD_MATE = "onboard/mate"
     const val LOUNGE = "lounge"
     const val GARAGE = "garage"
@@ -139,7 +147,9 @@ fun routeFor(
 }
 
 /** 온보딩 경로. 새 온보딩 화면은 여기에 넣는다(resetTarget·주행 제한 문구가 함께 쓴다). */
-val ONBOARDING_ROUTES: Set<String> = setOf(Routes.LINK, Routes.ONBOARD_SCAN, Routes.ONBOARD_CARE, Routes.ONBOARD_MATE)
+val ONBOARDING_ROUTES: Set<String> = setOf(
+    Routes.ONBOARD_INTRO, Routes.ONBOARD_TERMS, Routes.LINK, Routes.ONBOARD_SCAN, Routes.ONBOARD_CARE, Routes.ONBOARD_MILEAGE, Routes.ONBOARD_MATE,
+)
 
 private const val PARK_FIRST_TITLE = "안전하게 주차한 뒤 시작해주세요"
 
@@ -202,7 +212,7 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     // 앱을 켤 때 한 번만 정한다(회전·복귀에는 다시 01을 띄우지 않는다). 프로필이 있으면 01, 없으면 온보딩.
     val start = remember {
         when {
-            forced == Forced.ONBOARDING -> linkRoute("scan")
+            forced == Forced.ONBOARDING -> Routes.ONBOARD_INTRO
             anyProfile == true -> Routes.WELCOME
             else -> Routes.LOUNGE
         }
@@ -244,36 +254,48 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
                             onAccount = { nav.navigate(linkRoute("welcome")) },
                         )
                     }
+                    composable(Routes.ONBOARD_INTRO) {
+                        IntroScreen(onCreate = { nav.navigate(Routes.ONBOARD_TERMS) }, onLogin = { nav.navigate(linkRoute("welcome")) })
+                    }
+                    composable(Routes.ONBOARD_TERMS) { entry ->
+                        // 약관은 저장하지 않으므로 이 화면 항목에 따로 둔다(01의 다시 설정은 약관을 거치지 않는다).
+                        TermsScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
+                            nav.navigate(linkRoute("scan"))
+                        }
+                    }
                     composable(Routes.LINK, arguments = listOf(navArgument("next") { type = NavType.StringType; defaultValue = "scan" })) { entry ->
                         val next = entry.arguments?.getString("next") ?: "scan"
                         LinkScreen(
-                            viewModel(factory = LinkViewModel.factory(container)),
+                            viewModel(factory = LinkViewModel.factory(container)), login = next == "welcome",
                             onBack = if (nav.previousBackStackEntry != null) ({ nav.popBackStack() }) else null,
-                            onSkip = if (next == "scan") ({ nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } }) else null,
                             onLinked = { linked ->
                                 container.kickSync() // 내려받기가 실패했거나 올릴 것이 남았으면 이어서 맞춘다
-                                // 계정만 바꾸는 경우와 복원된 경우는 01로(복원된 프로필은 이미 활성으로 저장됨). 새 연결이고 복원할 게 없으면 04로.
+                                // 로그인·계정만 바꾸는 경우와 복원된 경우는 01로(복원된 프로필은 이미 활성으로 저장됨). 새 연결이고 복원할 게 없으면 차량 정보로.
                                 if (next == "welcome" || linked.restored) nav.navigate(Routes.WELCOME) { popUpTo(nav.graph.id) { inclusive = true } }
-                                else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // 03은 스택에 남기지 않는다
+                                else nav.navigate(Routes.ONBOARD_SCAN) { popUpTo(Routes.LINK) { inclusive = true } } // QR은 스택에 남기지 않는다
                             },
                         )
                     }
-                    // 두 온보딩 화면이 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
+                    // 차량 정보 → 소모품 질문 → 주행거리 → 메이트가 입력값을 함께 쓰도록 ViewModel은 ONBOARD_SCAN 항목에 둔다.
                     composable(Routes.ONBOARD_SCAN) { entry ->
-                        ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container))) { nav.navigate(Routes.ONBOARD_CARE) }
+                        ScanScreen(viewModel(entry, factory = OnboardingViewModel.factory(container)), onBack = { nav.popBackStack() }) {
+                            nav.navigate(careRoute(0))
+                        }
                     }
-                    composable(Routes.ONBOARD_CARE) {
-                        val scanEntry = remember(it) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
-                        val vm: OnboardingViewModel = viewModel(scanEntry, factory = OnboardingViewModel.factory(container))
-                        CareHistoryScreen(
-                            vm.fuelType, vm.careBaselines, vm::setPeriod, vm::setDirect, "저장하고 알 고르기  →",
-                            onBack = { nav.popBackStack() }, onPrimary = { nav.navigate(Routes.ONBOARD_MATE) },
-                        )
+                    composable(Routes.ONBOARD_CARE, arguments = listOf(navArgument("index") { type = NavType.IntType })) { entry ->
+                        val vm = onboardingVm(nav, entry, container)
+                        val i = entry.arguments?.getInt("index") ?: 0
+                        CareQuestionScreen(vm, i, onBack = { nav.popBackStack() }) {
+                            // 마지막 질문 뒤에는 주행거리. 0.4초 사이에 화면이 바뀌었으면 넘기지 않는다.
+                            if (nav.currentBackStackEntry == entry) nav.navigate(if (i + 1 < vm.careQuestions.size) careRoute(i + 1) else Routes.ONBOARD_MILEAGE)
+                        }
                     }
-                    composable(Routes.ONBOARD_MATE) {
-                        val scanEntry = remember(it) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
+                    composable(Routes.ONBOARD_MILEAGE) { entry ->
+                        MileageScreen(onboardingVm(nav, entry, container), onBack = { nav.popBackStack() }) { nav.navigate(Routes.ONBOARD_MATE) }
+                    }
+                    composable(Routes.ONBOARD_MATE) { entry ->
                         MateScreen(
-                            viewModel(scanEntry, factory = OnboardingViewModel.factory(container)),
+                            onboardingVm(nav, entry, container),
                             onBack = { nav.popBackStack() },
                             // 첫 설치든 01에서 다시 설정하든, 끝나면 스택을 비우고 라운지로.
                             // 저장한 프로필이 활성으로 반영된 뒤 옮긴다. 먼저 옮기면 그 사이 WELCOME 판정이 라운지를 01로 되돌린다.
@@ -422,11 +444,20 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
     }
 }
 
+fun careRoute(index: Int) = "onboard/care/$index"
+
+/** ONBOARD_SCAN 항목에 둔 공유 ViewModel(차량 정보 뒤 온보딩 화면들이 쓴다). */
+@Composable
+private fun onboardingVm(nav: NavHostController, entry: NavBackStackEntry, container: AppContainer): OnboardingViewModel {
+    val scanEntry = remember(entry) { nav.getBackStackEntry(Routes.ONBOARD_SCAN) }
+    return viewModel(scanEntry, factory = OnboardingViewModel.factory(container))
+}
+
 /** 강제 화면이 NavHost 경로일 때 스택을 비우고 갈 곳. 그대로 두면 null. */
 fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
     val onboarding = cur in ONBOARDING_ROUTES
     return when {
-        forced == Forced.ONBOARDING && !onboarding -> linkRoute("scan")
+        forced == Forced.ONBOARDING && !onboarding -> Routes.ONBOARD_INTRO
         forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME
         else -> null
     }

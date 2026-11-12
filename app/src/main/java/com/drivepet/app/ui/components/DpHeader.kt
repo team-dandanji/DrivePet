@@ -124,6 +124,21 @@ fun TabHeader(selected: Tab, onSelect: (Tab) -> Unit, onAppMenu: () -> Unit, onM
     }
 }
 
+/** 인트로 상단(408:44715): 앱 아이콘 + 「Carpet ▾」 + ⋯. 프로필이 없을 때라 메뉴는 열지 않는다. */
+@Composable
+fun AppHeader(modifier: Modifier = Modifier) {
+    HeaderFrame(modifier) {
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            AppIcon()
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(APP_NAME, style = DpType.titleL, color = DpColors.Text, maxLines = 1)
+                Chevron(28, down = true)
+            }
+        }
+        MoreButton(null)
+    }
+}
+
 /** 4칸 진행 막대의 칸 이름. */
 private val STEP_LABELS = listOf("회원가입/로그인", "차량정보 확인하기", "소모품 이력 확인하기", "메이트 선택하기")
 

@@ -1,7 +1,10 @@
 package com.drivepet.app.ui.onboarding
 
 import com.drivepet.app.data.FakeRecordStore
+import com.drivepet.app.domain.CareBaseline
+import com.drivepet.app.domain.CareItem
 import com.drivepet.app.domain.FuelType
+import com.drivepet.app.domain.ServicedPeriod
 import com.drivepet.vehicle.model.Signal
 import com.drivepet.vehicle.model.VehicleState
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +43,7 @@ class OnboardingViewModelTest {
     @Test fun `nickname 1자·9자는 오류, 2자·8자는 통과`() {
         for ((nick, ok) in listOf("가" to false, "가나" to true, "가나다라마바사아" to true, "가나다라마바사아자" to false, "  가 " to false)) {
             vm.nickname = nick
-            assertEquals(nick, if (ok) null else "2~8자로 지어 주세요", vm.nicknameError())
+            assertEquals(nick, if (ok) null else "2~8자 이내로 입력해주세요", vm.nicknameError())
         }
     }
 
@@ -53,7 +56,6 @@ class OnboardingViewModelTest {
     }
 
     @Test fun `finish는 onboardingCompleted=true 프로필을 저장하고 활성화한다`() = runTest {
-        vm.vehicleName = " 아이오닉 "
         vm.starter = "STARTER_2"
         vm.nickname = " 모모 "
         vm.batteryText = "72.6"
@@ -63,7 +65,7 @@ class OnboardingViewModelTest {
         assertEquals(id, activated)
         assertTrue(p.onboardingCompleted)
         assertNull(p.accountId)
-        assertEquals("아이오닉", p.vehicleName)
+        assertEquals("내 차", p.vehicleName) // 차에서 읽은 이름이 없으면 「내 차」
         assertEquals("EV", p.fuelType)
         assertEquals("STARTER_2", p.starterType)
         assertEquals("모모", p.petNickname)
@@ -71,14 +73,47 @@ class OnboardingViewModelTest {
         assertTrue(p.createdAt > 0)
     }
 
-    @Test fun `기본값과 canFinish는 스타터 선택과 닉네임이 있어야 true`() {
-        assertEquals("내 차", vm.vehicleName)
+    @Test fun `기본값과 canFinish는 닉네임이 있어야 true`() {
         assertEquals(FuelType.EV, vm.fuelType)
         assertFalse(vm.canFinish)
         vm.nickname = "모모"
-        assertFalse(vm.canFinish)
-        vm.starter = "STARTER_1"
         assertTrue(vm.canFinish)
+    }
+
+    @Test fun `starter defaults to STARTER_1`() = assertEquals("STARTER_1", vm.starter)
+
+    @Test fun `ice asks four with engine oil first`() {
+        vm.fuelType = FuelType.ICE
+        assertEquals(listOf(CareItem.ENGINE_OIL, CareItem.TIRE, CareItem.CABIN_FILTER, CareItem.WIPER), vm.careQuestions)
+        vm.fuelType = FuelType.HEV
+        assertEquals(CareItem.ENGINE_OIL, vm.careQuestions.first())
+    }
+
+    @Test fun `ev asks three`() {
+        vm.fuelType = FuelType.EV
+        assertEquals(listOf(CareItem.TIRE, CareItem.CABIN_FILTER, CareItem.WIPER), vm.careQuestions)
+    }
+
+    @Test fun `setOdometerKm keeps period`() {
+        vm.setPeriod(CareItem.TIRE, ServicedPeriod.WITHIN_3_MONTHS)
+        vm.setOdometerKm(CareItem.TIRE, 24_000)
+        assertEquals(CareBaseline(24_000_000_000, null, ServicedPeriod.WITHIN_3_MONTHS), vm.careBaselines[CareItem.TIRE])
+        vm.setPeriod(CareItem.TIRE, ServicedPeriod.OVER_1_YEAR) // 질문으로 돌아가 다시 골라도 입력한 거리는 남는다
+        assertEquals(CareBaseline(24_000_000_000, null, ServicedPeriod.OVER_1_YEAR), vm.careBaselines[CareItem.TIRE])
+        vm.setOdometerKm(CareItem.TIRE, null)
+        assertEquals(CareBaseline(null, null, ServicedPeriod.OVER_1_YEAR), vm.careBaselines[CareItem.TIRE])
+    }
+
+    @Test fun `terms need both required`() {
+        assertFalse(vm.termsOk)
+        vm.terms = setOf(Term.SERVICE, Term.LOCATION)
+        assertFalse(vm.termsOk)
+        vm.terms = setOf(Term.SERVICE, Term.VEHICLE_DATA)
+        assertTrue(vm.termsOk)
+    }
+
+    @Test fun `periodLabel은 피그마 보기 문구`() {
+        assertEquals(listOf("최근 3개월 내", "3-6개월", "1년 이상", "기억 안남"), ServicedPeriod.entries.map(::periodLabel))
     }
 
     @Test fun `배터리 용량은 비우면 null, 숫자가 아니거나 0 이하면 오류와 다음 비활성`() {
@@ -98,13 +133,6 @@ class OnboardingViewModelTest {
         vm.fuelType = FuelType.ICE // EV가 아니면 입력과 오류를 무시한다
         vm.batteryText = "abc"
         assertNull(vm.batteryKwh); assertNull(vm.batteryError()); assertTrue(vm.canNext)
-    }
-
-    @Test fun `차량 이름은 1~20자`() {
-        vm.vehicleName = ""; assertFalse(vm.canNext)
-        vm.vehicleName = "   "; assertFalse(vm.canNext)
-        vm.vehicleName = "가".repeat(20); assertTrue(vm.canNext)
-        vm.vehicleName = "가".repeat(21); assertFalse(vm.canNext)
     }
 
     @Test fun `capabilities는 상태 흐름을 따라 이름·상태 문구를 낸다`() {
@@ -138,10 +166,8 @@ class OnboardingViewModelTest {
         assertEquals(id, activated)
     }
 
-    @Test fun `스타터가 없거나 입력이 틀리면 finish는 저장하지 않는다`() = runTest {
-        vm.nickname = "모모"
-        assertTrue(runCatching { vm.finish() }.isFailure) // 스타터 없음
-        vm.starter = "STARTER_1"; vm.nickname = "모"
+    @Test fun `입력이 틀리면 finish는 저장하지 않는다`() = runTest {
+        vm.nickname = "모"
         assertTrue(runCatching { vm.finish() }.isFailure) // 닉네임 오류
         assertTrue(store.profiles().first().isEmpty())
     }
@@ -151,13 +177,13 @@ class OnboardingViewModelTest {
         vm.starter = "STARTER_1"
         vm.nickname = "모모"
         vm.setPeriod(com.drivepet.app.domain.CareItem.TIRE, com.drivepet.app.domain.ServicedPeriod.WITHIN_3_MONTHS)
-        vm.setDirect(com.drivepet.app.domain.CareItem.CABIN_FILTER, java.time.LocalDate.of(2026, 8, 4), 20_000_000_000)
+        vm.setOdometerKm(CareItem.CABIN_FILTER, 20_000)
         val id = vm.finish()
         vm.finish() // 다시 눌러도 같은 세 항목
         val items = store.maintenanceItems(id).first().associateBy { it.kind }
         assertEquals(setOf("TIRE", "CABIN_FILTER", "WIPER"), items.keys)
         assertEquals("WITHIN_3_MONTHS", items["TIRE"]!!.baselineServicedPeriod)
-        assertEquals("2026-08-04", items["CABIN_FILTER"]!!.baselineServicedOn)
+        assertNull(items["CABIN_FILTER"]!!.baselineServicedOn)
         assertEquals(20_000_000_000, items["CABIN_FILTER"]!!.baselineOdometerMm)
         val wiper = items["WIPER"]!!
         assertNull(wiper.baselineOdometerMm)
