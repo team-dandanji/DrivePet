@@ -62,7 +62,7 @@ fun IntroScreen(onCreate: () -> Unit, onLogin: () -> Unit) {
 
 @Composable
 private fun Logo() {
-    Image(painterResource(R.drawable.logo_carpet), "CarPet", Modifier.size(300.dp, 100.dp))
+    Image(painterResource(R.drawable.logo_carpet), "Carpet", Modifier.size(300.dp, 100.dp))
 }
 
 @Composable

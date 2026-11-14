@@ -14,7 +14,7 @@ import android.os.SystemClock
 import java.util.Locale
 
 /**
- * 말풍선 + 깜빡이 목소리(Pleos TextToSpeech SDK 3.3.1).
+ * 말풍선 + 캐릭터 목소리(Pleos TextToSpeech SDK 3.3.1).
  *
  * - 말풍선은 항상 [bubbleSpeaker]가 띄운다. 목소리는 voice = true일 때만 낸다.
  * - ON_DEVICE 모드: 차 안 엔진으로 합성 → 인터넷·앱 등록(My Project 키) 불필요.
