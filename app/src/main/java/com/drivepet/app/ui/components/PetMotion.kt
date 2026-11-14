@@ -25,6 +25,7 @@ enum class PetMotion(@RawRes val res: Int, val w: Int, val h: Int) {
     SICK_CHICK(R.raw.sick_chick, 1004, 480),
     CAR_CHICK(R.raw.car_chick, 970, 512),
     REWARD_CHICK(R.raw.reward_chick, 798, 618),
+    INTRO_CAR(R.raw.intro_car, 1040, 900), // 인트로 그래픽(펫 아님)
 }
 
 /** 모션이 있는 캐릭터인가(병아리 2단계). */

@@ -67,6 +67,7 @@ class RouteForTest {
         assertEquals(null, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = false))
         assertEquals(Routes.WELCOME, resetTarget(Routes.LOUNGE, Forced.WELCOME, noActive = true)) // 다른 곳에서 활성 프로필이 지워짐
         assertEquals(null, resetTarget(Routes.ONBOARD_MATE, Forced.WELCOME, noActive = true))
+        assertEquals(Routes.WELCOME, resetTarget(Routes.ONBOARD_INTRO, Forced.WELCOME, noActive = true)) // 인트로에서 동기화로 저장된 프로필이 내려옴
         assertEquals(null, resetTarget(Routes.WELCOME, Forced.WELCOME, noActive = true))
         assertEquals(Routes.ONBOARD_INTRO, resetTarget(Routes.LOUNGE, Forced.ONBOARDING, noActive = true))
         assertEquals(null, resetTarget(Routes.ONBOARD_SCAN, Forced.ONBOARDING, noActive = true))

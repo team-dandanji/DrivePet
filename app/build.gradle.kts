@@ -14,8 +14,8 @@ android {
         applicationId = "com.drivepet.app"
         minSdk = 28
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
@@ -56,7 +56,7 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {
     implementation(project(":vehicle"))
     implementation("ai.pleos.playground:NaviHelper:3.0.5")
-    implementation("ai.pleos.playground:TextToSpeech:3.3.1")   // 깜빡이 목소리
+    implementation("ai.pleos.playground:TextToSpeech:3.3.1")   // 캐릭터 목소리
 
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
     implementation("androidx.compose.ui:ui")

@@ -3,6 +3,7 @@ package com.drivepet.app.ui
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,6 +37,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.drivepet.app.AppContainer
 import com.drivepet.app.BuildConfig
+import com.drivepet.app.R
 import com.drivepet.app.dev.DevScreen
 import com.drivepet.app.drive.isDriving
 import com.drivepet.app.data.growthTotalMilli
@@ -120,6 +124,9 @@ fun linkRoute(next: String) = "onboard/link?next=$next"
 fun levelUpRoute(before: Int, after: Int) = "${Routes.LEVEL_UP}/$before/$after"
 
 private val TAB_ROUTES = Tab.entries.associateBy { it.name.lowercase() } // 라우트 문자열 == Tab 이름 소문자
+
+/** 헤더까지 창 전체에 까는 언덕 배경(1700×1184). 창 비율이 달라도 언덕이 바닥에 남게 아래 기준으로 자른다. */
+private val ROUTE_BACKGROUNDS = mapOf(Routes.LOUNGE to R.drawable.bg_home, Routes.CARE_COURSE to R.drawable.bg_care)
 
 /** 헤더 메뉴: 왼쪽 앱 이름(프로필 수정) · 오른쪽 ⋯(카카오 계정). */
 private enum class HeaderMenuKind { APP, MORE }
@@ -241,6 +248,9 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
 
     CompositionLocalProvider(LocalDriving provides driving) {
         Box(Modifier.fillMaxSize()) {
+            ROUTE_BACKGROUNDS[route]?.let {
+                Image(painterResource(it), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alignment = Alignment.BottomCenter)
+            }
             CompositionLocalProvider(LocalPopupHost provides popupHost) {
                 Column(Modifier.fillMaxSize().then(hiddenSemantics)) {
                     TAB_ROUTES[route]?.let { selected ->
@@ -465,7 +475,8 @@ fun AppNav(container: AppContainer, onFinish: () -> Unit = {}) {
         }
     }
     // 효과가 늦게 돌 수 있어 실행 시점에 활성 프로필을 다시 본다(그 사이 활성이 정해졌으면 01로 되돌리지 않는다).
-    LaunchedEffect(forced) {
+    // 온보딩 중에 프로필이 내려온 뒤 뒤로 가기로 인트로에 돌아온 경우도 다시 보도록 인트로 도착도 키로 둔다.
+    LaunchedEffect(forced, route == Routes.ONBOARD_INTRO) {
         // 라운지에서 WELCOME이 잠깐 잡히는 경우(첫 설치의 저장 → 활성 반영 사이)는 활성 프로필이 오는지 조금 기다린 뒤 본다.
         if (forced == Forced.WELCOME && nav.currentDestination?.route == Routes.LOUNGE) {
             withTimeoutOrNull(1_000) { coordinator.activeProfile.first { it != null } }
@@ -524,7 +535,8 @@ fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
     val onboarding = cur in ONBOARDING_ROUTES
     return when {
         forced == Forced.ONBOARDING && !onboarding -> Routes.ONBOARD_INTRO
-        forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME
+        // 인트로는 입력 중인 단계가 아니라서, 동기화로 저장된 프로필이 내려오면 앱 시작 화면으로 보낸다.
+        forced == Forced.WELCOME && (!onboarding || cur == Routes.ONBOARD_INTRO) && cur != Routes.WELCOME && noActive -> Routes.WELCOME
         else -> null
     }
 }
