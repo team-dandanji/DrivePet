@@ -14,8 +14,8 @@ android {
         applicationId = "com.drivepet.app"
         minSdk = 28
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.1"
+        versionCode = 4
+        versionName = "1.1.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
@@ -34,7 +34,8 @@ android {
             // 클라우드 서버(Oracle VM, server/README.md "클라우드 배포"). demo는 initWith(release)로 같은 주소를 쓴다
             buildConfigField("String", "DEFAULT_SERVER_URL", "\"https://129-225-197-147.sslip.io/api/v1/\"")
             buildConfigField("boolean", "DEMO_TOOLS", "false")
-            manifestPlaceholders["distractionOptimized"] = "false"
+            // true: 주행 중에도 앱 화면을 띄우고 앱의 "주행 중에는 서비스 사용이 제한돼요" 팝업으로 조작을 막는다(false면 OS 가림막이 덮는다)
+            manifestPlaceholders["distractionOptimized"] = "true"
         }
         create("demo") {
             initWith(getByName("release"))
