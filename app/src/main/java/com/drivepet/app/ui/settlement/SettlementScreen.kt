@@ -56,7 +56,9 @@ import com.drivepet.app.ui.components.PetMotionView
 import com.drivepet.app.ui.components.hasChickMotion
 import com.drivepet.app.ui.components.characterSize
 import com.drivepet.app.ui.components.DpCta
+import com.drivepet.app.ui.components.DpPopup
 import com.drivepet.app.ui.components.DpTag
+import com.drivepet.app.ui.components.PopupButton
 import com.drivepet.app.ui.components.TagStyle
 import com.drivepet.app.ui.components.isNarrowWindow
 import com.drivepet.app.ui.theme.DpColors
@@ -121,7 +123,7 @@ fun rewardRows(s: Settlement, paidMilli: Long): List<Pair<String, String>> {
 
 /**
  * 13 주차 후 트립 정산(D10, 419:51078). 점수 카운트업 600ms → 「+EXP」 400ms(떠오르며 나타남) → 200ms 뒤 EXP 막대 800ms.
- * 오른쪽 위 ✕는 [확인했어요 (라운지로)]와 같다. [기록 리플레이]는 아직 아무 동작이 없다.
+ * 오른쪽 위 ✕는 [확인했어요 (라운지로)]와 같다. [기록 리플레이]는 아직 기능이 없어 「준비 중이에요」 팝업만 띄운다.
  */
 @Composable
 fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli: Long, starter: String, stage: Int, onConfirm: () -> Unit) {
@@ -161,37 +163,45 @@ fun SettlementScreen(out: RecorderOutput.Settled, beforeMilli: Long, afterMilli:
             RewardCard(rewardRows(s, paidMilli), bonusWithheld(paidMilli, s))
         }
     }
-    val replay: @Composable (Modifier) -> Unit = { DpCta("기록 리플레이", {}, it, primary = false) }
+    var replaySoon by remember { mutableStateOf(false) }
+    val replay: @Composable (Modifier) -> Unit = { DpCta("기록 리플레이", { replaySoon = true }, it, primary = false) }
     val confirm: @Composable (Modifier) -> Unit = { DpCta("확인했어요 (라운지로)", onConfirm, it) }
 
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 24.dp, end = 24.dp), horizontalArrangement = Arrangement.End) {
-            Box(Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.ic_close), "닫기", Modifier.size(56.dp), tint = DpColors.Text)
-            }
-        }
-        if (narrow) {
-            // 분할 창: 1단으로 쌓고 스크롤. CTA는 폭을 꽉 채운다.
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp).padding(bottom = 40.dp), Arrangement.spacedBy(32.dp)) {
-                left(Modifier.fillMaxWidth())
-                title()
-                info()
-                replay(Modifier.fillMaxWidth())
-                confirm(Modifier.fillMaxWidth())
-            }
-        } else {
-            // 본문은 ✕ 줄과 CTA 줄 사이 칸 안에서만 그린다. 칸보다 길면 본문만 스크롤하고 CTA는 고정이다(창이 낮아도 CTA를 가리지 않는다).
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val bodyH = maxHeight
-                Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                    left(Modifier.weight(1f).heightIn(min = bodyH))
-                    // 제목 아래 52에 점수 블록(419:51111 y=180, 제목 128)
-                    Column(Modifier.weight(1f).heightIn(min = bodyH), Arrangement.spacedBy(52.dp)) { title(); info() }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(top = 40.dp, bottom = 24.dp, end = 24.dp), horizontalArrangement = Arrangement.End) {
+                Box(Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).clickable(onClick = onConfirm), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_close), "닫기", Modifier.size(56.dp), tint = DpColors.Text)
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 40.dp), Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
-                replay(Modifier.width(616.dp))
-                confirm(Modifier.width(616.dp))
+            if (narrow) {
+                // 분할 창: 1단으로 쌓고 스크롤. CTA는 폭을 꽉 채운다.
+                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp).padding(bottom = 40.dp), Arrangement.spacedBy(32.dp)) {
+                    left(Modifier.fillMaxWidth())
+                    title()
+                    info()
+                    replay(Modifier.fillMaxWidth())
+                    confirm(Modifier.fillMaxWidth())
+                }
+            } else {
+                // 본문은 ✕ 줄과 CTA 줄 사이 칸 안에서만 그린다. 칸보다 길면 본문만 스크롤하고 CTA는 고정이다(창이 낮아도 CTA를 가리지 않는다).
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val bodyH = maxHeight
+                    Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        left(Modifier.weight(1f).heightIn(min = bodyH))
+                        // 제목 아래 52에 점수 블록(419:51111 y=180, 제목 128)
+                        Column(Modifier.weight(1f).heightIn(min = bodyH), Arrangement.spacedBy(52.dp)) { title(); info() }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 40.dp), Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally)) {
+                    replay(Modifier.width(616.dp))
+                    confirm(Modifier.width(616.dp))
+                }
+            }
+        }
+        if (replaySoon) {
+            DpPopup("준비 중이에요", null, onDismissRequest = { replaySoon = false }) {
+                PopupButton("확인", { replaySoon = false }, primary = true)
             }
         }
     }
