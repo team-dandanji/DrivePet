@@ -220,6 +220,20 @@ class TripRecorderTest {
         assertEquals(1 to 0, harsh(0.0 to 0L, 22.0 to 2_000L)) // 22 / 2s = 11
     }
 
+    /** 0.2초마다 [step]km/h씩 바뀌는 표본 [n]+1개(시작 [from]km/h, 시각 [t0]ms부터). 차속은 바뀔 때마다 촘촘히 들어온다. */
+    private fun dense(from: Double, step: Double, n: Int, t0: Long = 0L) = (0..n).map { i -> (from + step * i) to (t0 + i * 200L) }
+
+    @Test fun `dense samples are judged against the speed about 1 second earlier`() = runTest {
+        assertEquals(1 to 0, harsh(*dense(0.0, 3.0, 20).toTypedArray())) // 초당 15km/h로 4초 → 이어진 급가속 1회
+        assertEquals(0 to 0, harsh(*dense(0.0, 2.0, 20).toTypedArray())) // 초당 10km/h → 아님
+        assertEquals(0 to 1, harsh(*dense(60.0, -6.0, 10).toTypedArray())) // 초당 30km/h 감속 → 1회
+    }
+
+    @Test fun `separate harsh accels count separately`() = runTest {
+        val samples = dense(0.0, 3.0, 10) + dense(30.0, 0.0, 10, 2_200L) + dense(30.0, 3.0, 10, 4_400L)
+        assertEquals(2 to 0, harsh(*samples.toTypedArray())) // 급가속 → 2초 정속 → 급가속
+    }
+
     @Test fun `demo levelup scenario gives exactly one harsh accel and no harsh decel`() = runTest {
         val root = Json.parseToJsonElement(File("src/main/assets/scenarios/demo_levelup.json").readText()).jsonObject
         val factor = root["speed"]!!.jsonPrimitive.double

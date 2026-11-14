@@ -41,8 +41,8 @@ private const val MIN_TRIP_MS = 30_000L // vehicle 모듈은 30초 미만 트립
 // 한국교통안전공단 eTAS 위험운전행동 기준 (docs/research/2026-11-10-health-score-basis.md)
 private const val HARSH_ACCEL_KMH_PER_S = 11.0 // 급가속: 초당 11km/h 이상 가속
 private const val HARSH_DECEL_KMH_PER_S = 7.5 // 급감속: 초당 7.5km/h 이상 감속(급제동 구분 없이 모두 7.5)
-private const val HARSH_MIN_INTERVAL_MS = 1_000L // eTAS는 1초 자료 기준: 이보다 촘촘한 표본은 1초로 보고 속도 변화율을 구한다
-private const val HARSH_MAX_INTERVAL_MS = 2_000L // 이보다 성긴 표본 쌍은 판정하지 않는다
+private const val HARSH_MIN_INTERVAL_MS = 1_000L // eTAS는 1초 자료 기준: 약 1초 전 표본과 비교하고, 1초보다 가까운 표본뿐이면 1초로 본다
+private const val HARSH_MAX_INTERVAL_MS = 2_000L // 2초 안에 비교할 표본이 없으면 판정하지 않는다
 private const val LONG_BRAKE_MS = 3_000L
 
 /** TripSummary는 @Serializable이 아니라 trip_in_progress.summaryJson용 사본을 둔다. */
@@ -83,7 +83,9 @@ class TripRecorder(
     private var counters = Counters()
     private var lastTrip: TripSummary? = null
     private var lastSavedAt: Long? = null
-    private var lastSpeed: Signal.Ok<Double>? = null
+    private val recentSpeeds = ArrayDeque<Signal.Ok<Double>>() // 최근 2초 차속 표본(급가속·급감속 판정용)
+    private var inHarshAccel = false
+    private var inHarshDecel = false
     private var latestEnergyPct: Int? = null
 
     /** 앱이 다시 열렸을 때 남은 진행 중 행(옛 interrupted 표시 포함)은 중단된 트립으로 보관한다. 지금 기록 중인 트립은 건드리지 않는다. */
@@ -102,18 +104,22 @@ class TripRecorder(
             counters.energyEndPct = energy
         }
         val speed = next.speedKmh as? Signal.Ok<Double> ?: return
-        val last = lastSpeed
+        val last = recentSpeeds.lastOrNull()
         if (last != null && last.at == speed.at && last.value == speed.value) return
         if (speed.value != 0.0) counters.nonZeroSpeed = true
-        if (last != null) {
-            val dt = speed.at - last.at
-            if (dt in 1..HARSH_MAX_INTERVAL_MS) {
-                val rate = (speed.value - last.value) / (maxOf(dt, HARSH_MIN_INTERVAL_MS) / 1000.0)
-                if (rate >= HARSH_ACCEL_KMH_PER_S) counters.harshAccel++
-                if (rate <= -HARSH_DECEL_KMH_PER_S) counters.harshDecel++
-            }
-        }
-        lastSpeed = speed
+        while (recentSpeeds.lastOrNull()?.let { it.at >= speed.at } == true) recentSpeeds.removeLast()
+        while (recentSpeeds.firstOrNull()?.let { speed.at - it.at > HARSH_MAX_INTERVAL_MS } == true) recentSpeeds.removeFirst()
+        // 차속은 바뀔 때마다 0.1~0.5초 간격으로 들어온다. 바로 앞 표본이 아니라 약 1초 전 값과 비교해야 초당 변화량이 된다.
+        val ref = recentSpeeds.lastOrNull { speed.at - it.at >= HARSH_MIN_INTERVAL_MS } ?: recentSpeeds.firstOrNull()
+        val rate = ref?.let { (speed.value - it.value) / (maxOf(speed.at - it.at, HARSH_MIN_INTERVAL_MS) / 1000.0) }
+        // 기준을 넘는 동안 표본마다 세지 않고, 넘기 시작할 때 1회로 센다.
+        val accel = rate != null && rate >= HARSH_ACCEL_KMH_PER_S
+        val decel = rate != null && rate <= -HARSH_DECEL_KMH_PER_S
+        if (accel && !inHarshAccel) counters.harshAccel++
+        if (decel && !inHarshDecel) counters.harshDecel++
+        inHarshAccel = accel
+        inHarshDecel = decel
+        recentSpeeds.addLast(speed)
     }
 
     suspend fun onTrip(profile: ProfileSnapshot, trip: TripSummary?) {
@@ -125,7 +131,9 @@ class TripRecorder(
                 activeStartedAt = trip.startedAt
                 // 출발 전에 이미 받아 둔 잔량을 시작값으로 쓴다(값이 안 바뀌면 다시 안 들어오므로).
                 counters = Counters(energyStartPct = latestEnergyPct, energyEndPct = latestEnergyPct)
-                lastSpeed = null
+                recentSpeeds.clear()
+                inHarshAccel = false
+                inHarshDecel = false
                 lastSavedAt = null
             }
             lastTrip = trip
