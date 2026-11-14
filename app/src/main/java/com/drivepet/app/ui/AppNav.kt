@@ -534,7 +534,8 @@ fun resetTarget(cur: String?, forced: Forced, noActive: Boolean): String? {
     val onboarding = cur in ONBOARDING_ROUTES
     return when {
         forced == Forced.ONBOARDING && !onboarding -> Routes.ONBOARD_INTRO
-        forced == Forced.WELCOME && !onboarding && cur != Routes.WELCOME && noActive -> Routes.WELCOME
+        // 인트로는 입력 중인 단계가 아니라서, 동기화로 저장된 프로필이 내려오면 앱 시작 화면으로 보낸다.
+        forced == Forced.WELCOME && (!onboarding || cur == Routes.ONBOARD_INTRO) && cur != Routes.WELCOME && noActive -> Routes.WELCOME
         else -> null
     }
 }
