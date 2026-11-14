@@ -3,11 +3,11 @@
 **차량 상태 기반 캐릭터 육성 · 차량 관리 · 안전운전 습관 개선 서비스**  
 "내 차의 상태가 살아 숨 쉬는 캐릭터가 된다" — 달릴수록 함께 진화하는 나만의 반려차 메이트
 
-2026 현대자동차그룹 차량용 앱 개발 공모전 출품작 (Pleos Connect) · 앱 버전 1.1.0
+2026 현대자동차그룹 차량용 앱 개발 공모전 출품작 (Pleos Connect) · 앱 버전 1.1.1
 
 ## APK
 
-**[`apk/Carpet_release.apk`](apk/Carpet_release.apk)** — release 빌드, 버전 1.1.0
+**[`apk/Carpet_release.apk`](apk/Carpet_release.apk)** — release 빌드, 버전 1.1.1
 
 ## 실행 방법
 
